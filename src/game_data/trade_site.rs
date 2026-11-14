@@ -330,8 +330,10 @@ pub mod tests {
         let stats = TradeStats::new(&english, &[]);
 
         let elapsed = start.elapsed();
+        // Far above the 5 seconds a debug build takes on a slow runner of the CI, far below
+        // the minutes of a search in the lists.
         assert!(
-            elapsed < std::time::Duration::from_secs(5),
+            elapsed < std::time::Duration::from_secs(30),
             "grouped in {elapsed:?}"
         );
         let english = stats.of(Language::English);
