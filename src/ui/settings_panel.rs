@@ -205,9 +205,11 @@ impl<'a> SettingsPanel<'a> {
     fn donation(&self, ui: &mut Ui) {
         ui.add_space(DONATION_GAP);
         ui.horizontal(|ui| {
-            let free = format!("{} ", self.i18n.donation_free());
+            // The space of the text, not of the layout, before the link.
+            ui.spacing_mut().item_spacing.x = 0.0;
+            let intro = format!("{} ", self.i18n.donation_intro());
             ui.add(Label::new(
-                RichText::new(free).font(text::small()).color(color::FAINT),
+                RichText::new(intro).font(text::small()).color(color::FAINT),
             ));
             widgets::link(
                 ui,
@@ -255,23 +257,111 @@ fn hotkey_action(
 mod tests {
     use super::*;
 
+    /// The line of the donation page alone, drawn frame after frame in one context.
+    struct DonationLine {
+        ctx: egui::Context,
+        settings: Settings,
+        i18n: Translator,
+    }
+
+    impl DonationLine {
+        fn new(language: crate::language::Language) -> Self {
+            let ctx = egui::Context::default();
+            crate::ui::install(&ctx);
+            Self {
+                ctx,
+                settings: Settings::default(),
+                i18n: Translator::new(language),
+            }
+        }
+
+        /// One frame with `events`, in a column of `width`: the rectangle of the line, and the
+        /// addresses the frame opens.
+        fn frame(&self, events: Vec<egui::Event>, width: f32) -> (egui::Rect, Vec<String>) {
+            let panel = SettingsPanel::new(&self.settings, &self.i18n, HotkeyState::Off);
+            let input = egui::RawInput {
+                events,
+                ..Default::default()
+            };
+            let mut line = egui::Rect::NOTHING;
+            let output = crate::ui::fixtures::run_frame(&self.ctx, input, |ui| {
+                ui.vertical(|ui| {
+                    ui.set_max_width(width);
+                    panel.donation(ui);
+                    line = ui.min_rect();
+                });
+            });
+            let opened = output
+                .platform_output
+                .commands
+                .into_iter()
+                .filter_map(|command| match command {
+                    egui::OutputCommand::OpenUrl(open) => Some(open.url),
+                    _ => None,
+                })
+                .collect();
+            (line, opened)
+        }
+
+        /// The addresses opened by a click at `at`.
+        fn click(&self, at: egui::Pos2) -> Vec<String> {
+            let button = |pressed| egui::Event::PointerButton {
+                pos: at,
+                button: egui::PointerButton::Primary,
+                pressed,
+                modifiers: egui::Modifiers::NONE,
+            };
+            self.frame(vec![egui::Event::PointerMoved(at)], WIDE);
+            self.frame(vec![button(true)], WIDE);
+            self.frame(vec![button(false)], WIDE).1
+        }
+
+        /// The addresses opened by `key`, pressed then released.
+        fn press(&self, key: egui::Key) -> Vec<String> {
+            let event = |pressed| egui::Event::Key {
+                key,
+                physical_key: None,
+                pressed,
+                repeat: false,
+                modifiers: egui::Modifiers::NONE,
+            };
+            let mut opened = self.frame(vec![event(true)], WIDE).1;
+            opened.extend(self.frame(vec![event(false)], WIDE).1);
+            opened
+        }
+    }
+
+    /// A column wide enough for the line.
+    const WIDE: f32 = 400.0;
+
     /// The width of the line of the donation page in `language`, in a column of `width`.
     fn donation_width(language: crate::language::Language, width: f32) -> f32 {
-        let ctx = egui::Context::default();
-        crate::ui::install(&ctx);
-        let settings = Settings::default();
-        let i18n = Translator::new(language);
-        let panel = SettingsPanel::new(&settings, &i18n, HotkeyState::Off);
-        let mut line = 0.0;
-        crate::ui::fixtures::run_frame(&ctx, egui::RawInput::default(), |ui| {
-            ui.spacing_mut().item_spacing = Vec2::ZERO;
-            ui.vertical(|ui| {
-                ui.set_max_width(width);
-                panel.donation(ui);
-                line = ui.min_rect().width();
-            });
-        });
-        line
+        DonationLine::new(language).frame(vec![], width).0.width()
+    }
+
+    #[test]
+    fn a_click_on_the_link_opens_the_donation_page() {
+        let donation = DonationLine::new(crate::language::Language::English);
+        let (rect, _) = donation.frame(vec![], WIDE);
+
+        // The link ends the line, under the space above it; its start is the sentence before it.
+        let row = rect.bottom() - 4.0;
+        let link = egui::pos2(rect.right() - 4.0, row);
+        assert_eq!(donation.click(link), vec![crate::DONATION_PAGE.to_owned()]);
+        let sentence = egui::pos2(rect.left() + 4.0, row);
+        assert_eq!(donation.click(sentence), Vec::<String>::new());
+    }
+
+    #[test]
+    fn the_link_reached_with_the_keyboard_opens_the_donation_page_with_enter() {
+        let donation = DonationLine::new(crate::language::Language::English);
+        donation.frame(vec![], WIDE);
+
+        assert_eq!(donation.press(egui::Key::Tab), Vec::<String>::new());
+        assert_eq!(
+            donation.press(egui::Key::Enter),
+            vec![crate::DONATION_PAGE.to_owned()]
+        );
     }
 
     #[test]

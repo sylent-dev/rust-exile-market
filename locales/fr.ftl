@@ -485,8 +485,8 @@ hotkey-taken-settings = Choisissez une autre touche, ou copiez avec { $copy }.
 # Le nom de la touche Maj, dans les touches du raccourci (Ctrl+Maj+D), comme sur les claviers français et dans les textes de Windows.
 key-shift = Maj
 # Au-dessus de l'avertissement des réglages, puis le lien vers la page des dons.
-donation-free = { $app } est gratuit.
-# Le lien vers la page des dons sur Ko-fi, après « donation-free ».
+donation-intro = { $app } est gratuit.
+# Le lien vers la page des dons sur Ko-fi, après « donation-intro ».
 donation-link = Le soutenir sur Ko-fi
 # Demandée par Grinding Gear Games pour les outils de la communauté.
 disclaimer = Ce produit n'est ni affilié à Grinding Gear Games ni approuvé par ce studio, de quelque manière que ce soit.

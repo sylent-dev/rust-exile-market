@@ -23,7 +23,7 @@ fn the_code_and_every_file_have_the_same_messages() {
             STATUS_BAR,
             LEAGUE_TOOLTIP,
             STATUS_MADE_BY,
-            DONATION_FREE,
+            DONATION_INTRO,
             NEW_LEAGUE,
             UPDATE_AVAILABLE,
             STATUS_UPDATE,
@@ -273,7 +273,7 @@ fn every_message_formats_without_errors() {
         }
         assert!(translator.made_by().contains(crate::AUTHOR), "{language:?}");
         assert!(
-            translator.donation_free().contains(crate::APP_NAME),
+            translator.donation_intro().contains(crate::APP_NAME),
             "{language:?}"
         );
     }

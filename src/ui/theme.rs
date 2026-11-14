@@ -23,7 +23,8 @@ pub mod color {
     pub const TEXT: Color32 = Color32::from_rgb(0xe3, 0xe8, 0xef);
     pub const WEAK: Color32 = Color32::from_rgb(0x86, 0x92, 0xa3);
     pub const FAINT: Color32 = Color32::from_rgb(0x55, 0x60, 0x70);
-    /// The main action: white, so that the colors keep their meaning.
+    /// The main action: white, so that the colors keep their meaning; also a link under the
+    /// pointer or with the keyboard (`widgets::link`).
     pub const ACCENT: Color32 = Color32::from_rgb(0xf2, 0xf5, 0xf9);
     /// The accent 12 % darker: the white pill chosen with the focus of the keyboard, the
     /// `brightness(.88)` of the main pill under the pointer in the mock-up.

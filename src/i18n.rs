@@ -262,7 +262,7 @@ pub enum Requirement {
 const STATUS_BAR: &str = "status-bar";
 const LEAGUE_TOOLTIP: &str = "league-tooltip";
 const STATUS_MADE_BY: &str = "status-made-by";
-const DONATION_FREE: &str = "donation-free";
+const DONATION_INTRO: &str = "donation-intro";
 const NEW_LEAGUE: &str = "new-league";
 const UPDATE_AVAILABLE: &str = "update-available";
 const STATUS_UPDATE: &str = "status-update";
@@ -933,10 +933,10 @@ impl Translator {
     /// The sentence of the settings before the link to the donation page: "Exile Market is
     /// free."
     #[must_use]
-    pub fn donation_free(&self) -> String {
+    pub fn donation_intro(&self) -> String {
         let mut args = FluentArgs::new();
         args.set("app", crate::APP_NAME);
-        self.format(DONATION_FREE, Some(&args))
+        self.format(DONATION_INTRO, Some(&args))
     }
 
     /// The state of the trade site in the status bar: the age of its last search.

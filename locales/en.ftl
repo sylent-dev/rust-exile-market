@@ -476,8 +476,8 @@ hotkey-taken-settings = Choose another key, or copy with { $copy }.
 # The name of the Shift key, in the keys of the hotkey (Ctrl+Shift+D).
 key-shift = Shift
 # Above the disclaimer of the settings, then the link to the donation page.
-donation-free = { $app } is free.
-# The link to the donation page on Ko-fi, after "donation-free".
+donation-intro = { $app } is free.
+# The link to the donation page on Ko-fi, after "donation-intro".
 donation-link = Support it on Ko-fi
 # Required by Grinding Gear Games for the tools of the community.
 disclaimer = This product isn't affiliated with or endorsed by Grinding Gear Games in any way.
