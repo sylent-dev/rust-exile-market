@@ -229,3 +229,9 @@ The technical choices of the [roadmap](../roadmap.md), with their reasons: one s
 **Choice.** `GPL-3.0-or-later`; `cargo-deny` checks the licenses of the dependencies, `cargo-about` writes `THIRD-PARTY-LICENSES` at each release (step 17d2)
 
 **Reason.** The GPL makes a fork that improves the application publish its code. `cargo-deny` only says a license is allowed; the MIT, Apache and OFL licenses ask for their notices with each copy: `cargo-about` gathers those of the libraries, and the Package step of the Release workflow copies those of the assets. The fonts, the icons of the game and its data stay under their own terms, an additional permission (section 7 of the GPL, `assets/NOTICE.md`) allowing their combination in one executable.
+
+## Donations
+
+**Choice.** Ko-fi (`ko-fi.com/sylentdev`), paid through Stripe alone, linked from the README and the sponsor button of GitHub (`.github/FUNDING.yml`); GitHub Sponsors later (step 18)
+
+**Reason.** Ko-fi takes no platform fee on one-off donations (Stripe takes its card fee), and a player gives by card, Apple Pay or Google Pay without an account. Stripe shows the donors the pseudonym "Sylent" and the statement descriptor `SYLENT KOFI`, never the owner's legal name, which a personal PayPal account would show. GitHub Sponsors takes no fee either, but asks for a second identity check and reaches developers more than players. The developer guidelines of Grinding Gear Games forbid using their intellectual property to make commercial revenue and say nothing of donations (read on 2026-11-14): a donation is voluntary and never unlocks a feature, a service or anything else.

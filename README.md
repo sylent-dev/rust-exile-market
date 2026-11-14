@@ -72,6 +72,10 @@ It doesn't modify the game nor read its memory. Ctrl+D sends the game the Ctrl+C
 
 The log is `exile-market.log`, and `exile-market.previous.log` for the previous session. The texts copied outside the game are never written to it.
 
+## Support the project
+
+Exile Market is free and stays free. If it saves you time, you can support its development with a donation on [Ko-fi](https://ko-fi.com/sylentdev). A donation is voluntary and unlocks nothing: every feature is for everyone.
+
 ## License
 
 Copyright (C) 2026 Aunim HASSAN.
