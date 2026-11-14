@@ -1,6 +1,6 @@
 // Section Update notice (15): at launch, the application asks the GitHub releases for the latest version; when it
 // is newer than the running one, it tells the player, with a link to its download page (the player installs it;
-// the automatic updates are step 20). Closed, the bubble doesn't come back for that version, but a newer one shows
+// the automatic updates are step 21). Closed, the bubble doesn't come back for that version, but a newer one shows
 // it again. Without network, or before the first release, nothing is shown. Never over the game: the window over
 // the game has no title bar and no bubble.
 // Two places drawn: A, the bubble of a new league, under the league block; B, a bubble of the same look under

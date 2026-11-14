@@ -14,7 +14,7 @@
 // The entry, the owner's idea on 2026-11-04: a bug icon in the title bar (Lucide `bug`, like the gear), always
 // in sight while the first players find the bugs, and one click from the item where the player sees one (a wrong
 // tier, an odd price): the item shown is joined to the report. Made more discreet later, once the application is
-// stable and the issues fewer (step 21). The owner's choices on 2026-11-04: the Lucide bug (five drawings compared),
+// stable and the issues fewer (step 22). The owner's choices on 2026-11-04: the Lucide bug (five drawings compared),
 // left of the gear (right of it rejected), and GitHub only: a Discord channel can't be prefilled (no address
 // writes a message, and a webhook would put a secret in the application), nor follow a bug to its fix. Rejected
 // before the bug: A, a link in the status bar of the settings; B, a row of the settings; C, B and a pill under an
@@ -166,7 +166,7 @@ SECTIONS.unshift(["Bug report (16): the Lucide bug left of the gear, and the rep
   ["En français : le rapport reste en anglais, la langue des issues", rpPreviewWin({ fr: true, item: "Chasseur de têtes" })],
   ["Before the first item, the bug in the title bar", win(rpTopBar(), hkEmptyD, foot("poe2scout 12min ago"))],
   ["Over an item that couldn't be read", win(rpTopBar(), RP_UNREADABLE, foot())],
-  ["Later · more discreet once the issues are fewer: fainter (step 21)", win(rpTopBar({ faint: true }), ...RP_ITEM)],
+  ["Later · more discreet once the issues are fewer: fainter (step 22)", win(rpTopBar({ faint: true }), ...RP_ITEM)],
   ["Chosen · Lucide bug; the other drawings rejected", rpGlyphs()],
   ["Rejected · right of the gear, next to the window buttons", win(rpTopBar({ place: "right" }), ...RP_ITEM)],
   ["Rejected · A · a link in the status bar of the settings", rpSettingsA()],

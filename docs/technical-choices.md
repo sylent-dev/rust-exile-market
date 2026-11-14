@@ -204,7 +204,7 @@ The technical choices of the [roadmap](../roadmap.md), with their reasons: one s
 
 **Choice.** [`egui_plot`](https://github.com/emilk/egui_plot)
 
-**Reason.** Made for egui, no other dependency (wide layout, step 24).
+**Reason.** Made for egui, no other dependency (wide layout, step 25).
 
 ## Executable and application icon (step 17a)
 

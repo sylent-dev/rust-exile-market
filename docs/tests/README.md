@@ -26,7 +26,7 @@ They may be written in French, the language of the testers (an exception to the 
 
 - [Window over the game](windows/overlay-window.md) (14b3a)
 - [Keyboard in the window over the game](windows/overlay-keyboard.md) (14b3b)
-- [Window over the game on a second screen](windows/second-screen.md) (left to step 21)
+- [Window over the game on a second screen](windows/second-screen.md) (left to step 22)
 - [Ctrl+D in the game only](windows/hotkey-game-only.md) (14c2)
 - [Hotkey turned on or off, its key taken](windows/hotkey-setting.md) (14c3a)
 - [Keys of the hotkey from the settings file](windows/hotkey-keys.md) (14c3b1)
