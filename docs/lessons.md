@@ -1,6 +1,6 @@
 # Lessons
 
-What working on the project taught: a correction of the owner, or a practice that proved useful. One line per lesson, written when it happens: its date, the lesson, and where it may go (this project, the template of a Rust desktop application, a skill, an agent). Read only by the retrospective (step 22 of the [roadmap](../roadmap.md)), which sorts each one into the template, this project's `CLAUDE.md`, its skills or its agents, or drops it.
+What working on the project taught: a correction of the owner, or a practice that proved useful. One line per lesson, written when it happens: its date, the lesson, and where it may go (this project, the template of a Rust desktop application, a skill, an agent). Read only by the retrospectives (steps 19 and 23 of the [roadmap](../roadmap.md)), which sorts each one into the template, this project's `CLAUDE.md`, its skills or its agents, or drops it.
 
 - 2026-10-31: run the checks with their exit codes written out (`cargo clippy …; echo CLIPPY=$?`), never piped into `| tail` within an `&&` chain: the pipe hid a Clippy failure once. Template (`CLAUDE.md`, Development).
 - 2026-11-01: before a probe that takes the focus or sends keys or clicks on the owner's desktop (`xdotool`, the application sending keys), tell them how long it takes and to let go of the keyboard and the mouse, wait for their go, then a 3-2-1 countdown and an end notice as desktop notifications (`notify-send`), since the output of a command isn't shown live. Template (`CLAUDE.md`, a desktop application).
