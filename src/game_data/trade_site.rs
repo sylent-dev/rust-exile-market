@@ -293,13 +293,8 @@ pub mod tests {
         );
     }
 
-    /// The most templates the trade site may send in a language (`MAX_STAT_TEMPLATES` of
-    /// `trade::site`) for each of three texts: one id each, one note each, one option each.
-    /// Searching the lists of a stat for each would take minutes (the security audit of
-    /// 2026-11-14).
-    #[test]
-    fn many_templates_of_one_text_are_grouped_at_once() {
-        const COUNT: u32 = 50_000;
+    /// `count` templates of each of three texts: one id each, one note each, one option each.
+    fn many_templates(count: u32) -> Vec<StatTemplate> {
         // A note of letters for each number: a note with a digit stays in the text.
         let note = |number: u32| -> String {
             number
@@ -308,7 +303,7 @@ pub mod tests {
                 .map(|digit| char::from(b'a' + (digit - b'0')))
                 .collect()
         };
-        let english: Vec<StatTemplate> = (0..COUNT)
+        (0..count)
             .flat_map(|number| {
                 [
                     (format!("explicit.stat_{number}"), "# to Life".to_owned()),
@@ -323,19 +318,38 @@ pub mod tests {
                 ]
             })
             .map(|(id, text)| StatTemplate { id, text })
-            .collect();
-        let count = usize::try_from(COUNT).expect("a count of a test");
+            .collect()
+    }
+
+    /// The stats grouped from `many_templates(count)`, and the time the grouping took.
+    fn grouped(count: u32) -> (TradeStats, std::time::Duration) {
+        let english = many_templates(count);
         let start = std::time::Instant::now();
-
         let stats = TradeStats::new(&english, &[]);
+        (stats, start.elapsed())
+    }
 
-        let elapsed = start.elapsed();
-        // Far above the 5 seconds a debug build takes on a slow runner of the CI, far below
-        // the minutes of a search in the lists.
+    /// The most templates the trade site may send in a language (`MAX_STAT_TEMPLATES` of
+    /// `trade::site`) for each of three texts. Searching the lists of a stat for each would
+    /// take minutes on a runner of the CI (the security audit of 2026-11-14).
+    #[test]
+    fn many_templates_of_one_text_are_grouped_at_once() {
+        const COUNT: u32 = 50_000;
+        // The longest of three, so that one quick run doesn't make the ratio look large.
+        let small = (0..3)
+            .map(|_| grouped(COUNT / 10).1)
+            .max()
+            .expect("three runs");
+
+        let (stats, large) = grouped(COUNT);
+
+        // Ten times the templates: about ten times the time in linear time, a hundred in
+        // quadratic time (fifty with one list searched), on a fast machine as on a slow one.
         assert!(
-            elapsed < std::time::Duration::from_secs(30),
-            "grouped in {elapsed:?}"
+            large < small * 30,
+            "grouped in {small:?}, then in {large:?} for ten times more"
         );
+        let count = usize::try_from(COUNT).expect("a count of a test");
         let english = stats.of(Language::English);
         let (life, _) = english.find("# to Life").next().unwrap();
         assert_eq!(life.trade_ids(TradeGroup::Explicit).len(), count);
