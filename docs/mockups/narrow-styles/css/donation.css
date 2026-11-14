@@ -1,0 +1,15 @@
+/* The donation link (step 18b): a discreet link to the Ko-fi page, its small heart before it. */
+.app-kofi-link { display: inline-flex; align-items: center; gap: 4px; color: var(--weak); text-decoration: none; }
+.app-kofi-link:hover, .app-kofi-link.is-hovered { color: var(--text); text-decoration: underline; }
+.app-kofi-link .ico { flex: none; }
+/* Chosen (B, 2026-11-14): no heart, white under the pointer, never underlined, like the link of a newer version. */
+.app-kofi-link.is-chosen:hover, .app-kofi-link.is-chosen.is-hovered { color: var(--accent); text-decoration: none; }
+/* B: a line of the settings, in faint text, above the sentence on Grinding Gear Games. */
+.app-kofi-line { margin-top: 22px; color: var(--faint); font-size: 11.5px; }
+.app-kofi-line + .disclaimer { margin-top: 6px; }
+/* C: a heart left of the bug, like it; its tooltip under it. */
+.app-kofi-heart { position: relative; }
+.app-kofi-heart.is-hovered { color: var(--accent); }
+.app-kofi-heart .app-tip { top: calc(100% + 6px); right: -60px; left: auto; }
+.app-kofi-heart.is-hovered .app-tip { display: block; }
+.win:has(.app-kofi-heart.is-hovered) { overflow: visible; }

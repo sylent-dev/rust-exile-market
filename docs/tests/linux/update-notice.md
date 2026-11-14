@@ -34,7 +34,7 @@ tail -f ~/.local/state/exile-market/exile-market.log
    ✅ Sous la bulle de la nouvelle ligue, alignée à gauche, une seconde bulle dit « Exile Market **0.1.0** is available. » (la dernière version publiée, en gras), avec **Download** et une croix. Le journal dit « Update check: 0.1.0 is available », puis « The update-check thread ended », sans aucune ligne `ERROR`.
 
 2. **Le lien des réglages** : ouvre les réglages, puis survole le lien de la barre d'état.
-   ✅ La bulle disparaît pendant que les réglages sont ouverts. La barre d'état dit « Exile Market 0.0.9 · 0.1.0 available · Made by Sylent · sylent.art » ; « 0.1.0 available » est gris, s'éclaircit et se souligne sous le pointeur, comme `sylent.art`. Un clic ouvre la page de la version dans le navigateur. Ferme les réglages.
+   ✅ La bulle disparaît pendant que les réglages sont ouverts. La barre d'état dit « Exile Market 0.0.9 · 0.1.0 available · Made by Sylent » ; « 0.1.0 available » est gris et passe en blanc sous le pointeur, sans soulignement, comme « Support it on Ko-fi » au-dessus. Un clic ouvre la page de la version dans le navigateur. Ferme les réglages.
 
 3. **Download** : clique sur **Download**.
    ✅ Le navigateur ouvre la page de la version sur GitHub (`…/releases/tag/v0.1.0`), et la bulle disparaît. La bulle de la nouvelle ligue reste à sa place.

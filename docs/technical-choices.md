@@ -232,6 +232,6 @@ The technical choices of the [roadmap](../roadmap.md), with their reasons: one s
 
 ## Donations
 
-**Choice.** Ko-fi (`ko-fi.com/sylentdev`), paid through Stripe alone, linked from the README and the sponsor button of GitHub (`.github/FUNDING.yml`); GitHub Sponsors later (step 18)
+**Choice.** Ko-fi (`ko-fi.com/sylentdev`), paid through Stripe alone, linked from the README, the sponsor button of GitHub (`.github/FUNDING.yml`) and the bottom of the settings of the application; GitHub Sponsors later (step 18)
 
 **Reason.** Ko-fi takes no platform fee on one-off donations (Stripe takes its card fee), and a player gives by card, Apple Pay or Google Pay without an account. Stripe shows the donors the pseudonym "Sylent" and the statement descriptor `SYLENT KOFI`, never the owner's legal name, which a personal PayPal account would show. GitHub Sponsors takes no fee either, but asks for a second identity check and reaches developers more than players. The developer guidelines of Grinding Gear Games forbid using their intellectual property to make commercial revenue and say nothing of donations (read on 2026-11-14): a donation is voluntary and never unlocks a feature, a service or anything else. Asked by email on 2026-11-14, Grinding Gear Games only answered with the link of those guidelines (https://www.pathofexile.com/developer/docs): neither a yes nor a no, so nothing here may say they approved the donations.
