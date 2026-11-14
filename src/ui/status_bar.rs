@@ -1,12 +1,9 @@
 //! The status bar: the age of each data source, or, while the settings are open, the version
-//! and the author, with a link to the author's site (and to a newer version, when one is out).
+//! and the author (with a link to a newer version, when one is out).
 //! In the window over the game, the league on its right, and while a field of it has the
 //! keyboard, a line that says so in place of the ages.
 
-use egui::{
-    Align, CursorIcon, Frame, Label, Layout, OpenUrl, Panel, Rect, RichText, Role, Sense, Stroke,
-    Ui, WidgetInfo, pos2,
-};
+use egui::{Align, Frame, Label, Layout, Panel, Rect, RichText, Ui, pos2};
 
 use std::time::Duration;
 
@@ -178,53 +175,21 @@ impl<'a> StatusBar<'a> {
         ui.add(Label::new(faint(line)).truncate());
     }
 
-    /// The version and the author, then the site as a link: lighter, white and underlined
-    /// under the pointer; `update`, a newer version, as a link of the same look after the
-    /// running version.
+    /// The version, `update`, a newer version, as a link after it, then the author, cut with
+    /// "…" in a narrow window.
     fn author_line(&self, ui: &mut Ui, update: Option<&Release>) {
-        let site = crate::AUTHOR_SITE_LABEL;
-        let author = self.i18n.author_line();
-        // The translations start with the version and end with the site (checked by the tests
-        // of `i18n`).
-        let running = format!("{} {}", crate::APP_NAME, crate::VERSION);
-        let Some(middle) = author
-            .strip_prefix(&running)
-            .and_then(|rest| rest.strip_suffix(site))
-        else {
-            ui.add(Label::new(faint(author)).truncate());
-            return;
-        };
-        ui.add(Label::new(faint(running)));
+        ui.add(Label::new(faint(format!(
+            "{} {}",
+            crate::APP_NAME,
+            crate::VERSION
+        ))));
         if let Some(release) = update {
             ui.add(Label::new(faint(text::SEPARATOR)));
             let label = self.i18n.status_update(&release.version.to_string());
-            link(ui, &label, &release.page);
+            widgets::link(ui, &label, &release.page);
         }
-        // In a narrow window, the middle is cut with "…" so that the site stays whole.
-        let site_width = widgets::text_line(ui, site, text::small()).size().x;
-        let room = (ui.available_width() - site_width).max(0.0);
-        ui.scope(|ui| {
-            ui.set_max_width(room);
-            ui.add(Label::new(faint(middle)).truncate());
-        });
-        link(ui, site, crate::AUTHOR_SITE);
-    }
-}
-
-/// `label` as a link to `url`: gray, lighter and underlined under the pointer.
-fn link(ui: &mut Ui, label: &str, url: &str) {
-    let galley = widgets::text_line(ui, label, text::small());
-    let (rect, response) = ui.allocate_exact_size(galley.size(), Sense::click());
-    response.widget_info(|| WidgetInfo::labeled(Role::Link, true, label));
-    let lit = response.hovered() || response.has_focus();
-    let tint = if lit { color::TEXT } else { color::WEAK };
-    let painter = ui.painter();
-    painter.galley(rect.min, galley, tint);
-    if lit {
-        painter.hline(rect.x_range(), rect.bottom(), Stroke::new(1.0, tint));
-    }
-    if response.on_hover_cursor(CursorIcon::PointingHand).clicked() {
-        ui.ctx().open_url(OpenUrl::new_tab(url));
+        let author = format!("{}{}", text::SEPARATOR, self.i18n.made_by());
+        ui.add(Label::new(faint(author)).truncate());
     }
 }
 
@@ -327,9 +292,9 @@ mod tests {
 
         let line = author_line_width(width);
         assert!(line <= width + 0.5, "{line} of {width}");
-        // Narrower still, the middle is cut and the site stays.
-        let narrow = author_line_width(250.0);
-        assert!(narrow <= 250.5, "{narrow}");
+        // Narrower still, the author is cut.
+        let narrow = author_line_width(200.0);
+        assert!(narrow <= 200.5, "{narrow}");
     }
 
     #[test]

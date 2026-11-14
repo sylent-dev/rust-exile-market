@@ -47,12 +47,10 @@ use std::process::ExitCode;
 const APP_NAME: &str = "Exile Market";
 /// The version of the application, from `Cargo.toml`.
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-/// The author of the application, and their site, shown while the settings are open.
+/// The author of the application, shown while the settings are open.
 const AUTHOR: &str = "Sylent";
-/// The site of the author, opened by its link.
-const AUTHOR_SITE: &str = "https://sylent.art";
-/// The site as shown, without the scheme.
-const AUTHOR_SITE_LABEL: &str = "sylent.art";
+/// The donation page of the project, opened by the link of the settings.
+const DONATION_PAGE: &str = "https://ko-fi.com/sylentdev";
 /// The name of the executable (`[[bin]]` in `Cargo.toml`), also the application id of the
 /// window, which the desktop groups its windows by.
 const APP_ID: &str = env!("CARGO_BIN_NAME");

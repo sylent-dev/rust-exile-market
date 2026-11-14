@@ -22,7 +22,8 @@ fn the_code_and_every_file_have_the_same_messages() {
         .chain([
             STATUS_BAR,
             LEAGUE_TOOLTIP,
-            STATUS_AUTHOR,
+            STATUS_MADE_BY,
+            DONATION_FREE,
             NEW_LEAGUE,
             UPDATE_AVAILABLE,
             STATUS_UPDATE,
@@ -270,7 +271,11 @@ fn every_message_formats_without_errors() {
         ] {
             assert!(line.contains("age"), "{line} in {language:?}");
         }
-        assert_ne!(translator.author_line(), "", "{language:?}");
+        assert!(translator.made_by().contains(crate::AUTHOR), "{language:?}");
+        assert!(
+            translator.donation_free().contains(crate::APP_NAME),
+            "{language:?}"
+        );
     }
 }
 
@@ -289,19 +294,6 @@ fn arguments_are_inserted_without_isolation_marks() {
         Translator::new(Language::English).status_bar("A", "B"),
         "A · B"
     );
-}
-
-#[test]
-fn the_author_line_ends_with_the_site_in_every_language() {
-    // The status bar draws the site as a link, cut from the end of the line.
-    for language in Language::ALL {
-        let line = Translator::new(language).author_line();
-
-        let running = format!("{} {} · ", crate::APP_NAME, crate::VERSION);
-        assert!(line.starts_with(&running), "{line}");
-        let site = format!("{} · {}", crate::AUTHOR, crate::AUTHOR_SITE_LABEL);
-        assert!(line.ends_with(&site), "{line}");
-    }
 }
 
 fn cut(before: &str, after: &str) -> CutSentence {

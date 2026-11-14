@@ -1,5 +1,5 @@
 //! The settings, in place of the content of the window: the language, always on top, the
-//! price-check hotkey, and the disclaimer at the bottom.
+//! price-check hotkey, and at the bottom the link to the donation page and the disclaimer.
 
 use egui::text::TextFormat;
 use egui::{Align, CentralPanel, Frame, Label, Layout, RichText, Ui, Vec2, vec2};
@@ -18,7 +18,10 @@ const PADDING_Y: f32 = 12.0;
 const GROUP_GAP: f32 = 16.0;
 /// The space between the choices of a group, and under its label.
 const CHOICE_GAP: f32 = 6.0;
-const DISCLAIMER_GAP: f32 = 22.0;
+/// The space above the line of the donation page, at the bottom of the settings.
+const DONATION_GAP: f32 = 22.0;
+/// The space between the line of the donation page and the disclaimer under it.
+const DISCLAIMER_GAP: f32 = 6.0;
 
 /// What the player did in the settings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -98,6 +101,7 @@ impl<'a> SettingsPanel<'a> {
                 } else {
                     None
                 };
+                self.donation(ui);
                 self.disclaimer(ui);
                 // A change wins over the click outside the list of the keys, which it closes too.
                 language
@@ -196,6 +200,23 @@ impl<'a> SettingsPanel<'a> {
         hotkey_action(checked.then_some(!on), button.clicked(), list)
     }
 
+    /// "Exile Market is free." then the link to the donation page, which opens it in the
+    /// browser: a donation unlocks nothing.
+    fn donation(&self, ui: &mut Ui) {
+        ui.add_space(DONATION_GAP);
+        ui.horizontal(|ui| {
+            let free = format!("{} ", self.i18n.donation_free());
+            ui.add(Label::new(
+                RichText::new(free).font(text::small()).color(color::FAINT),
+            ));
+            widgets::link(
+                ui,
+                &self.i18n.text(Message::DonationLink),
+                crate::DONATION_PAGE,
+            );
+        });
+    }
+
     fn disclaimer(&self, ui: &mut Ui) {
         ui.add_space(DISCLAIMER_GAP);
         ui.add(
@@ -233,6 +254,35 @@ fn hotkey_action(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The width of the line of the donation page in `language`, in a column of `width`.
+    fn donation_width(language: crate::language::Language, width: f32) -> f32 {
+        let ctx = egui::Context::default();
+        crate::ui::install(&ctx);
+        let settings = Settings::default();
+        let i18n = Translator::new(language);
+        let panel = SettingsPanel::new(&settings, &i18n, HotkeyState::Off);
+        let mut line = 0.0;
+        crate::ui::fixtures::run_frame(&ctx, egui::RawInput::default(), |ui| {
+            ui.spacing_mut().item_spacing = Vec2::ZERO;
+            ui.vertical(|ui| {
+                ui.set_max_width(width);
+                panel.donation(ui);
+                line = ui.min_rect().width();
+            });
+        });
+        line
+    }
+
+    #[test]
+    fn the_line_of_the_donation_page_fits_the_narrow_window_in_every_language() {
+        // The narrowest window, less the padding of the settings on both sides.
+        let width = crate::MIN_WINDOW_SIZE[0] - 2.0 * size::BAND_PADDING;
+        for language in crate::language::Language::ALL {
+            let line = donation_width(language, width);
+            assert!(line <= width + 0.5, "{line} of {width} in {language:?}");
+        }
+    }
 
     #[test]
     fn keys_chosen_in_the_list_change_the_setting() {
