@@ -29,7 +29,7 @@
 - Each step is delivered in its own pull request, which checks the step's box in `roadmap.md`.
 - Keep `roadmap.md` consistent with `specs.md` when the specifications change.
 - Keep `roadmap.md` short, since it is read at every session: the steps to come in detail, one line per step done with its pull requests. When the pull request of a step (or of a sub-step) is merged, move the detail of the step to `docs/roadmap-archive.md`, in the first commit of the next step's pull request, never in a pull request of its own: each step then costs the owner one merge. Reference notes (technical choices, rules of the external services) live in `docs/`, linked from `roadmap.md`, and are read only by the steps that need them.
-- When an idea, a small touch or an edge case comes up that is not part of the current step, add it to `backlog.md`, with its kind (its section), what it depends on and the date, rather than keeping it only in the memory. Read `backlog.md` only when the next work is chosen: for steps 19 and 21, and when no step is left in `roadmap.md`, propose the next items to the owner with their cost and dependencies.
+- When an idea, a small touch or an edge case comes up that is not part of the current step, add it to `backlog.md`, with its kind (its section), what it depends on and the date, rather than keeping it only in the memory. Read `backlog.md` only when the next work is chosen: for steps 20 and 22, and when no step is left in `roadmap.md`, propose the next items to the owner with their cost and dependencies.
 - An urgent fix (a crash, a security alert, data written to the wrong place) jumps the roadmap: a `fix/` branch from `main`, its test, a pull request at once and a patch release, then one line in `roadmap.md`.
 - Read `specs.md` by section: list its headings first (`grep -n '^#' specs.md`), then read only the sections the step needs.
 - When the pull request of a step (or of a sub-step, such as 10b) is merged, tell the owner that the step is done and remind them to start a new session for the next step by typing `/clear` (give them the command): a fresh session costs far fewer tokens, and `roadmap.md` and the memory hold what is needed to resume.
@@ -108,7 +108,7 @@ Follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.
 
 ## Lessons
 
-- When the owner corrects how Claude Code works, or a practice proves useful, add one line to `docs/lessons.md` at once (its date, the lesson, where it may go), in the pull request of the step under way: the retrospective (step 22 of `roadmap.md`) sorts them into the project template, this `CLAUDE.md`, the skills or the agents.
+- When the owner corrects how Claude Code works, or a practice proves useful, add one line to `docs/lessons.md` at once (its date, the lesson, where it may go), in the pull request of the step under way: the retrospectives (steps 19 and 23 of `roadmap.md`) sort them into the project template, this `CLAUDE.md`, the skills or the agents.
 
 ## Development
 

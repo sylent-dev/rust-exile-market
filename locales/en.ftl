@@ -40,8 +40,8 @@ status-trade-idle = GGG trade: no search yet
 status-trade = GGG trade { $age }
 # During a long wait before the next search, e.g. "4min".
 status-trade-wait = GGG trade: next search in { $wait }
-# While the settings are open: the version and the author; the site, last, is a link.
-status-author = { $app } { $version } · Made by { $author } · { $site }
+# While the settings are open, after the version (and a newer one, if out): the author.
+status-made-by = Made by { $author }
 # While the settings are open and a newer version is out, after the running version: a link to its page.
 status-update = { $version } available
 # In the window over the game, while a min or max field is edited: the keys no longer reach the game.
@@ -475,6 +475,10 @@ settings-hotkey-default = Default
 hotkey-taken-settings = Choose another key, or copy with { $copy }.
 # The name of the Shift key, in the keys of the hotkey (Ctrl+Shift+D).
 key-shift = Shift
+# Above the disclaimer of the settings, then the link to the donation page.
+donation-intro = { $app } is free.
+# The link to the donation page on Ko-fi, after "donation-intro".
+donation-link = Support it on Ko-fi
 # Required by Grinding Gear Games for the tools of the community.
 disclaimer = This product isn't affiliated with or endorsed by Grinding Gear Games in any way.
 

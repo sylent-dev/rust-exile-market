@@ -7,8 +7,8 @@ use std::sync::Arc;
 
 use egui::text::{LayoutJob, TextFormat, TextWrapping};
 use egui::{
-    Color32, CornerRadius, CursorIcon, FontId, Galley, Painter, Pos2, Rect, Response, Role, Sense,
-    Stroke, StrokeKind, Ui, Vec2, WidgetInfo, pos2, vec2,
+    Color32, CornerRadius, CursorIcon, FontId, Galley, OpenUrl, Painter, Pos2, Rect, Response,
+    Role, Sense, Stroke, StrokeKind, Ui, Vec2, WidgetInfo, pos2, vec2,
 };
 
 use super::icons;
@@ -224,6 +224,20 @@ pub fn text_line(ui: &Ui, text: impl Into<String>, font: FontId) -> Arc<Galley> 
         TextFormat::simple(font, Color32::PLACEHOLDER),
         None,
     )
+}
+
+/// `label`, in the small face, as a link to `url` opened in the browser: gray, white under the
+/// pointer or with the keyboard, never underlined (the mock-up, section "Donation link (18b)").
+pub fn link(ui: &mut Ui, label: &str, url: &str) {
+    let galley = text_line(ui, label, text::small());
+    let (rect, response) = ui.allocate_exact_size(galley.size(), Sense::click());
+    response.widget_info(|| WidgetInfo::labeled(Role::Link, true, label));
+    let lit = response.hovered() || response.has_focus();
+    let tint = if lit { color::ACCENT } else { color::WEAK };
+    ui.painter().galley(rect.min, galley, tint);
+    if response.on_hover_cursor(CursorIcon::PointingHand).clicked() {
+        ui.ctx().open_url(OpenUrl::new_tab(url));
+    }
 }
 
 /// A line of text cut with "…" when it is wider than `max_width`.

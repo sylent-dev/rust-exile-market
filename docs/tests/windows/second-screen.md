@@ -1,6 +1,6 @@
 # Windows test: the window over the game on a second screen
 
-A hand test left to step 21 (Polish), an entry of [backlog.md](../../../backlog.md) (Waiting on others), from the second code review of step 14b3a (2026-11-02). It needs a Windows player that the owner has to find: neither the owner nor Claude Code has Windows.
+A hand test left to step 22 (Polish), an entry of [backlog.md](../../../backlog.md) (Waiting on others), from the second code review of step 14b3a (2026-11-02). It needs a Windows player that the owner has to find: neither the owner nor Claude Code has Windows.
 
 ## Why
 

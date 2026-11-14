@@ -88,6 +88,7 @@ messages! {
     SettingsHotkeyDefault => "settings-hotkey-default",
     KeyShift => "key-shift",
     HotkeyTakenChoose => "hotkey-taken-choose",
+    DonationLink => "donation-link",
     Disclaimer => "disclaimer",
     BugReportTitle => "bug-report-title",
     BugReportIntro => "bug-report-intro",
@@ -260,7 +261,8 @@ pub enum Requirement {
 /// The identifiers of the messages with arguments, each read by its own method.
 const STATUS_BAR: &str = "status-bar";
 const LEAGUE_TOOLTIP: &str = "league-tooltip";
-const STATUS_AUTHOR: &str = "status-author";
+const STATUS_MADE_BY: &str = "status-made-by";
+const DONATION_INTRO: &str = "donation-intro";
 const NEW_LEAGUE: &str = "new-league";
 const UPDATE_AVAILABLE: &str = "update-available";
 const STATUS_UPDATE: &str = "status-update";
@@ -919,16 +921,22 @@ impl Translator {
         self.format(HOTKEY_TAKEN_SETTINGS, Some(&args))
     }
 
-    /// The line of the status bar while the settings are open: the application, its version,
-    /// the author, then the author's site.
+    /// The author in the status bar while the settings are open, after the version: "Made by
+    /// Sylent".
     #[must_use]
-    pub fn author_line(&self) -> String {
+    pub fn made_by(&self) -> String {
+        let mut args = FluentArgs::new();
+        args.set("author", crate::AUTHOR);
+        self.format(STATUS_MADE_BY, Some(&args))
+    }
+
+    /// The sentence of the settings before the link to the donation page: "Exile Market is
+    /// free."
+    #[must_use]
+    pub fn donation_intro(&self) -> String {
         let mut args = FluentArgs::new();
         args.set("app", crate::APP_NAME);
-        args.set("version", crate::VERSION);
-        args.set("author", crate::AUTHOR);
-        args.set("site", crate::AUTHOR_SITE_LABEL);
-        self.format(STATUS_AUTHOR, Some(&args))
+        self.format(DONATION_INTRO, Some(&args))
     }
 
     /// The state of the trade site in the status bar: the age of its last search.
