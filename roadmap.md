@@ -65,7 +65,7 @@ Path of Exile 2 leaves early access with its version 1.0 on 2026-12-11. The modi
     - [ ] **19b2, the lessons into the desktop template**: the lessons sorted "Both" or for the desktop template. Documentation alone, no code review. One pull request of this project for the whole of 19b2. In four parts, one pull request of the template each (Claude Code's split, agreed by the owner on 2026-11-15), with a stop for the owner's word between two:
       - [x] **19b2a, the rules** (rust-desktop-template#3)
       - [x] **19b2b, the agents** (rust-desktop-template#4)
-      - [ ] **19b2c, the skills** (model: Opus 5.5): the lessons for `html-mockups`, and the three new skills `hand-test-guides`, `tidy-io-folders` and `egui-screenshots`.
+      - [x] **19b2c, the skills** (rust-desktop-template#5)
       - [ ] **19b2d, the desktop adaptation** (model: Sonnet 5.5): `process.md`, `specs.md`, `design-journal.md` and the two skills of the interface adapted to a desktop application (pixels and windows in place of the columns and the command-line conventions, left by 19b1); the steps the lessons add to the `roadmap.md` of the template (the quality review area by area before the first release, the donation method, the two retrospectives).
     - [ ] **19b3, the same rules into the other templates**: the lessons sorted for `rust-cli-template`, and for `astro-static-website-template` when they name the three templates. Documentation alone, no code review.
   - [ ] **19c, the changes of this project**: the lessons sorted into this project's `CLAUDE.md`, its skills and its agents.
