@@ -28,11 +28,12 @@ pub(super) fn plain_text(text: &str) -> String {
 /// the name of a rare item, in its own text and in the whisper of the offer, from words whose
 /// form depends on the gender and the number of the first one: `<<set:F>><<set:S>><<set:FS>>`
 /// gives the forms of that word (feminine, singular), and each choice
-/// `<if:MS>{ orageux}<elif:FS>{ orageuse}…<else>{…}` takes the branch of the first form set,
-/// else its `<else>`, else its first branch. Seen in the answers of `/fetch` of
-/// 2026-11-15, on the French and the English trade sites (a Russian seller's whisper on the
-/// English one): the names of the English site have no markup. A markup that doesn't close is
-/// kept as it is.
+/// `<if:MS>{ orageux}<elif:FS>{ orageuse}…<else>{…}` takes its first branch whose form is
+/// among the forms set (`FS`: ` orageuse`), else its `<else>`, else its first branch. Seen in
+/// the answers of `/fetch` of 2026-11-15, on the French and the English trade sites (a Russian
+/// seller's whisper on the English one), without an `<else>`, read in case a language writes
+/// one: the names of the English site have no markup. A markup that doesn't close is kept as
+/// it is.
 pub(super) fn with_grammar_resolved(text: &str) -> String {
     let mut forms = Vec::new();
     let mut resolved = String::with_capacity(text.len());
@@ -60,8 +61,9 @@ fn form_set(text: &str) -> Option<(&str, &str)> {
     text.strip_prefix("<<set:")?.split_once(">>")
 }
 
-/// The branch of the choice at the start of `text`,
-/// `<if:MS>{ orageux}<elif:FS>{ orageuse}<else>{…}`, for the `forms` set, and the text after
+/// The words of the choice at the start of `text`,
+/// `<if:MS>{ orageux}<elif:FS>{ orageuse}<else>{…}`: those of its first branch whose form is
+/// among the `forms` set, else of its `<else>`, else of its first branch; and the text after
 /// the choice.
 fn choice<'a>(text: &'a str, forms: &[&str]) -> Option<(&'a str, &'a str)> {
     let (form, first, mut rest) = branch(text.strip_prefix("<if:")?)?;
@@ -119,7 +121,7 @@ mod tests {
     /// The forms set may come after the space that precedes the name, or with no space; and a
     /// form of a language that the French trade site never sets, the neuter of Russian.
     #[test]
-    fn the_first_form_set_chooses_the_branch() {
+    fn the_first_branch_whose_form_is_set_is_taken() {
         let whisper = "хочу купить у вас <<set:NS>><<set:N>><<set:S>><if:MS>{Ветреный}<elif:FS>{Ветреная}<elif:NS>{Ветреное}<elif:MP>{Ветреные}<elif:FP>{Ветреные}<elif:NP>{Ветреные} заклинание";
         assert_eq!(
             with_grammar_resolved(whisper),
@@ -129,6 +131,15 @@ mod tests {
             with_grammar_resolved("a <<set:FP>>b<if:MS>{c}<elif:FS>{d}<elif:FP>{e}<else>{f} g"),
             "a be g"
         );
+        assert_eq!(
+            with_grammar_resolved("<<set:MS>><<set:FS>><if:MS>{a}<elif:FS>{b}"),
+            "a"
+        );
+        assert_eq!(
+            with_grammar_resolved("<<set:MS>><<set:FS>><if:FP>{a}<elif:FS>{b}<elif:MS>{c}"),
+            "b"
+        );
+        assert_eq!(with_grammar_resolved("<<set:MS>><if:MS>{a}<else>{b}"), "a");
     }
 
     #[test]
