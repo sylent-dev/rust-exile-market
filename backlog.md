@@ -82,6 +82,8 @@ One entry per item: what it is, its kind (the section it sits in), what it depen
 
 - `kdialog --error` given a message that looks like HTML (security audit of 2026-11-14, a point to check, unchanged since 2026-11-10): Qt may read it as rich text, while `zenity` gets `--no-markup`. The message holds a text of the application and the error of `eframe` only; try it once with an error that holds `<b>`. Depends on nothing. Noted on 2026-11-14.
 
+- A text of the trade site with two names in it (code review of the urgent fix of 2026-11-15, recommendation 4): the forms a name sets (`<<set:FS>>`) hold for the rest of the text in `with_grammar_resolved` (`src/trade/offers/markup.rs`), so a second name would take the forms of the first when one of its choices names them both. No effect today: a name and a whisper hold one name each (real answers of `/fetch`, 2026-11-15). If a text with two names shows up, reset the forms at each name. Depends on nothing; 2026-11-15.
+
 ## Waiting on others
 
 - The note of a priced item in French (`labels.note` is `None` in French; a French copy of a priced item needed to learn its label; since 13k2e2, a note after the lines of a unique without header is no longer read as them, `a_french_unique_without_header_is_read_before_a_note_with_a_number`).

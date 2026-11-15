@@ -596,43 +596,33 @@ fn an_exchange_without_offers_is_an_empty_list() {
     assert_eq!(exchange.offers(), Vec::new());
 }
 
+/// An offer of the French trade site, from `/fetch` on 2026-11-15, shortened: the grammar of
+/// the name of a rare item, in its name and in its whisper, and an item whose name is only
+/// markup.
 #[test]
-fn the_markup_of_the_trade_site_is_removed() {
-    assert_eq!(
-        plain_text("+10 to [Dexterity|Dexterity]"),
-        "+10 to Dexterity"
-    );
-    assert_eq!(plain_text("[Resistances] and [A|B|C]"), "Resistances and C");
-    assert_eq!(plain_text("an unclosed [bracket"), "an unclosed [bracket");
-}
-
-/// The names of rare items begin with the sizes of their font in the game: the tooltip of an
-/// offer showed them on 2026-11-15, on the French trade site (`<<set:M>><<set:S>><<set:MS…`).
-#[test]
-fn the_font_sizes_of_a_long_name_are_removed() {
-    assert_eq!(
-        plain_text("<<set:MS>><<set:M>><<set:S>>Doom Roar"),
-        "Doom Roar"
-    );
-    assert_eq!(plain_text("a <<set:unclosed tag"), "a <<set:unclosed tag");
-    assert_eq!(plain_text("<<b>> stays"), "<<b>> stays");
-
+fn the_grammar_of_a_rare_name_is_resolved_in_its_name_and_its_whisper() {
     let page: ApiFetch = serde_json::from_str(
-        r#"{"result": [{"id": "a1", "listing": {"account": {"name": "Seller"}, "whisper": "@seller Hi"}, "item": {
-            "name": "<<set:MS>><<set:M>><<set:S>>Doom Roar",
-            "typeLine": "Leaden Greathammer", "baseType": "<<set:MS>>Leaden Greathammer",
+        r#"{"result": [{"id": "a1", "listing": {"account": {"name": "Seller"},
+            "whisper": "@Orelpom Bonjour, je souhaiterais t'acheter <<set:M>><<set:S>><<set:MS>> Pieu<if:MS>{ du crépuscule}<elif:FS>{ du crépuscule}<elif:NS>{NONEXISTENT}<elif:MP>{ du crépuscule}<elif:FP>{ du crépuscule}<elif:NP>{NONEXISTENT} Bâton de combat barrière pour 1 aug dans la ligue Forbidden Rites"
+        }, "item": {
+            "name": "<<set:M>><<set:S>><<set:MS>> Pieu<if:MS>{ du crépuscule}<elif:FS>{ du crépuscule}<elif:NS>{NONEXISTENT}<elif:MP>{ du crépuscule}<elif:FP>{ du crépuscule}<elif:NP>{NONEXISTENT}",
+            "typeLine": "Bâton de combat barrière", "baseType": "Bâton de combat barrière",
             "rarity": "Rare"
-        }}, {"id": "a2", "listing": {"account": {"name": "Seller"}, "whisper": "@seller Hi"}, "item": {
-            "name": "<<set:MS>><<set:M>>", "typeLine": "<<set:S>>Leaden Greathammer", "rarity": "Rare"
+        }}, {"id": "a2", "listing": {"account": {"name": "Seller"}, "whisper": "@seller Salut"}, "item": {
+            "name": "<<set:F>><<set:S>><<set:FS>> ", "typeLine": "<<set:FS>>Ceinture lourde", "rarity": "Rare"
         }}]}"#,
     )
     .expect("read");
-    let offers = page.offers(Language::English);
+    let offers = page.offers(Language::French);
 
-    assert_eq!(offers[0].item.name.as_deref(), Some("Doom Roar"));
-    assert_eq!(offers[0].item.base_type, "Leaden Greathammer");
+    assert_eq!(offers[0].item.name.as_deref(), Some("Pieu du crépuscule"));
+    assert_eq!(offers[0].item.base_type, "Bâton de combat barrière");
+    assert_eq!(
+        offers[0].whisper,
+        "@Orelpom Bonjour, je souhaiterais t'acheter  Pieu du crépuscule Bâton de combat barrière pour 1 aug dans la ligue Forbidden Rites"
+    );
     assert_eq!(offers[1].item.name, None);
-    assert_eq!(offers[1].item.base_type, "Leaden Greathammer");
+    assert_eq!(offers[1].item.base_type, "Ceinture lourde");
 }
 
 #[test]

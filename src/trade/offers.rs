@@ -17,6 +17,10 @@ use crate::item::{
 use crate::language::Language;
 use crate::logging;
 
+mod markup;
+
+use markup::{plain_text, with_grammar_resolved};
+
 /// The stat of `+#% to Maximum Quality` (the Essence of the Breach, the implicit of a Breach
 /// Ring), whatever its kind (`explicit.`, `implicit.`…).
 const MAXIMUM_QUALITY_STAT: &str = "stat_2039822488";
@@ -595,7 +599,7 @@ impl ApiListed {
             }),
             seller: self.listing.account.status(),
             listed: self.listing.indexed.as_deref().and_then(parse_time),
-            whisper: self.listing.whisper,
+            whisper: with_grammar_resolved(&self.listing.whisper),
             item: OfferItem {
                 rarity: rarity(item.rarity.as_deref(), item.frame_type),
                 name: Some(plain_text(&item.name)).filter(|name| !name.is_empty()),
@@ -714,44 +718,6 @@ fn exchange_whisper(listing: &str, offer: &ApiExchangeOffer) -> String {
 fn side_text(side: &ApiExchangeSide) -> String {
     side.whisper
         .replacen("{0}", &crate::format::number(side.amount), 1)
-}
-
-/// A text without the markup of the trade site: `[ItemRarity|Rarity of Items]` becomes
-/// `Rarity of Items`, `[Resistances]` becomes `Resistances`, and the sizes of the font the game
-/// writes before a long name, `<<set:MS>><<set:M>><<set:S>>Doom Roar`, are removed.
-fn plain_text(text: &str) -> String {
-    let text = without_font_sizes(text);
-    let mut plain = String::with_capacity(text.len());
-    let mut rest = text.as_str();
-    while let Some((before, after)) = rest.split_once('[') {
-        plain.push_str(before);
-        let Some((inside, tail)) = after.split_once(']') else {
-            plain.push('[');
-            rest = after;
-            break;
-        };
-        plain.push_str(inside.rsplit_once('|').map_or(inside, |(_, shown)| shown));
-        rest = tail;
-    }
-    plain.push_str(rest);
-    plain
-}
-
-/// A text without the tags `<<set:…>>` that choose the size of its font in the game.
-fn without_font_sizes(text: &str) -> String {
-    let mut plain = String::with_capacity(text.len());
-    let mut rest = text;
-    while let Some((before, after)) = rest.split_once("<<set:") {
-        plain.push_str(before);
-        let Some((_, tail)) = after.split_once(">>") else {
-            plain.push_str("<<set:");
-            rest = after;
-            break;
-        };
-        rest = tail;
-    }
-    plain.push_str(rest);
-    plain
 }
 
 /// The time of `2025-03-25T10:35:07Z` or `2026-10-23T05:30:09+00:00`, in UTC.
