@@ -620,7 +620,10 @@ fn the_font_sizes_of_a_long_name_are_removed() {
     let page: ApiFetch = serde_json::from_str(
         r#"{"result": [{"id": "a1", "listing": {"account": {"name": "Seller"}, "whisper": "@seller Hi"}, "item": {
             "name": "<<set:MS>><<set:M>><<set:S>>Doom Roar",
-            "typeLine": "<<set:MS>>Leaden Greathammer", "rarity": "Rare"
+            "typeLine": "Leaden Greathammer", "baseType": "<<set:MS>>Leaden Greathammer",
+            "rarity": "Rare"
+        }}, {"id": "a2", "listing": {"account": {"name": "Seller"}, "whisper": "@seller Hi"}, "item": {
+            "name": "<<set:MS>><<set:M>>", "typeLine": "<<set:S>>Leaden Greathammer", "rarity": "Rare"
         }}]}"#,
     )
     .expect("read");
@@ -628,6 +631,8 @@ fn the_font_sizes_of_a_long_name_are_removed() {
 
     assert_eq!(offers[0].item.name.as_deref(), Some("Doom Roar"));
     assert_eq!(offers[0].item.base_type, "Leaden Greathammer");
+    assert_eq!(offers[1].item.name, None);
+    assert_eq!(offers[1].item.base_type, "Leaden Greathammer");
 }
 
 #[test]
