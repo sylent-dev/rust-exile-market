@@ -63,11 +63,7 @@ Path of Exile 2 leaves early access with its version 1.0 on 2026-12-11. The modi
   - [x] **19a2, the second half sorted** (#238)
   - [ ] **19b, the template of a Rust desktop application**: a new repository, `sylent-dev/rust-desktop-template`, public and marked as a template like `rust-cli-template`, created from it (`gh repo create --template`) rather than by emptying this project; a rule changed in a `CLAUDE.md` goes into `rust-cli-template` too. One pull request of this project per sub-step of 19b, its box of each part checked once that part is merged in its template. In three sub-steps (Claude Code's split, agreed by the owner on 2026-11-15):
     - [x] **19b1, the repository and the skeleton** (rust-desktop-template#1)
-    - [x] **19b2, the lessons into the desktop template**: the lessons sorted "Both" or for the desktop template. Documentation alone, no code review. One pull request of this project for the whole of 19b2. In four parts, one pull request of the template each (Claude Code's split, agreed by the owner on 2026-11-15), with a stop for the owner's word between two:
-      - [x] **19b2a, the rules** (rust-desktop-template#3)
-      - [x] **19b2b, the agents** (rust-desktop-template#4)
-      - [x] **19b2c, the skills** (rust-desktop-template#5)
-      - [x] **19b2d, the desktop adaptation** (rust-desktop-template#6)
+    - [x] **19b2, the lessons into the desktop template** (#240; rust-desktop-template#3 to #6)
     - [ ] **19b3, the same rules into the other templates**: the lessons sorted for `rust-cli-template`, and for `astro-static-website-template` when they name the three templates. Documentation alone, no code review.
   - [ ] **19c, the changes of this project**: the lessons sorted into this project's `CLAUDE.md`, its skills and its agents.
 - [ ] **20. More settings** (model: Opus 5.5): after the first release, the settings the players may want: the entries of [backlog.md](backlog.md) (Features, Settings), chosen with the owner from what the players ask.
