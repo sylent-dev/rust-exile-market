@@ -2,6 +2,8 @@
 //! `[ItemRarity|Rarity of Items]`, and the grammar of the names it builds in each language,
 //! `<<set:FS>> Longe<if:MS>{ orageux}<elif:FS>{ orageuse}`.
 
+use std::collections::HashSet;
+
 /// A text as the game shows it, without the markup of the trade site: `[ItemRarity|Rarity of
 /// Items]` becomes `Rarity of Items`, `[Resistances]` becomes `Resistances`, and the grammar of
 /// a name is resolved (`with_grammar_resolved`), the space the name of a rare item begins
@@ -32,17 +34,20 @@ pub(super) fn plain_text(text: &str) -> String {
 /// among the forms set (`FS`: ` orageuse`), else its `<else>`, else its first branch. Seen in
 /// the answers of `/fetch` of 2026-11-15, on the French and the English trade sites (a Russian
 /// seller's whisper on the English one), without an `<else>`, read in case a language writes
-/// one: the names of the English site have no markup. A markup that doesn't close is kept as
-/// it is.
+/// one: the names of the English site have no markup. A markup of another shape is kept as it
+/// is: a form of other characters than ASCII capital letters, words holding a `<` or a `{`, a
+/// tag that doesn't close. Each tag is given up at its first unexpected character, and the
+/// forms set are kept once each, so that a hostile text (tags left open, or forms set again
+/// and again) costs its length, not its square (the security audit of v0.1.2).
 pub(super) fn with_grammar_resolved(text: &str) -> String {
-    let mut forms = Vec::new();
+    let mut forms = HashSet::new();
     let mut resolved = String::with_capacity(text.len());
     let mut rest = text;
     while let Some(start) = rest.find('<') {
         resolved.push_str(&rest[..start]);
         let tail = &rest[start..];
         if let Some((form, after)) = form_set(tail) {
-            forms.push(form);
+            forms.insert(form);
             rest = after;
         } else if let Some((chosen, after)) = choice(tail, &forms) {
             resolved.push_str(chosen);
@@ -58,14 +63,15 @@ pub(super) fn with_grammar_resolved(text: &str) -> String {
 
 /// The form `<<set:FS>>` sets at the start of `text`, `FS`, and the text after it.
 fn form_set(text: &str) -> Option<(&str, &str)> {
-    text.strip_prefix("<<set:")?.split_once(">>")
+    let (form, after) = form(text.strip_prefix("<<set:")?)?;
+    Some((form, after.strip_prefix(">>")?))
 }
 
 /// The words of the choice at the start of `text`,
 /// `<if:MS>{ orageux}<elif:FS>{ orageuse}<else>{…}`: those of its first branch whose form is
 /// among the `forms` set, else of its `<else>`, else of its first branch; and the text after
 /// the choice.
-fn choice<'a>(text: &'a str, forms: &[&str]) -> Option<(&'a str, &'a str)> {
+fn choice<'a>(text: &'a str, forms: &HashSet<&str>) -> Option<(&'a str, &'a str)> {
     let (form, first, mut rest) = branch(text.strip_prefix("<if:")?)?;
     let mut chosen = forms.contains(&form).then_some(first);
     while let Some((form, words, after)) = rest.strip_prefix("<elif:").and_then(branch) {
@@ -74,10 +80,7 @@ fn choice<'a>(text: &'a str, forms: &[&str]) -> Option<(&'a str, &'a str)> {
         }
         rest = after;
     }
-    if let Some((otherwise, after)) = rest
-        .strip_prefix("<else>{")
-        .and_then(|tail| tail.split_once('}'))
-    {
+    if let Some((otherwise, after)) = rest.strip_prefix("<else>{").and_then(words) {
         chosen = chosen.or(Some(otherwise));
         rest = after;
     }
@@ -87,9 +90,26 @@ fn choice<'a>(text: &'a str, forms: &[&str]) -> Option<(&'a str, &'a str)> {
 /// The form, the words and the text after a branch, from `MS>{ orageux}…`: the text after
 /// its `<if:` or its `<elif:`.
 fn branch(text: &str) -> Option<(&str, &str, &str)> {
-    let (form, after) = text.split_once('>')?;
-    let (words, after) = after.strip_prefix('{')?.split_once('}')?;
+    let (form, after) = form(text)?;
+    let (words, after) = words(after.strip_prefix(">{")?)?;
     Some((form, words, after))
+}
+
+/// The form at the start of `text`, `FS` from `FS>>…`, and the text after it; none unless it
+/// begins with an ASCII capital letter.
+fn form(text: &str) -> Option<(&str, &str)> {
+    let end = text
+        .find(|letter: char| !letter.is_ascii_uppercase())
+        .unwrap_or(text.len());
+    text.split_at_checked(end)
+        .filter(|(form, _)| !form.is_empty())
+}
+
+/// The words of a branch and the text after them, from ` orageux}…`; none if a `<` or a `{`
+/// comes before its `}`.
+fn words(text: &str) -> Option<(&str, &str)> {
+    let (words, after) = text.split_at_checked(text.find(['}', '<', '{'])?)?;
+    Some((words, after.strip_prefix('}')?))
 }
 
 #[cfg(test)]
@@ -168,7 +188,7 @@ mod tests {
     }
 
     #[test]
-    fn a_markup_that_does_not_close_is_kept() {
+    fn a_markup_of_another_shape_is_kept() {
         for text in [
             "a <<set:unclosed tag",
             "<<b>> stays",
@@ -176,6 +196,9 @@ mod tests {
             "<if:MS without its words",
             "<if:MS>{unclosed words",
             "<if:MS> {spaced}",
+            "<if:Ms>{lower case}",
+            "<<set:>>empty form",
+            "<if:MS>{words <b>}",
             "ends with <",
         ] {
             assert_eq!(with_grammar_resolved(text), text);
@@ -184,5 +207,43 @@ mod tests {
             with_grammar_resolved("<if:MS>{a}<elif:FS>{b"),
             "a<elif:FS>{b"
         );
+    }
+
+    /// A tag that closes far from where it opens, after a word or a tag, is no tag: read as one,
+    /// it would hide the text between, the price of a whisper (the security audit of v0.1.2).
+    #[test]
+    fn a_tag_that_closes_far_away_hides_no_text() {
+        for text in [
+            "@a Hi <<set:MS listed for 1 divine >> in Standard",
+            "@a Hi <if:MS listed for 1 divine >{x} in Standard",
+            "@a Hi <if:MS>{listed for <b> 1 divine} in Standard",
+        ] {
+            assert_eq!(with_grammar_resolved(text), text);
+        }
+    }
+
+    /// About a megabyte of hostile markup, tags left open or forms set again and again: read in
+    /// about 25 milliseconds by a test build (the code review of v0.1.2 measured seconds before
+    /// the fix). The bound is loose, for a slow machine of the CI.
+    #[test]
+    fn a_text_of_hostile_markup_is_read_in_linear_time() {
+        let hostile = [
+            "<<set:",
+            "<<set:MS",
+            "<if:MS>{",
+            "<if:MS>{a}<elif:FS>{",
+            "<<set:A>><if:B>{}",
+        ];
+        for open in hostile {
+            let text = open.repeat(1_000_000 / open.len());
+            let started = std::time::Instant::now();
+
+            with_grammar_resolved(&text);
+            assert!(
+                started.elapsed() < std::time::Duration::from_secs(2),
+                "{open}: {:?}",
+                started.elapsed()
+            );
+        }
     }
 }
