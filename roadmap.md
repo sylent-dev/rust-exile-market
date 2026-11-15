@@ -66,7 +66,7 @@ Path of Exile 2 leaves early access with its version 1.0 on 2026-12-11. The modi
       - [x] **19b2a, the rules** (rust-desktop-template#3)
       - [x] **19b2b, the agents** (rust-desktop-template#4)
       - [x] **19b2c, the skills** (rust-desktop-template#5)
-      - [ ] **19b2d, the desktop adaptation** (model: Sonnet 5.5): `process.md`, `specs.md`, `design-journal.md` and the two skills of the interface adapted to a desktop application (pixels and windows in place of the columns and the command-line conventions, left by 19b1); the steps the lessons add to the `roadmap.md` of the template (the quality review area by area before the first release, the donation method, the two retrospectives).
+      - [ ] **19b2d, the desktop adaptation** (model: Opus 5.5, the owner's choice on 2026-11-15): `process.md`, `specs.md`, `design-journal.md` and the two skills of the interface adapted to a desktop application (pixels and windows in place of the columns and the command-line conventions, left by 19b1); the steps the lessons add to the `roadmap.md` of the template (the quality review area by area before the first release, the donation method, the two retrospectives).
     - [ ] **19b3, the same rules into the other templates**: the lessons sorted for `rust-cli-template`, and for `astro-static-website-template` when they name the three templates. Documentation alone, no code review.
   - [ ] **19c, the changes of this project**: the lessons sorted into this project's `CLAUDE.md`, its skills and its agents.
 - [ ] **20. More settings** (model: Opus 5.5): after the first release, the settings the players may want: the entries of [backlog.md](backlog.md) (Features, Settings), chosen with the owner from what the players ask.
