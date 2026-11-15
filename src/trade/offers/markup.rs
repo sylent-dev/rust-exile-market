@@ -32,8 +32,11 @@ pub(super) fn plain_text(text: &str) -> String {
 /// among the forms set (`FS`: ` orageuse`), else its `<else>`, else its first branch. Seen in
 /// the answers of `/fetch` of 2026-11-15, on the French and the English trade sites (a Russian
 /// seller's whisper on the English one), without an `<else>`, read in case a language writes
-/// one: the names of the English site have no markup. A markup that doesn't close is kept as
-/// it is.
+/// one: the names of the English site have no markup. A markup of another shape is kept as it
+/// is: a form of other characters than capital letters, words holding a `<` or a `{`, a tag
+/// that doesn't close. Each tag is given up at its first unexpected character, so that a
+/// hostile text, a tag left open a thousand times, costs its length once, not its square
+/// (the security audit of v0.1.2).
 pub(super) fn with_grammar_resolved(text: &str) -> String {
     let mut forms = Vec::new();
     let mut resolved = String::with_capacity(text.len());
@@ -58,7 +61,8 @@ pub(super) fn with_grammar_resolved(text: &str) -> String {
 
 /// The form `<<set:FS>>` sets at the start of `text`, `FS`, and the text after it.
 fn form_set(text: &str) -> Option<(&str, &str)> {
-    text.strip_prefix("<<set:")?.split_once(">>")
+    let (form, after) = form(text.strip_prefix("<<set:")?)?;
+    Some((form, after.strip_prefix(">>")?))
 }
 
 /// The words of the choice at the start of `text`,
@@ -74,10 +78,7 @@ fn choice<'a>(text: &'a str, forms: &[&str]) -> Option<(&'a str, &'a str)> {
         }
         rest = after;
     }
-    if let Some((otherwise, after)) = rest
-        .strip_prefix("<else>{")
-        .and_then(|tail| tail.split_once('}'))
-    {
+    if let Some((otherwise, after)) = rest.strip_prefix("<else>{").and_then(words) {
         chosen = chosen.or(Some(otherwise));
         rest = after;
     }
@@ -87,9 +88,28 @@ fn choice<'a>(text: &'a str, forms: &[&str]) -> Option<(&'a str, &'a str)> {
 /// The form, the words and the text after a branch, from `MS>{ orageux}…`: the text after
 /// its `<if:` or its `<elif:`.
 fn branch(text: &str) -> Option<(&str, &str, &str)> {
-    let (form, after) = text.split_once('>')?;
-    let (words, after) = after.strip_prefix('{')?.split_once('}')?;
+    let (form, after) = form(text)?;
+    let (words, after) = words(after.strip_prefix(">{")?)?;
     Some((form, words, after))
+}
+
+/// The form at the start of `text`, `FS` from `FS>>…`, and the text after it; none unless it
+/// begins with a capital letter.
+fn form(text: &str) -> Option<(&str, &str)> {
+    let end = text
+        .find(|letter: char| !letter.is_ascii_uppercase())
+        .unwrap_or(text.len());
+    text.split_at_checked(end)
+        .filter(|(form, _)| !form.is_empty())
+}
+
+/// The words of a branch and the text after them, from ` orageux}…`; none if a `<` or a `{`
+/// comes before its `}`.
+fn words(text: &str) -> Option<(&str, &str)> {
+    let end = text.find(['}', '<', '{'])?;
+    text[end..]
+        .strip_prefix('}')
+        .map(|after| (&text[..end], after))
 }
 
 #[cfg(test)]
@@ -176,6 +196,9 @@ mod tests {
             "<if:MS without its words",
             "<if:MS>{unclosed words",
             "<if:MS> {spaced}",
+            "<if:Ms>{lower case}",
+            "<<set:>>empty form",
+            "<if:MS>{words <b>}",
             "ends with <",
         ] {
             assert_eq!(with_grammar_resolved(text), text);
@@ -184,5 +207,36 @@ mod tests {
             with_grammar_resolved("<if:MS>{a}<elif:FS>{b"),
             "a<elif:FS>{b"
         );
+    }
+
+    /// A tag that closes far from where it opens would hide the text between: the price of a
+    /// whisper (the security audit of v0.1.2).
+    #[test]
+    fn a_tag_never_hides_the_text_up_to_a_far_closing() {
+        for text in [
+            "@a Hi <<set:MS listed for 1 divine >> in Standard",
+            "@a Hi <if:MS listed for 1 divine >{x} in Standard",
+            "@a Hi <if:MS>{listed for <b> 1 divine} in Standard",
+        ] {
+            assert_eq!(with_grammar_resolved(text), text);
+        }
+    }
+
+    /// The tags left open a hundred thousand times, about a megabyte: read in a few
+    /// milliseconds, where the first reading of the grammar took about 20 seconds (the security
+    /// audit of v0.1.2). The bound is loose, for a slow machine of the CI.
+    #[test]
+    fn a_text_of_open_tags_is_read_in_linear_time() {
+        for open in ["<<set:", "<<set:MS", "<if:MS>{", "<if:MS>{a}<elif:FS>{"] {
+            let text = open.repeat(1_000_000 / open.len());
+            let started = std::time::Instant::now();
+
+            with_grammar_resolved(&text);
+            assert!(
+                started.elapsed() < std::time::Duration::from_secs(2),
+                "{open}: {:?}",
+                started.elapsed()
+            );
+        }
     }
 }
