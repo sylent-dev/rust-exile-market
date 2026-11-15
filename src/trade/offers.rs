@@ -556,7 +556,7 @@ impl ApiListed {
             Some(Err(line)) => (None, Some(line)),
             None => (None, None),
         };
-        let base_type = item.base_type.unwrap_or(item.type_line);
+        let base_type = plain_text(&item.base_type.unwrap_or(item.type_line));
         let gem_level = item.properties.iter().find_map(ApiProperty::gem_level);
         let gem_sockets = item
             .gem_sockets
@@ -598,7 +598,7 @@ impl ApiListed {
             whisper: self.listing.whisper,
             item: OfferItem {
                 rarity: rarity(item.rarity.as_deref(), item.frame_type),
-                name: Some(item.name).filter(|name| !name.is_empty()),
+                name: Some(plain_text(&item.name)).filter(|name| !name.is_empty()),
                 base_type,
                 item_level: item.ilvl.filter(|&level| level > 0),
                 corrupted: item.corrupted,
@@ -717,10 +717,12 @@ fn side_text(side: &ApiExchangeSide) -> String {
 }
 
 /// A text without the markup of the trade site: `[ItemRarity|Rarity of Items]` becomes
-/// `Rarity of Items`, and `[Resistances]` becomes `Resistances`.
+/// `Rarity of Items`, `[Resistances]` becomes `Resistances`, and the sizes of the font the game
+/// writes before a long name, `<<set:MS>><<set:M>><<set:S>>Doom Roar`, are removed.
 fn plain_text(text: &str) -> String {
+    let text = without_font_sizes(text);
     let mut plain = String::with_capacity(text.len());
-    let mut rest = text;
+    let mut rest = text.as_str();
     while let Some((before, after)) = rest.split_once('[') {
         plain.push_str(before);
         let Some((inside, tail)) = after.split_once(']') else {
@@ -729,6 +731,23 @@ fn plain_text(text: &str) -> String {
             break;
         };
         plain.push_str(inside.rsplit_once('|').map_or(inside, |(_, shown)| shown));
+        rest = tail;
+    }
+    plain.push_str(rest);
+    plain
+}
+
+/// A text without the tags `<<set:…>>` that choose the size of its font in the game.
+fn without_font_sizes(text: &str) -> String {
+    let mut plain = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some((before, after)) = rest.split_once("<<set:") {
+        plain.push_str(before);
+        let Some((_, tail)) = after.split_once(">>") else {
+            plain.push_str("<<set:");
+            rest = after;
+            break;
+        };
         rest = tail;
     }
     plain.push_str(rest);

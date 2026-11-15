@@ -606,6 +606,30 @@ fn the_markup_of_the_trade_site_is_removed() {
     assert_eq!(plain_text("an unclosed [bracket"), "an unclosed [bracket");
 }
 
+/// The names of rare items begin with the sizes of their font in the game: the tooltip of an
+/// offer showed them on 2026-11-15, on the French trade site (`<<set:M>><<set:S>><<set:MS…`).
+#[test]
+fn the_font_sizes_of_a_long_name_are_removed() {
+    assert_eq!(
+        plain_text("<<set:MS>><<set:M>><<set:S>>Doom Roar"),
+        "Doom Roar"
+    );
+    assert_eq!(plain_text("a <<set:unclosed tag"), "a <<set:unclosed tag");
+    assert_eq!(plain_text("<<b>> stays"), "<<b>> stays");
+
+    let page: ApiFetch = serde_json::from_str(
+        r#"{"result": [{"id": "a1", "listing": {"account": {"name": "Seller"}, "whisper": "@seller Hi"}, "item": {
+            "name": "<<set:MS>><<set:M>><<set:S>>Doom Roar",
+            "typeLine": "<<set:MS>>Leaden Greathammer", "rarity": "Rare"
+        }}]}"#,
+    )
+    .expect("read");
+    let offers = page.offers(Language::English);
+
+    assert_eq!(offers[0].item.name.as_deref(), Some("Doom Roar"));
+    assert_eq!(offers[0].item.base_type, "Leaden Greathammer");
+}
+
 #[test]
 fn the_times_of_the_trade_site_are_read_in_utc() {
     let time = |seconds| Some(SystemTime::UNIX_EPOCH + Duration::from_secs(seconds));
