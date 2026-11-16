@@ -132,6 +132,8 @@ One entry per item: what it is, its kind (the section it sits in), what it depen
 
 - A check of the CI that warns when a file of `src/` or `tools/` passes about 800 lines of code, its tests apart (owner, 2026-11-11, after a post on the God Object AI assistants grow, and Claude Code's own account of this project: `ExileMarketApp` with 26 fields, files of 2,000 to 2,900 lines before step 17e3d). Left out on 2026-11-13 (owner's go): after 17e3d, one file passes 800 lines, `src/i18n.rs` (869, its lists of messages), the next ones about 600; the rule of `docs/code-quality.md` and the file that grows, named at the start of each step, suffice for now, and the check would cost a pull request and its review. Kind: process. Depends on: step 19 (Retrospective), for the project template, where it may help most.
 
+- The runs of `main` cancelled by the next push (code review of 19b4, 2026-11-16, recommendation 2, applied in rust-cli-template#31): `cancel-in-progress: true` in `.github/workflows/ci.yml` holds on `main` too, so a documentation commit pushed during the run of a code commit cancels it, then skips its own checks: the code commit is left unchecked on `main` (its pull request checked it before the merge, hence a low risk). Fix: `cancel-in-progress: ${{ github.event_name == 'pull_request' }}`, here and in `rust-desktop-template`; a change of a workflow, so a code review. Depends on nothing.
+
 ## Features
 
 ### Settings (step 20)
