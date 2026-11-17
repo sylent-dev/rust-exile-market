@@ -18,8 +18,9 @@
 .app-thin .price { color: var(--weak); }
 .app-thin .price img, .app-thin .price .orb { opacity: .5; }
 
-/* 22b, lead C: a mark of reliability right of the title, before the count of the offers. */
-.app-reliability { margin-right: 8px; padding: 1px 6px; border: 1px solid currentColor; border-radius: var(--radius); font-size: 11px; }
-.app-reliability.is-low { color: var(--warn); }
-.app-reliability.is-medium { color: var(--weak); }
-.app-reliability.is-high { color: var(--rise); }
+/* 22b: the mark of a price that stands on too little, "Low reliability" in yellow before the count, a dot between
+   (owner, 2026-11-17: no border, nothing when reliable); why in its tooltip. */
+.app-reliability { position: relative; color: var(--warn); }
+.app-reliability-dot { margin: 0 5px; color: var(--weak); }
+.app-reliability:hover .app-tip, .app-reliability.is-hovered .app-tip { display: block; }
+.win:has(.app-reliability.is-hovered) { overflow: visible; }

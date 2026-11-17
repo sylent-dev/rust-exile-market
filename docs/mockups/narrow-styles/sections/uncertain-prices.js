@@ -4,9 +4,10 @@
 // 1. How sure an estimate is. A, today: the warning under 5 offers, the note of the median. B, the range of the
 //    offers counted at the end of the note, also with 5 offers (a narrow range tells a price to trust), in Divine Orbs
 //    from one Divine Orb at the median and in Exalted Orbs under it, as the price of a possible unique. C, a mark of
-//    reliability right of the title (PoE Overlay II shows "a reliability rating", computed by a closed model): low,
-//    medium or high, from the number of offers and their spread, in place of the warning. Recommended: B, which says
-//    why in numbers the player can check against the list; C gives a precision the median of 5 offers doesn't have.
+//    reliability right of the title, low, medium or high (PoE Overlay II shows "a reliability rating", computed by a
+//    closed model). The owner chose on 2026-11-17 a mark of low reliability only, "Low reliability" in yellow before
+//    the count, a dot between, no border: nothing when the price is reliable, so that it promises nothing; drawn here
+//    in place of the warning line, the warning in its tooltip, with the range of B, for the three kinds of price.
 // 2. An offer paid in a currency the estimate doesn't count (priced on fewer than 10 trades, or without price: a
 //    Wombgift) is shown today as any other. A, faint, why in the tooltip of its icon; B, faint, "not counted" after
 //    its name, as the kind of an offer of another quality (13k4b). Recommended: B, seen without the pointer.
@@ -22,10 +23,10 @@ const UP_TEXT = {
     median5Range: "Median of the 5 cheapest similar offers, 2 to 3 div.", notCounted: "not counted",
     tipThin: "Not counted: its price stands on 1 trade", tipNone: "Not counted: this currency has no price",
     noneCounted: "No similar offer is paid in a currency with a reliable price.",
-    low: "Low reliability", medium: "Medium reliability", high: "High reliability" },
+    low: "Low reliability", uniqueWarning: "Only 3 offers: the price is uncertain", thin: "Only 1 trade: the price is uncertain" },
   fr: { uncertain3: "Seulement 3 offres similaires : l'estimation est incertaine", median3Range: "Médiane des 3 offres similaires, de 40 à 300 ex.",
     median5Range: "Médiane des 5 offres similaires les moins chères, de 2 à 3 div.", notCounted: "non comptée",
-    noneCounted: "Aucune offre similaire n'est payée dans une devise au prix fiable." },
+    noneCounted: "Aucune offre similaire n'est payée dans une devise au prix fiable.", low: "Fiabilité faible" },
 };
 
 // The magic ring of three similar offers, far apart: 40, 95 and 300 ex, the median 95 ex.
@@ -48,9 +49,9 @@ const upBow = (p, rows = UP_BOW_ROWS) => win(topBar(), item(BOW_RARE),
   price({ estimate: true, values: ["2.4", "24", "1.7K"], offers: "18 similar", ...p }),
   offers({ count: "10 of 18 online", columns: ["Price", "Listed"], rows }), foot());
 
-// C: the mark of reliability right of the title, before the count of the offers.
-const reliability = (html, level, words) => html.replace(/<span class="right">([^<]*)<\/span>/,
-  `<span class="right"><span class="app-reliability is-${level}">${words}</span>$1</span>`);
+// The mark of low reliability before the count right of the title, `tip` in its tooltip, open when `hovered`.
+const lowMark = (html, words, tip, hovered = false) => html.replace(/<span class="right">([^<]*)<\/span>/,
+  `<span class="right"><span class="app-reliability${hovered ? " is-hovered" : ""}">${words}<span class="app-tip">${tip}</span></span><span class="app-reliability-dot">·</span>$1</span>`);
 
 // 2. The bow, two of its offers paid in a currency the estimate doesn't count: a Lesser Charging Rune priced on one
 // trade (40,156 ex), and a Banded Wombgift, without price.
@@ -102,9 +103,10 @@ const upNoOffer = second => win(topBar(), item(BOW_RARE), price({ lines: ["No ma
 // 4. A unique priced on 3 offers at 150 ex, the market fallen since: its offers now ask 30 to 140 ex.
 const UP_UNIQUE = { rarity: "unique", name: "Ryslatha's Coil", base: "Wide Belt", cls: "Belts", tags: ["ilvl 74"], req: "Requires Level 55",
   statsLabel: "Stats (4)", filters: "3 filters" };
-const upUnique = suspicious => win(topBar(), item(UP_UNIQUE),
-  price({ values: ["0.21", "2.1", "150"], offers: "3 offers", trend: "Stable over the last 7 days", stable: true,
-    warning: "Only 3 offers: the price is uncertain" }),
+const upUnique = (suspicious, mark = false) => win(topBar(), item(UP_UNIQUE),
+  (mark ? html => lowMark(html, UP_TEXT.en.low, UP_TEXT.en.uniqueWarning) : html => html)(
+    price({ values: ["0.21", "2.1", "150"], offers: "3 offers", trend: "Stable over the last 7 days", stable: true,
+      warning: mark ? undefined : UP_TEXT.en.uniqueWarning })),
   offers({ count: "4 of 4 online", columns: ["Price", "Listed"], rows: [
     { v: "30", k: "ex", when: "40min ago", sus: suspicious }, { v: "35", k: "ex", when: "2h ago", sus: suspicious },
     { v: "90", k: "ex", when: "1d ago", away: true }, { v: "140", k: "ex", when: "3d ago" }] }), foot());
@@ -112,12 +114,13 @@ const upUnique = suspicious => win(topBar(), item(UP_UNIQUE),
 SECTIONS.unshift(["Uncertain prices (22b): how sure an estimate is, the offers not counted, the suspicious offers of an uncertain price", [
   ["1 · How sure · A · Today: the warning under 5 offers", upRing({ warning: UP_TEXT.en.uncertain3, note: UP_TEXT.en.median3 })],
   ["1 · How sure · A · Today: 5 offers, no warning", upBow({ note: UP_TEXT.en.median5 })],
-  ["1 · How sure · Recommended · B · the range of the offers counted, 3 offers far apart", upRing({ warning: UP_TEXT.en.uncertain3, note: UP_TEXT.en.median3Range })],
-  ["1 · How sure · Recommended · B · 5 offers close: a narrow range", upBow({ note: UP_TEXT.en.median5Range })],
-  ["1 · How sure · Recommended · B · en français", upRing({ warning: UP_TEXT.fr.uncertain3, note: UP_TEXT.fr.median3Range }, { fr: true })],
-  ["1 · How sure · C · a mark of reliability, low: 3 offers far apart", reliability(upRing({ note: UP_TEXT.en.median3 }), "low", UP_TEXT.en.low)],
-  ["1 · How sure · C · medium", reliability(upBow({ note: UP_TEXT.en.median5 }, UP_BOW_ROWS.slice(0, 5)).replace("18 similar", "4 similar"), "medium", UP_TEXT.en.medium)],
-  ["1 · How sure · C · high: 5 offers close", reliability(upBow({ note: UP_TEXT.en.median5 }), "high", UP_TEXT.en.high)],
+  ["1 · How sure · B · the range of the offers counted, 3 offers far apart", upRing({ warning: UP_TEXT.en.uncertain3, note: UP_TEXT.en.median3Range })],
+  ["1 · How sure · B · 5 offers close: a narrow range", upBow({ note: UP_TEXT.en.median5Range })],
+  ["1 · How sure · Chosen · the mark of low reliability, the range of B, the warning in its tooltip", lowMark(upRing({ note: UP_TEXT.en.median3Range }), UP_TEXT.en.low, UP_TEXT.en.uncertain3, true)],
+  ["1 · How sure · Chosen · 5 offers close: no mark", upBow({ note: UP_TEXT.en.median5Range })],
+  ["1 · How sure · Chosen · en français", lowMark(upRing({ note: UP_TEXT.fr.median3Range }, { fr: true }), UP_TEXT.fr.low, UP_TEXT.fr.uncertain3)],
+  ["1 · How sure · Chosen · a unique on 3 offers", upUnique(false, true)],
+  ["1 · How sure · Chosen · a currency on 1 trade", thinWin(RUNE, lowMark(price(RUNE_PRICE), UP_TEXT.en.low, UP_TEXT.en.thin), offers(RUNE_OFFERS()))],
   ["2 · Offers not counted · Today: shown as any other", upNotCounted("today")],
   ["2 · Offers not counted · A · faint, why in the tooltip of the icon", upNotCounted("A", { hovered: 1 })],
   ["2 · Offers not counted · Recommended · B · faint, \"not counted\" after the name", upNotCounted("B")],
@@ -128,5 +131,5 @@ SECTIONS.unshift(["Uncertain prices (22b): how sure an estimate is, the offers n
   ["3 · No offer at all · Today: \"Search similar offers\" after the search", upNoOffer("Search similar offers to estimate it.")],
   ["3 · No offer at all · Recommended: no second line, the offers block says what to do", upNoOffer()],
   ["4 · An uncertain unique · Today: its honest offers struck through", upUnique(true)],
-  ["4 · An uncertain unique · Recommended: none suspicious, as a thin currency", upUnique(false)],
+  ["4 · An uncertain unique · Recommended: none suspicious, as a thin currency", upUnique(false, true)],
 ]]);
