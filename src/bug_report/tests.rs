@@ -7,7 +7,7 @@ fn facts(league: Option<&League>) -> Facts<'_> {
         items: Some(Language::French),
         league,
         always_on_top: false,
-        game: Some(GameSettings {
+        game: Some(GameOnlySettings {
             close_with_game: true,
             hotkey: HotkeySetting {
                 on: true,

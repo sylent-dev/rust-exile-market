@@ -269,6 +269,7 @@ fn a_value_that_cant_be_read_takes_its_default_and_the_others_are_kept() {
         "closed_new_leagues = \"none\"",
         "closed_update = { league = \"Forbidden Rites\" }",
         "hotkey = 5",
+        "close_with_game = \"yes\"",
         "[hotkey]\non = \"yes\"\nkeys = \"Alt+G\"",
     ] {
         let directory = TestDirectory::new("odd-value");
@@ -284,6 +285,7 @@ fn a_value_that_cant_be_read_takes_its_default_and_the_others_are_kept() {
         );
         assert_eq!(settings.language(), LanguageSetting::System, "{odd}");
         assert!(settings.hotkey().on, "{odd}");
+        assert!(!settings.close_with_game(), "{odd}");
         assert!(directory.0.join(FILE_NAME).exists(), "{odd}");
     }
     let directory = TestDirectory::new("odd-value-of-the-hotkey");

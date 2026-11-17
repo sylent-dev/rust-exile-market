@@ -62,5 +62,9 @@ fn the_application_quits_when_the_game_closes_once_close_with_the_game_is_checke
         &settings
     ));
     assert!(!quits_with_the_game(&[Change::Opened], &settings));
+    assert!(!quits_with_the_game(
+        &[Change::Closed, Change::Opened],
+        &settings
+    ));
     assert!(!quits_with_the_game(&[], &settings));
 }

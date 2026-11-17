@@ -6,12 +6,12 @@ Pour le testeur Windows. Les réglages ont une nouvelle case, « Close with the 
 
 1. Ferme Exile Market et le jeu.
 2. Télécharge la nouvelle archive Windows `exile-market-windows-x64.zip` (lien donné par le propriétaire ; il faut être connecté à un compte GitHub pour la télécharger), décompresse-la, puis lance `exile-market.exe`. Si Windows SmartScreen bloque : « Informations complémentaires », puis « Exécuter quand même ».
-3. Le log est dans `%LOCALAPPDATA%\exile-market\data\exile-market.log` (colle ce chemin dans la barre d'adresse de l'Explorateur). Il est écrit au fur et à mesure : ouvre-le dans le Bloc-notes à la fin, ou rouvre-le pour voir les nouvelles lignes.
+3. Le log est dans `%LOCALAPPDATA%\exile-market\data\exile-market.log` (colle ce chemin dans la barre d'adresse de l'Explorateur). Il est écrit au fur et à mesure, et remplacé à chaque lancement d'Exile Market (le précédent devient `exile-market.previous.log`) : lis-le **avant** de relancer l'application, ou ouvre le précédent.
 
 ## Les tests
 
-1. **Cochée, l'outil lancé avant le jeu** : ouvre les réglages (l'engrenage) et coche **Close with the game**, puis attends 10 secondes sans lancer le jeu. Lance ensuite Path of Exile 2 en **plein écran fenêtré** et va dans ton repaire. Déplace et redimensionne un peu la fenêtre d'Exile Market, puis quitte le jeu (menu, Quitter vers le bureau).
-   ✅ Sous la case, la ligne pâle « Exile Market quits when Path of Exile 2 closes. » ; l'application reste ouverte tant que le jeu n'est pas lancé. Au plus 6 secondes après la fermeture du jeu, elle se ferme, et le log finit par « Path of Exile 2 closed », « Closing with the game », puis « Exile Market closed ». Relancée, elle s'ouvre à la place et à la taille où tu l'avais laissée, la case toujours cochée.
+1. **Cochée, l'outil lancé avant le jeu** : ouvre les réglages (l'engrenage) et coche **Close with the game**, puis attends 10 secondes sans lancer le jeu. Lance ensuite Path of Exile 2 en **plein écran fenêtré** et va dans ton repaire. Quitte le jeu (menu, Quitter vers le bureau), puis, aussitôt, déplace et redimensionne un peu la fenêtre d'Exile Market avant qu'elle se ferme.
+   ✅ Sous la case, la ligne pâle « Exile Market quits when Path of Exile 2 closes. » ; l'application reste ouverte tant que le jeu n'est pas lancé. Au plus 6 secondes après la fermeture du jeu, elle se ferme, et le log finit par « Path of Exile 2 closed », « Closing with the game », puis « Exile Market closed » (lis le log maintenant). Relancée, elle s'ouvre à la place et à la taille où tu l'avais laissée, la case toujours cochée.
 
 2. **Décochée** : relance le jeu, décoche la case, puis quitte le jeu.
    ✅ Exile Market reste ouverte ; le log dit « Path of Exile 2 closed », sans « Closing with the game ».

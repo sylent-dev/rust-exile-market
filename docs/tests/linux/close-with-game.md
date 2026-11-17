@@ -4,10 +4,10 @@
 
 Les réglages ont une nouvelle case, « Close with the game » : cochée, Exile Market se ferme quand Path of Exile 2 se ferme, mais seulement une fois le jeu vu ouvert, pour que lancer l'outil avant le jeu ne le ferme pas. Le jeu est dit fermé quand sa fenêtre a disparu 5 secondes de suite. Les tests vérifient que l'application se ferme quand il faut, et seulement quand il faut. Fais-les d'affilée ; un ✅ suffit quand ça marche, détaille seulement ce qui cloche.
 
-Pour lire le journal, garde un second terminal ouvert :
+Pour lire le journal, garde un second terminal ouvert (`-F` suit le nouveau fichier à chaque lancement d'Exile Market) :
 
 ```
-tail -f ~/.local/state/exile-market/exile-market.log
+tail -F ~/.local/state/exile-market/exile-market.log
 ```
 
 ## Avant
@@ -21,7 +21,7 @@ tail -f ~/.local/state/exile-market/exile-market.log
 
 ## Les tests
 
-1. **Cochée, l'outil lancé avant le jeu** : ouvre les réglages (l'engrenage) et coche **Close with the game**, puis attends 10 secondes sans lancer le jeu. Lance ensuite le jeu par Steam et va dans ton repaire. Déplace et redimensionne un peu la fenêtre d'Exile Market, puis quitte le jeu (menu, Quitter vers le bureau).
+1. **Cochée, l'outil lancé avant le jeu** : ouvre les réglages (l'engrenage) et coche **Close with the game**, puis attends 10 secondes sans lancer le jeu. Lance ensuite le jeu par Steam et va dans ton repaire. Quitte le jeu (menu, Quitter vers le bureau), puis, aussitôt, déplace et redimensionne un peu la fenêtre d'Exile Market avant qu'elle se ferme.
    ✅ Sous la case, la ligne pâle « Exile Market quits when Path of Exile 2 closes. » ; l'application reste ouverte tant que le jeu n'est pas lancé. Au plus 5 secondes après la fermeture du jeu, elle se ferme, et le journal finit par « Path of Exile 2 closed », « Closing with the game », puis « Exile Market closed ». Relancée, elle s'ouvre à la place et à la taille où tu l'avais laissée, la case toujours cochée.
 
 2. **Décochée** : relance le jeu, décoche la case, puis quitte le jeu.

@@ -16,7 +16,7 @@ use egui::{Context, Key, OpenUrl, Ui, ViewportCommand};
 use self::desk::{Desk, DeskRequest, DrawnItem, EMPTY_HEIGHT, Surroundings};
 use self::open_lists::{OpenList, OpenLists};
 use self::overlay_window::OverlayWindow;
-use crate::bug_report::{Facts, GameSettings, JoinedItem, LogSession, Report};
+use crate::bug_report::{Facts, GameOnlySettings, JoinedItem, LogSession, Report};
 use crate::clipboard::{self, ClipboardEvent, ClipboardWatch};
 use crate::filters::Window;
 use crate::game_window::{self, GameWindowWatch};
@@ -198,7 +198,7 @@ impl ExileMarketApp {
             items: copied.map(CopiedItem::language),
             league: session.league(),
             always_on_top: self.settings.always_on_top(),
-            game: crate::HAS_THE_GAME.then(|| GameSettings {
+            game: crate::HAS_THE_GAME.then(|| GameOnlySettings {
                 close_with_game: self.settings.close_with_game(),
                 hotkey: self.settings.hotkey(),
             }),
@@ -552,10 +552,10 @@ fn random_quote() -> usize {
     usize::from(byte) % DOWNLOAD_QUOTE_COUNT
 }
 
-/// Whether the application quits after the `changes` of the game: once it closed, when the
-/// player checked Close with the game.
+/// Whether the application quits after the `changes` of the game: when the last one is its
+/// closing, and the player checked Close with the game.
 fn quits_with_the_game(changes: &[game_window::Change], settings: &Settings) -> bool {
-    settings.close_with_game() && changes.contains(&game_window::Change::Closed)
+    settings.close_with_game() && changes.last() == Some(&game_window::Change::Closed)
 }
 
 #[cfg(test)]

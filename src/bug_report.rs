@@ -58,12 +58,12 @@ pub struct Facts<'a> {
     pub league: Option<&'a League>,
     pub always_on_top: bool,
     /// None on a system without the game (macOS).
-    pub game: Option<GameSettings>,
+    pub game: Option<GameOnlySettings>,
 }
 
-/// The settings that follow the game, on a system where it runs.
+/// The settings that only a system where the game runs has.
 #[derive(Debug, Clone, Copy)]
-pub struct GameSettings {
+pub struct GameOnlySettings {
     pub close_with_game: bool,
     pub hotkey: HotkeySetting,
 }
@@ -390,7 +390,7 @@ fn summary(facts: &Facts<'_>, system: &str) -> String {
     };
     let on_off = |on| if on { "on" } else { "off" };
     let mut settings = format!("Always on top: {}", on_off(facts.always_on_top));
-    if let Some(GameSettings {
+    if let Some(GameOnlySettings {
         close_with_game,
         hotkey,
     }) = facts.game
