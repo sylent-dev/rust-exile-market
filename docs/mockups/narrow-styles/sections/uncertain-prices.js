@@ -5,9 +5,10 @@
 //    offers counted at the end of the note, also with 5 offers (a narrow range tells a price to trust), in Divine Orbs
 //    from one Divine Orb at the median and in Exalted Orbs under it, as the price of a possible unique. C, a mark of
 //    reliability right of the title, low, medium or high (PoE Overlay II shows "a reliability rating", computed by a
-//    closed model). The owner chose on 2026-11-17 a mark of low reliability only, "Low reliability" in yellow before
-//    the count, a dot between, no border: nothing when the price is reliable, so that it promises nothing; drawn here
-//    in place of the warning line, the warning in its tooltip, with the range of B, for the three kinds of price.
+//    closed model). The owner chose on 2026-11-17 a mark of low reliability only, nothing when the price is reliable,
+//    so that it promises nothing; on 2026-11-18, "Low reliability" in yellow on a small line under the title, as
+//    "searched 2min ago" under the title of the offers. Drawn in place of the warning line, the warning in its
+//    tooltip, with the range of B, for the three kinds of price.
 // 2. An offer paid in a currency the estimate doesn't count (priced on fewer than 10 trades, or without price: a
 //    Wombgift) is shown today as any other. A, faint, why in the tooltip of its icon; B, faint, "not counted" after
 //    its name, as the kind of an offer of another quality (13k4b). Recommended: B, seen without the pointer.
@@ -49,9 +50,10 @@ const upBow = (p, rows = UP_BOW_ROWS) => win(topBar(), item(BOW_RARE),
   price({ estimate: true, values: ["2.4", "24", "1.7K"], offers: "18 similar", ...p }),
   offers({ count: "10 of 18 online", columns: ["Price", "Listed"], rows }), foot());
 
-// The mark of low reliability before the count right of the title, `tip` in its tooltip, open when `hovered`.
-const lowMark = (html, words, tip, hovered = false) => html.replace(/<span class="right">([^<]*)<\/span>/,
-  `<span class="right"><span class="app-reliability${hovered ? " is-hovered" : ""}">${words}<span class="app-tip">${tip}</span></span><span class="app-reliability-dot">·</span>$1</span>`);
+// The mark of low reliability on a small line under the title, as "searched 2min ago" under the title of the offers
+// (owner, 2026-11-18), `tip` in its tooltip, open when `hovered`.
+const lowMark = (html, words, tip, hovered = false) => html.replace(/<span class="label">([^<]*)<\/span>/,
+  `<span class="title-stack"><span class="label">$1</span><span class="age warn app-reliability${hovered ? " is-hovered" : ""}">${words}<span class="app-tip">${tip}</span></span></span>`);
 
 // 2. The bow, two of its offers paid in a currency the estimate doesn't count: a Lesser Charging Rune priced on one
 // trade (40,156 ex), and a Banded Wombgift, without price.

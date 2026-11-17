@@ -18,9 +18,9 @@
 .app-thin .price { color: var(--weak); }
 .app-thin .price img, .app-thin .price .orb { opacity: .5; }
 
-/* 22b: the mark of a price that stands on too little, "Low reliability" in yellow before the count, a dot between
-   (owner, 2026-11-17: no border, nothing when reliable); why in its tooltip. */
-.app-reliability { position: relative; color: var(--warn); }
-.app-reliability-dot { margin: 0 5px; color: var(--weak); }
+/* 22b: the mark of a price that stands on too little, "Low reliability" in yellow on a small line under the title
+   (owner, 2026-11-18), nothing when reliable; why in its tooltip. */
+.app-reliability { position: relative; }
+.app-reliability .app-tip { right: auto; left: -1px; }
 .app-reliability:hover .app-tip, .app-reliability.is-hovered .app-tip { display: block; }
 .win:has(.app-reliability.is-hovered) { overflow: visible; }
