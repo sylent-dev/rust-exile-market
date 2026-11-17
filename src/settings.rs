@@ -52,6 +52,17 @@ impl LanguageSetting {
     }
 }
 
+/// Whether the pseudo totals of a rare or magic item are among its filters (`specs.md`,
+/// Settings): shown by default, so that nothing changes for whoever leaves it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PseudoTotals {
+    #[default]
+    Shown,
+    /// Neither shown nor searched: the lines a total would count start as when none counts them.
+    Hidden,
+}
+
 /// The price-check hotkey (`specs.md`, Settings): on by default, so that a file written before
 /// it existed keeps it on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -156,6 +167,7 @@ or_default!(language_or_default, "language");
 or_default!(always_on_top_or_default, "always_on_top");
 or_default!(close_with_game_or_default, "close_with_game");
 or_default!(hotkey_or_default, "hotkey");
+or_default!(pseudo_totals_or_default, "pseudo_totals");
 or_default!(league_or_default, "league");
 or_default!(closed_new_leagues_or_default, "closed_new_leagues");
 or_default!(closed_update_or_default, "closed_update");
@@ -175,6 +187,7 @@ pub enum SettingChange {
     HotkeyOn(bool),
     /// The keys of the price-check hotkey chosen.
     HotkeyKeys(Shortcut),
+    PseudoTotals(PseudoTotals),
 }
 
 /// The settings of the player. A missing value takes its default, so that a file written by
@@ -192,6 +205,8 @@ pub struct Settings {
     close_with_game: bool,
     #[serde(deserialize_with = "hotkey_or_default")]
     hotkey: HotkeySetting,
+    #[serde(deserialize_with = "pseudo_totals_or_default")]
+    pseudo_totals: PseudoTotals,
     /// The chosen league; none until the player or the default chooses one.
     #[serde(deserialize_with = "league_or_default")]
     league: Option<League>,
@@ -226,6 +241,12 @@ impl Settings {
     #[must_use]
     pub fn hotkey(&self) -> HotkeySetting {
         self.hotkey
+    }
+
+    /// Whether the pseudo totals are among the filters of a rare or magic item.
+    #[must_use]
+    pub fn pseudo_totals(&self) -> PseudoTotals {
+        self.pseudo_totals
     }
 
     /// The league chosen at the last session, if any.
@@ -307,6 +328,9 @@ impl Settings {
             }
             SettingChange::HotkeyOn(on) => mem::replace(&mut self.hotkey.on, on) != on,
             SettingChange::HotkeyKeys(keys) => mem::replace(&mut self.hotkey.keys, keys) != keys,
+            SettingChange::PseudoTotals(pseudo_totals) => {
+                mem::replace(&mut self.pseudo_totals, pseudo_totals) != pseudo_totals
+            }
         }
     }
 }

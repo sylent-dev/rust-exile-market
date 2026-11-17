@@ -10,6 +10,7 @@ use crate::filters::{Filters, Half};
 use crate::game_data::UniqueModifiers;
 use crate::item::{Affix, CopiedItem, Item, PartTier, Range, Rarity, StatLine};
 use crate::roll_difference::CopiedLines;
+use crate::settings::PseudoTotals;
 use crate::tier_rolls::TierRolls;
 use crate::trade::stat_filters::LineStats;
 use crate::{format, game_data};
@@ -32,6 +33,15 @@ pub(super) fn rows(item: &Item) -> Vec<Row<'_>> {
 /// The rows of `item` of the base type `base_type`, its lines read in English: the base type
 /// of a magic item is found among the names of the trade site.
 pub(super) fn rows_of<'a>(item: &'a Item, base_type: Option<&'a str>) -> Vec<Row<'a>> {
+    rows_with(item, base_type, PseudoTotals::Shown)
+}
+
+/// The rows of [`rows_of`], its `pseudo_totals` shown or hidden by the settings.
+pub(super) fn rows_with<'a>(
+    item: &'a Item,
+    base_type: Option<&'a str>,
+    pseudo_totals: PseudoTotals,
+) -> Vec<Row<'a>> {
     let lines = CopiedLines::new(
         item.language(),
         item.modifiers(),
@@ -53,6 +63,7 @@ pub(super) fn rows_of<'a>(item: &'a Item, base_type: Option<&'a str>) -> Vec<Row
             tier_rolls: &tiers,
         },
         base_type,
+        pseudo_totals,
     )
 }
 
@@ -321,6 +332,14 @@ pub(super) fn explicit_rows(texts: Vec<String>) -> Vec<String> {
 
 /// The checks of the filters of `item` by default, as the item view decides them.
 pub(super) fn default_checks(item: &Item) -> crate::ui::StatChecks {
+    default_checks_with(item, PseudoTotals::Shown)
+}
+
+/// The checks of [`default_checks`], its `pseudo_totals` shown or hidden by the settings.
+pub(super) fn default_checks_with(
+    item: &Item,
+    pseudo_totals: PseudoTotals,
+) -> crate::ui::StatChecks {
     let base = base_type(item);
     let lines = CopiedLines::new(
         item.language(),
@@ -338,6 +357,7 @@ pub(super) fn default_checks(item: &Item) -> crate::ui::StatChecks {
             tier_rolls: &tiers,
         },
         base,
+        pseudo_totals,
     );
     let all = stats.filters(&Filters::default());
     crate::ui::StatChecks::of(&line_stats.search_filters(&all), &line_stats, &all)

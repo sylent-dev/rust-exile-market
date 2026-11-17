@@ -23,7 +23,7 @@ pub use self::short_log::{ANOTHER_WINDOW, short_lines};
 pub use self::short_log::{AroundAnotherWindow, Level, LogLine};
 use crate::language::Language;
 use crate::league::{League, LeagueMode};
-use crate::settings::HotkeySetting;
+use crate::settings::{HotkeySetting, PseudoTotals};
 
 /// The issue form of the repository, `.github/ISSUE_TEMPLATE/bug-report.yml`, whose fields
 /// `report`, `item` and `log` the address fills.
@@ -59,6 +59,7 @@ pub struct Facts<'a> {
     pub always_on_top: bool,
     /// None on a system without the game (macOS).
     pub game: Option<GameOnlySettings>,
+    pub pseudo_totals: PseudoTotals,
 }
 
 /// The settings that only a system where the game runs has.
@@ -403,6 +404,11 @@ fn summary(facts: &Facts<'_>, system: &str) -> String {
             hotkey.keys
         );
     }
+    let pseudo_totals = match facts.pseudo_totals {
+        PseudoTotals::Shown => "shown",
+        PseudoTotals::Hidden => "hidden",
+    };
+    let _ = write!(settings, " · Pseudo totals: {pseudo_totals}");
     [
         format!("{} {}", crate::APP_NAME, crate::VERSION),
         system.to_owned(),

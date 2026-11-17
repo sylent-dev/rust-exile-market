@@ -128,6 +128,7 @@ fn a_modifier_of_one_tier_only_shows_its_ranges_without_tier() {
             tier_rolls: &tiers,
         },
         base,
+        crate::settings::PseudoTotals::Shown,
     ));
     assert_eq!(
         flask[flask.len() - 2..],

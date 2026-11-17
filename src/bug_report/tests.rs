@@ -14,6 +14,7 @@ fn facts(league: Option<&League>) -> Facts<'_> {
                 keys: "F4".parse::<Shortcut>().expect("keys"),
             },
         }),
+        pseudo_totals: PseudoTotals::Hidden,
     }
 }
 
@@ -73,7 +74,8 @@ fn the_summary_tells_the_version_the_system_the_languages_the_league_and_the_set
         summary(&facts(Some(&league)), "Linux · KDE Plasma · X11"),
         format!(
             "Exile Market {}\nLinux · KDE Plasma · X11\nInterface: French · Items: French\n\
-             League: Forbidden Rites (softcore)\nAlways on top: off · Close with the game: on · Hotkey: on, F4",
+             League: Forbidden Rites (softcore)\nAlways on top: off · Close with the game: on · Hotkey: on, F4 · \
+             Pseudo totals: hidden",
             crate::VERSION
         )
     );
@@ -85,13 +87,17 @@ fn the_summary_before_the_first_item_and_the_leagues() {
         items: None,
         game: None,
         always_on_top: true,
+        pseudo_totals: PseudoTotals::Shown,
         ..facts(None)
     };
     let summary = summary(&facts, "macOS 15.1");
 
     assert!(summary.contains("\nInterface: French\n"), "{summary}");
     assert!(summary.contains("\nLeague: not known yet\n"), "{summary}");
-    assert!(summary.ends_with("\nAlways on top: on"), "{summary}");
+    assert!(
+        summary.ends_with("\nAlways on top: on · Pseudo totals: shown"),
+        "{summary}"
+    );
 }
 
 #[test]

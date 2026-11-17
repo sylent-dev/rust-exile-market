@@ -51,6 +51,7 @@ use crate::filters::{Filter, FilterKey, Filters, Property};
 use crate::format;
 use crate::item::{Item, ModifierKind, Rarity};
 use crate::roll_difference::CopiedLines;
+use crate::settings::PseudoTotals;
 use crate::tier_rolls::TierRolls;
 use crate::trade::stat_filters::{LineStat, LineStats};
 
@@ -90,12 +91,18 @@ pub struct Stats<'a> {
 
 impl<'a> Stats<'a> {
     /// The stats of `item`, of whose lines the application knows the `facts`; `base_type` is
-    /// the base type its search looks for, a filter.
+    /// the base type its search looks for, a filter; its `pseudo_totals` shown or hidden by the
+    /// settings.
     #[must_use]
-    pub fn new(item: &'a Item, facts: LineFacts<'_>, base_type: Option<&'a str>) -> Self {
+    pub fn new(
+        item: &'a Item,
+        facts: LineFacts<'_>,
+        base_type: Option<&'a str>,
+        pseudo_totals: PseudoTotals,
+    ) -> Self {
         Self {
             item,
-            rows: rows(item, facts, base_type),
+            rows: rows(item, facts, base_type, pseudo_totals),
         }
     }
 
@@ -154,8 +161,14 @@ pub(super) fn property_value(property: Property, value: f64) -> String {
 }
 
 /// The rows of the stats of `item`, of whose lines the application knows the `facts`;
-/// `base_type` is the base type its search looks for, a filter.
-fn rows<'a>(item: &'a Item, facts: LineFacts<'_>, base_type: Option<&'a str>) -> Vec<Row<'a>> {
+/// `base_type` is the base type its search looks for, a filter. Its `pseudo_totals` hidden, no
+/// pseudo total counts its lines.
+fn rows<'a>(
+    item: &'a Item,
+    facts: LineFacts<'_>,
+    base_type: Option<&'a str>,
+    pseudo_totals: PseudoTotals,
+) -> Vec<Row<'a>> {
     let LineFacts {
         copied_lines,
         line_stats,
@@ -170,7 +183,9 @@ fn rows<'a>(item: &'a Item, facts: LineFacts<'_>, base_type: Option<&'a str>) ->
         push_group(&mut rows, Group::Gem, gem_filters(item));
         Vec::new()
     };
-    let mut pseudo = if matches!(item.rarity(), Rarity::Magic | Rarity::Rare) {
+    let mut pseudo = if pseudo_totals == PseudoTotals::Shown
+        && matches!(item.rarity(), Rarity::Magic | Rarity::Rare)
+    {
         line_stats
             .pseudo_totals()
             .iter()

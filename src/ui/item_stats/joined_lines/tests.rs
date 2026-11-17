@@ -60,6 +60,7 @@ fn the_stats_of_one_modifier_are_joined_each_on_its_own_lines() {
             tier_rolls: &TierRolls::default(),
         },
         None,
+        crate::settings::PseudoTotals::Shown,
     );
 
     assert_eq!(

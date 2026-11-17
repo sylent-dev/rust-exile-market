@@ -256,6 +256,7 @@ fn a_corrupted_item_has_no_note_and_a_lit_state_tag_counts_among_the_active_filt
                 tier_rolls: &TierRolls::default(),
             },
             base_type(item),
+            crate::settings::PseudoTotals::Shown,
         )
     };
 
@@ -312,6 +313,7 @@ fn a_line_the_trade_site_cant_search_isnt_a_filter() {
             tier_rolls: &TierRolls::default(),
         },
         None,
+        crate::settings::PseudoTotals::Shown,
     );
 
     assert_eq!(
@@ -369,6 +371,7 @@ fn the_active_filters_count_the_choices_of_the_player() {
             tier_rolls: &tiers,
         },
         base_type(&crossbow),
+        crate::settings::PseudoTotals::Shown,
     );
     let keys: Vec<FilterKey> = stats
         .rows

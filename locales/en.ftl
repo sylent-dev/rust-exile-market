@@ -464,9 +464,17 @@ language-french = Français
 settings-always-on-top = Always on top
 # The line under Always on top, what it does.
 settings-always-on-top-help = Keeps the window above the game.
+# Label above Always on top and Close with the game.
+settings-game = Game
 settings-close-with-game = Close with the game
 # The line under Close with the game, what it does.
 settings-close-with-game-help = Exile Market quits when Path of Exile 2 closes.
+# Label above the setting of the pseudo totals, after the hotkey.
+settings-search = Search
+# The pseudo totals of a rare or magic item shown among its filters, or neither shown nor searched.
+settings-pseudo-totals = Show the pseudo totals
+# The line under Show the pseudo totals, what it does.
+settings-pseudo-totals-help = Resistances, life, mana and attributes added up, among the filters.
 # Label above the price-check hotkey.
 settings-hotkey = Hotkey
 # The hotkey turned on or off; its keys are drawn after it, in a button that opens the list of the keys.

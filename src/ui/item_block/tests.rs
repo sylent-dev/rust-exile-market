@@ -70,7 +70,7 @@ fn waystone(text: &str, base_type: &str, language: Language) -> (String, String,
         &mut filters,
         &i18n,
     )
-    .stats(false, Some(base_type));
+    .stats(false, Some(base_type), crate::settings::PseudoTotals::Shown);
     let values = block
         .base_values()
         .into_iter()
@@ -212,7 +212,7 @@ fn a_magic_waystone_of_an_unknown_base_keeps_the_name_of_the_game() {
         &mut filters,
         &i18n,
     )
-    .stats(false, None);
+    .stats(false, None, crate::settings::PseudoTotals::Shown);
 
     assert_eq!(block.title(), "Burning Waystone (Tier 15)");
     assert_eq!(block.base_and_class().text, "Waystones");
@@ -441,7 +441,7 @@ fn gem(text: &str, language: Language) -> (LayoutJob, Vec<(String, TagKind)>) {
         &mut filters,
         &i18n,
     )
-    .stats(false, None);
+    .stats(false, None, crate::settings::PseudoTotals::Shown);
     (block.base_and_class(), block.tags())
 }
 

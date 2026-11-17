@@ -197,6 +197,7 @@ impl Scene {
             kind: self.desk.search_kind(),
             to_top: false,
             window: Window::Main,
+            pseudo_totals: PseudoTotals::Shown,
         };
         self.desk.stats_open = stats_open;
         let mut shown = None;
@@ -288,7 +289,7 @@ impl Scene {
     fn search_answered(&mut self, answer: Answer) {
         let search = self
             .desk
-            .shown_search()
+            .shown_search(PseudoTotals::Shown)
             .expect("a search for an item with a kind");
         assert!(matches!(
             (&search.query, self.desk.search_kind()),
@@ -307,7 +308,7 @@ fn draw_the_offers(scene: &mut Scene, ctx: &Context, drawn: &mut Drawn, kind: Se
     // Searching.
     let search = scene
         .desk
-        .shown_search()
+        .shown_search(PseudoTotals::Shown)
         .expect("a search for an item with a kind");
     let _ = scene.desk.search.offers.search(search, Instant::now());
     scene.draw_each_way(ctx, drawn);
@@ -392,7 +393,7 @@ fn draw_every_test_item(interface: Language) {
         }
         if let Some(kind) = scene.desk.search_kind() {
             assert!(
-                scene.desk.shown_search().is_some(),
+                scene.desk.shown_search(PseudoTotals::Shown).is_some(),
                 "{file}: a search of {kind:?}"
             );
             draw_the_offers(&mut scene, &ctx, &mut drawn, kind);

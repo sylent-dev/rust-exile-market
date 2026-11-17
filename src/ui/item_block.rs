@@ -21,6 +21,7 @@ use crate::item::{
     self, DamageKind, Item, ItemState, MAX_GEM_SOCKETS, Rarity, Requirements, TOP_GEM_LEVEL,
     TOP_GEM_QUALITY, WaystoneProperty,
 };
+use crate::settings::PseudoTotals;
 
 /// The space above and under the block.
 const PADDING_Y: f32 = 12.0;
@@ -231,6 +232,8 @@ pub struct ItemBlock<'a> {
     stats_open: bool,
     /// The base type its search looks for, a filter.
     base_type: Option<&'a str>,
+    /// The pseudo totals among its filters, or hidden by the settings.
+    pseudo_totals: PseudoTotals,
     /// The filters of the search, as the player set them.
     filters: &'a mut Filters,
 }
@@ -250,15 +253,23 @@ impl<'a> ItemBlock<'a> {
             tradable: false,
             stats_open: false,
             base_type: None,
+            pseudo_totals: PseudoTotals::Shown,
             filters,
         }
     }
 
-    /// Unfolds the stats, with the base type its search looks for.
+    /// Unfolds the stats, with the base type its search looks for and its `pseudo_totals`
+    /// shown or hidden by the settings, as its search takes them.
     #[must_use]
-    pub fn stats(mut self, open: bool, base_type: Option<&'a str>) -> Self {
+    pub fn stats(
+        mut self,
+        open: bool,
+        base_type: Option<&'a str>,
+        pseudo_totals: PseudoTotals,
+    ) -> Self {
         self.stats_open = open;
         self.base_type = base_type;
+        self.pseudo_totals = pseudo_totals;
         self
     }
 
@@ -499,7 +510,7 @@ impl<'a> ItemBlock<'a> {
     /// The pill of the stats and the number of active filters, and the stats once unfolded;
     /// "Show filters" for an item without modifiers, nothing when it has no filter either.
     fn stats_section(&mut self, ui: &mut Ui) -> Option<ItemBlockAction> {
-        let stats = Stats::new(self.item, self.facts, self.base_type);
+        let stats = Stats::new(self.item, self.facts, self.base_type, self.pseudo_totals);
         if stats.is_empty() {
             return None;
         }
