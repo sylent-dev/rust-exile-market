@@ -376,7 +376,7 @@ no-market-price-normal = No market price for normal items.
 search-to-estimate = Search similar offers to estimate it.
 # A rare or magic item whose filters compare none of its stats: the offers of any item of its
 # base would say nothing of its price.
-check-to-estimate = Check a modifier to estimate this item.
+check-to-estimate = Check a stat that sets this item apart to estimate it.
 # A fixed-name item whose price isn't known yet, or missing.
 prices-downloading = The prices of { $league } are downloading…
 # Before the league is known, at the first launch.

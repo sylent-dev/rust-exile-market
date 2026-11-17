@@ -93,7 +93,7 @@ fn hidden_pseudo_totals_leave_the_lines_as_when_no_total_counts_them() {
         ]
     );
     // A rare: its modifiers unchecked, the base checked alone, and the price block asks for a
-    // modifier ("Check a modifier to estimate this item.").
+    // stat ("Check a stat that sets this item apart to estimate it.").
     let rare = ring("Rare", "Storm Spiral\n");
     assert_eq!(default_checks(&rare), crate::ui::StatChecks::Checked);
     assert_eq!(
