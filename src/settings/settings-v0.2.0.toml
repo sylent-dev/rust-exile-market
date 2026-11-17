@@ -1,6 +1,7 @@
 language = "french"
 always_on_top = true
 close_with_game = true
+pseudo_totals = "hidden"
 league = "HC Forbidden Rites"
 closed_new_leagues = ["Runes of Aldur", "HC Runes of Aldur"]
 

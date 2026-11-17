@@ -24,7 +24,7 @@ fn a_lit_state_tag_reaches_the_search() {
     let corrupted = |filters: &Filters| {
         let trade = session.trade(item);
         let search = trade
-            .search(search_filters(&trade, shown, filters))
+            .search(search_filters(&trade, shown, filters, PseudoTotals::Shown))
             .expect("a search");
         let Query::Items(items) = search.query else {
             panic!("a search of items");

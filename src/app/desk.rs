@@ -17,6 +17,7 @@ use crate::market::MarketEvent;
 use crate::offers_state::LONG_WAIT;
 use crate::recent_items::{RecentItems, ShownSearch};
 use crate::session::{LeagueChange, PricesState, Session, ShownItem};
+use crate::settings::PseudoTotals;
 use crate::trade::query::SearchKind;
 use crate::trade::search::{Answer, Order, Search};
 use crate::ui::{self, ItemBlockAction, OffersAction, TradeStatus, UnreadableItem};
@@ -31,6 +32,8 @@ pub(super) struct Surroundings {
     /// An item was copied: the content scrolls back to the top, to its name and its price.
     pub(super) to_top: bool,
     pub(super) window: Window,
+    /// The pseudo totals among the filters, or hidden by the settings.
+    pub(super) pseudo_totals: PseudoTotals,
 }
 
 /// What the drawing of the item shown asks of the application.
@@ -191,11 +194,16 @@ impl Desk {
 
     /// The search of the offers of the item shown, with its filters as they are, when it can
     /// be searched.
-    fn shown_search(&self) -> Option<Search> {
+    fn shown_search(&self, pseudo_totals: PseudoTotals) -> Option<Search> {
         let shown = self.session.item()?;
         let item = shown.parsed().ok()?;
         let trade = self.session.trade(item);
-        trade.search(search_filters(&trade, shown, &self.search.filters))
+        trade.search(search_filters(
+            &trade,
+            shown,
+            &self.search.filters,
+            pseudo_totals,
+        ))
     }
 
     /// The state of the trade site in the status bar, at `now`: the long wait before the next
@@ -241,6 +249,7 @@ impl Desk {
             offers: &self.search.offers,
             filters: &mut self.search.filters,
             stats_open: self.stats_open,
+            pseudo_totals: around.pseudo_totals,
             prices: around.prices,
             kind: around.kind,
             has_bug_report: around.window == Window::Main,
@@ -253,7 +262,7 @@ impl Desk {
         let request = match offers_action {
             // Built at the click, with the filters as the player just left them.
             Some(OffersAction::Search) => self
-                .shown_search()
+                .shown_search(around.pseudo_totals)
                 .and_then(|search| self.search.offers.search(search, Instant::now()))
                 .map(DeskRequest::Search),
             Some(OffersAction::More) => self.search.offers.more().map(DeskRequest::Search),

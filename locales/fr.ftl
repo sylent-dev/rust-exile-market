@@ -473,9 +473,17 @@ language-french = Français
 settings-always-on-top = Toujours au premier plan
 # La ligne sous Toujours au premier plan, ce qu'elle fait.
 settings-always-on-top-help = Garde la fenêtre au-dessus du jeu.
+# Libellé au-dessus de Toujours au premier plan et de Fermer avec le jeu.
+settings-game = Jeu
 settings-close-with-game = Fermer avec le jeu
 # La ligne sous Fermer avec le jeu, ce qu'elle fait.
 settings-close-with-game-help = Exile Market se ferme quand Path of Exile 2 se ferme.
+# Libellé au-dessus du réglage des totaux pseudo, après le raccourci.
+settings-search = Recherche
+# Les totaux pseudo d'un objet rare ou magique affichés parmi ses filtres, ou ni affichés ni cherchés.
+settings-pseudo-totals = Afficher les totaux pseudo
+# La ligne sous Afficher les totaux pseudo, ce qu'elle fait.
+settings-pseudo-totals-help = Résistances, vie, mana et attributs additionnés, parmi les filtres.
 # Libellé au-dessus du raccourci d'estimation du prix.
 settings-hotkey = Raccourci
 # Le raccourci activé ou non, ses touches après lui, dans un bouton qui ouvre la liste des touches.

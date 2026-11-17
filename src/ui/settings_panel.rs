@@ -1,5 +1,6 @@
-//! The settings, in place of the content of the window: the language, always on top, close with
-//! the game, the price-check hotkey, and at the bottom the link to the donation page and the disclaimer.
+//! The settings, in place of the content of the window: the language; under Game, always on top
+//! and close with the game; the price-check hotkey; under Search, the pseudo totals; and at the
+//! bottom the link to the donation page and the disclaimer.
 
 use egui::text::{LayoutJob, TextFormat};
 use egui::{Align, CentralPanel, Frame, Label, Layout, RichText, Ui, UiBuilder, Vec2, vec2};
@@ -10,7 +11,7 @@ use super::theme::{color, size, text};
 use super::widgets::{self, Mark};
 use crate::hotkey::{HotkeyState, Shortcut};
 use crate::i18n::{Message, Translator};
-use crate::settings::{LanguageSetting, SettingChange, Settings};
+use crate::settings::{LanguageSetting, PseudoTotals, SettingChange, Settings};
 
 /// The space above and under the settings.
 const PADDING_Y: f32 = 12.0;
@@ -18,8 +19,8 @@ const PADDING_Y: f32 = 12.0;
 const GROUP_GAP: f32 = 16.0;
 /// The space between the choices of a group, and under its label.
 const CHOICE_GAP: f32 = 6.0;
-/// The space above a row of a checkbox outside a group, closer than the groups (mock-up section
-/// "Close with the game (20a1)").
+/// The space above the second row of a checkbox of a group, closer than the groups (mock-up
+/// section "Close with the game (20a1)").
 const CHECK_ROW_GAP: f32 = 12.0;
 /// The space between the title of a checkbox and its line under it (the same mock-up section).
 const LINE_GAP: f32 = 1.0;
@@ -28,8 +29,7 @@ const DONATION_GAP: f32 = 22.0;
 /// The space between the line of the donation page and the disclaimer under it.
 const DISCLAIMER_GAP: f32 = 6.0;
 
-/// The texts of a row of a checkbox outside a group: its title, and the line under it that says
-/// what it does.
+/// The texts of a row of a checkbox: its title, and the line under it that says what it does.
 struct CheckRow {
     title: Message,
     line: Message,
@@ -43,6 +43,11 @@ const ALWAYS_ON_TOP: CheckRow = CheckRow {
 const CLOSE_WITH_GAME: CheckRow = CheckRow {
     title: Message::SettingsCloseWithGame,
     line: Message::SettingsCloseWithGameHelp,
+};
+
+const PSEUDO_TOTALS: CheckRow = CheckRow {
+    title: Message::SettingsPseudoTotals,
+    line: Message::SettingsPseudoTotalsHelp,
 };
 
 /// What the player did in the settings.
@@ -116,18 +121,21 @@ impl<'a> SettingsPanel<'a> {
                         .color(color::TEXT),
                 );
                 let language = self.language(ui);
+                self.group_label(ui, Message::SettingsGame);
                 let always_on_top = self.always_on_top(ui);
                 let (close_with_game, hotkey) = if crate::HAS_THE_GAME {
                     (self.close_with_game(ui), self.hotkey(ui))
                 } else {
                     (None, None)
                 };
+                let pseudo_totals = self.pseudo_totals(ui);
                 self.donation(ui);
                 self.disclaimer(ui);
                 // A change wins over the click outside the list of the keys, which it closes too.
                 language
                     .or(always_on_top)
                     .or(close_with_game)
+                    .or(pseudo_totals)
                     .map(SettingsAction::Change)
                     .or(hotkey)
             })
@@ -161,22 +169,39 @@ impl<'a> SettingsPanel<'a> {
         change
     }
 
+    /// The first row of the group Game.
     fn always_on_top(&self, ui: &mut Ui) -> Option<SettingChange> {
+        ui.add_space(CHOICE_GAP);
         let checked = self.settings.always_on_top();
         self.check_row(ui, checked, &ALWAYS_ON_TOP)
             .then_some(SettingChange::AlwaysOnTop(!checked))
     }
 
+    /// The second row of the group Game, under Always on top.
     fn close_with_game(&self, ui: &mut Ui) -> Option<SettingChange> {
+        ui.add_space(CHECK_ROW_GAP);
         let checked = self.settings.close_with_game();
         self.check_row(ui, checked, &CLOSE_WITH_GAME)
             .then_some(SettingChange::CloseWithGame(!checked))
     }
 
-    /// A row of a checkbox outside a group: the checkbox and the title of `row`, then its line
-    /// under the title; whether it was clicked.
+    /// The group Search, its one row: the pseudo totals shown or hidden.
+    fn pseudo_totals(&self, ui: &mut Ui) -> Option<SettingChange> {
+        self.group_label(ui, Message::SettingsSearch);
+        ui.add_space(CHOICE_GAP);
+        let shown = self.settings.pseudo_totals() == PseudoTotals::Shown;
+        let toggled = if shown {
+            PseudoTotals::Hidden
+        } else {
+            PseudoTotals::Shown
+        };
+        self.check_row(ui, shown, &PSEUDO_TOTALS)
+            .then_some(SettingChange::PseudoTotals(toggled))
+    }
+
+    /// A row of a checkbox: the checkbox and the title of `row`, then its line under the title;
+    /// whether it was clicked.
     fn check_row(&self, ui: &mut Ui, checked: bool, row: &CheckRow) -> bool {
-        ui.add_space(CHECK_ROW_GAP);
         let title = self.i18n.text(row.title);
         let clicked = widgets::choice(ui, Mark::Check { checked }, &title).clicked();
         line_under_title(ui, faint_line(self.i18n.text(row.line)));

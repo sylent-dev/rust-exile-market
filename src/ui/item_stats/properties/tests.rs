@@ -104,6 +104,7 @@ fn item_group_of<'a>(item: &'a Item, base_type: Option<&'a str>) -> Vec<String> 
             tier_rolls: &TierRolls::default(),
         },
         base_type,
+        crate::settings::PseudoTotals::Shown,
     );
     row_texts(
         rows.into_iter()
@@ -169,6 +170,7 @@ fn the_base_type_tells_the_item_class_searched_when_it_is_unchecked() {
                 tier_rolls: &tiers,
             },
             Some(base_type),
+            crate::settings::PseudoTotals::Shown,
         )
         .into_iter()
         .find_map(|row| match row {
@@ -615,6 +617,7 @@ fn a_waystone_searches_its_base_and_its_checked_properties() {
                 tier_rolls: &tiers,
             },
             Some(base_type),
+            crate::settings::PseudoTotals::Shown,
         );
         let target = link::target(&item, None, None).expect("a target");
         let query = |filters: &Filters| match link::query(
@@ -787,6 +790,7 @@ fn the_search_of_a_skill_gem_sends_its_name_and_its_checked_properties() {
                 tier_rolls: &tiers,
             },
             target.base_type(),
+            crate::settings::PseudoTotals::Shown,
         );
         let crate::trade::query::Query::Items(query) = link::query(
             &item,

@@ -257,8 +257,8 @@ impl ExileMarketApp {
             SettingChange::AlwaysOnTop(_) => {
                 ctx.send_viewport_cmd(ViewportCommand::WindowLevel(self.settings.window_level()));
             }
-            // Read when the game closes.
-            SettingChange::CloseWithGame(_) => {}
+            // Read when the game closes, and at each frame by the filters of the item shown.
+            SettingChange::CloseWithGame(_) | SettingChange::PseudoTotals(_) => {}
             SettingChange::HotkeyOn(on) => self.hotkey.turn(on),
             SettingChange::HotkeyKeys(keys) => self.hotkey.change_keys(keys),
         }
@@ -434,6 +434,7 @@ impl App for ExileMarketApp {
             // Taken once for both windows.
             to_top: self.desk.take_scroll_to_top(),
             window: Window::Main,
+            pseudo_totals: self.settings.pseudo_totals(),
         };
         self.show_overlay(
             &ctx,

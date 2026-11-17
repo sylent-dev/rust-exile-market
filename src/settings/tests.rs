@@ -45,6 +45,22 @@ fn close_with_the_game_is_off_by_default_and_saved_once_checked() {
 }
 
 #[test]
+fn the_pseudo_totals_are_shown_by_default_and_saved_once_hidden() {
+    let directory = TestDirectory::new("pseudo-totals");
+    let mut settings = Settings::default();
+    assert_eq!(settings.pseudo_totals(), PseudoTotals::Shown);
+
+    assert!(settings.apply(SettingChange::PseudoTotals(PseudoTotals::Hidden)));
+    assert!(!settings.apply(SettingChange::PseudoTotals(PseudoTotals::Hidden)));
+    directory.file().save(&settings);
+
+    assert_eq!(
+        directory.file().load().pseudo_totals(),
+        PseudoTotals::Hidden
+    );
+}
+
+#[test]
 fn the_hotkey_is_on_by_default_and_can_be_turned_off() {
     let mut settings = Settings::default();
     assert!(settings.hotkey().on);
@@ -270,6 +286,7 @@ fn a_value_that_cant_be_read_takes_its_default_and_the_others_are_kept() {
         "closed_update = { league = \"Forbidden Rites\" }",
         "hotkey = 5",
         "close_with_game = \"yes\"",
+        "pseudo_totals = \"folded\"",
         "[hotkey]\non = \"yes\"\nkeys = \"Alt+G\"",
     ] {
         let directory = TestDirectory::new("odd-value");
@@ -286,6 +303,7 @@ fn a_value_that_cant_be_read_takes_its_default_and_the_others_are_kept() {
         assert_eq!(settings.language(), LanguageSetting::System, "{odd}");
         assert!(settings.hotkey().on, "{odd}");
         assert!(!settings.close_with_game(), "{odd}");
+        assert_eq!(settings.pseudo_totals(), PseudoTotals::Shown, "{odd}");
         assert!(directory.0.join(FILE_NAME).exists(), "{odd}");
     }
     let directory = TestDirectory::new("odd-value-of-the-hotkey");
@@ -353,6 +371,7 @@ fn the_file_of_the_version_0_1_0_is_read_with_every_setting() {
 
     assert_eq!(settings, every_setting_of_0_1_0());
     assert!(!settings.close_with_game());
+    assert_eq!(settings.pseudo_totals(), PseudoTotals::Shown);
     assert_eq!(settings.language(), LanguageSetting::French);
     assert!(settings.always_on_top());
     assert!(!settings.hotkey().on);
@@ -367,16 +386,17 @@ fn the_file_of_the_version_0_1_0_is_read_with_every_setting() {
     assert!(directory.0.join(FILE_NAME).exists(), "not set aside");
 }
 
-/// Every setting changed, as the version 0.2.0 writes them: those of 0.1.0, and Close with the
-/// game.
+/// Every setting changed, as the version 0.2.0 writes them: those of 0.1.0, Close with the
+/// game and the pseudo totals hidden.
 fn every_setting() -> Settings {
     let mut settings = every_setting_of_0_1_0();
     settings.apply(SettingChange::CloseWithGame(true));
+    settings.apply(SettingChange::PseudoTotals(PseudoTotals::Hidden));
     settings
 }
 
 /// The file the version 0.2.0 writes, every setting changed: the file of 0.1.0 with Close with
-/// the game. It no longer changes once that version is out, as the file of 0.1.0.
+/// the game and the pseudo totals hidden. It no longer changes once that version is out, as the file of 0.1.0.
 const VERSION_0_2_0: &str = include_str!("settings-v0.2.0.toml");
 
 #[test]
@@ -388,6 +408,7 @@ fn the_file_of_the_version_0_2_0_is_read_with_every_setting() {
 
     assert_eq!(settings, every_setting());
     assert!(settings.close_with_game());
+    assert_eq!(settings.pseudo_totals(), PseudoTotals::Hidden);
 }
 
 /// Until a version changes the format on purpose, with its own file next to this one.

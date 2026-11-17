@@ -12,6 +12,7 @@ use crate::price::Rates;
 use crate::price::estimate::{Estimate, Reference, Worth};
 use crate::price::fixed::{FixedPrice, NoFixedPrice};
 use crate::session::{ItemTrade, PricesState, Session, ShownItem};
+use crate::settings::PseudoTotals;
 use crate::trade::query::{SearchFilters, SearchKind};
 use crate::ui::{
     ItemBlock, ItemBlockAction, LineFacts, OffersAction, OffersBlock, PriceBlock, ShownLeague,
@@ -19,13 +20,14 @@ use crate::ui::{
 };
 
 /// The filters of the search of the item of `trade`, the item `shown`: as the player set
-/// them, or else by default.
+/// them, or else by default, its `pseudo_totals` shown or hidden by the settings.
 pub(super) fn search_filters(
     trade: &ItemTrade,
     shown: &ShownItem,
     filters: &Filters,
+    pseudo_totals: PseudoTotals,
 ) -> SearchFilters {
-    let (_, search) = every_filter(trade, shown, filters);
+    let (_, search) = every_filter(trade, shown, filters, pseudo_totals);
     search
 }
 
@@ -44,9 +46,15 @@ fn every_filter(
     trade: &ItemTrade,
     shown: &ShownItem,
     filters: &Filters,
+    pseudo_totals: PseudoTotals,
 ) -> (Vec<(FilterKey, Filter)>, SearchFilters) {
     let item = trade.item();
-    let stats = Stats::new(item, line_facts(shown), trade.filtered_base_type());
+    let stats = Stats::new(
+        item,
+        line_facts(shown),
+        trade.filtered_base_type(),
+        pseudo_totals,
+    );
     let all = stats.filters(filters);
     let search = SearchFilters {
         states: filters.lit_states_of(item).collect(),
@@ -64,6 +72,7 @@ pub(super) struct ItemView<'a> {
     pub(super) offers: &'a Offers,
     pub(super) filters: &'a mut Filters,
     pub(super) stats_open: bool,
+    pub(super) pseudo_totals: PseudoTotals,
     pub(super) prices: PricesState,
     pub(super) kind: Option<SearchKind>,
     /// The window has the bug report, which the hint of a failed search opens: the main
@@ -83,6 +92,7 @@ impl ItemView<'_> {
             offers,
             filters,
             stats_open,
+            pseudo_totals,
             prices,
             kind,
             has_bug_report,
@@ -99,9 +109,10 @@ impl ItemView<'_> {
             // The pill shows only when its link can be opened: the league and the search known.
             .tradable(trade.is_tradable())
             .stats(stats_open, trade.filtered_base_type())
+            .pseudo_totals(pseudo_totals)
             .show(ui);
         // With the filters as the player just left them.
-        let (all, searched) = every_filter(&trade, shown, filters);
+        let (all, searched) = every_filter(&trade, shown, filters, pseudo_totals);
         let checks = StatChecks::of(&searched, shown.stats(), &all);
         if action == Some(ItemBlockAction::CheckOnTrade)
             && let Some(url) = trade.url(searched)

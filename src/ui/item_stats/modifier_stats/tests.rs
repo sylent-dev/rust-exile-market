@@ -4,7 +4,10 @@
 use super::*;
 use crate::filters::Filter;
 use crate::item;
-use crate::ui::item_stats::fixtures::{default_checks, limit, parse, rows, texts};
+use crate::settings::PseudoTotals;
+use crate::ui::item_stats::fixtures::{
+    base_type, default_checks, limit, parse, row_texts, rows, rows_with, texts,
+};
 
 #[test]
 fn the_pseudo_totals_are_checked_and_the_lines_they_add_up_unchecked() {
@@ -41,6 +44,53 @@ fn the_pseudo_totals_are_checked_and_the_lines_they_add_up_unchecked() {
             "□ +38% to Fire Resistance ≥34 [0.82 T2 36–40]",
             "□ +23% to Lightning Resistance ≥21 [0.44 T5 21–25]",
             "□ +12 to Dexterity ≥11 [0.25 T7 9–12]",
+        ]
+    );
+}
+
+/// The settings hide the pseudo totals (20b): no total is shown nor searched, and the lines a
+/// total would count start as when none counts them.
+#[test]
+fn hidden_pseudo_totals_leave_the_lines_as_when_no_total_counts_them() {
+    let ring = |rarity: &str, name: &str| {
+        parse(&format!(
+            "Item Class: Rings\nRarity: {rarity}\n{name}Sapphire Ring\n--------\n\
+             Item Level: 77\n--------\n\
+             {{ Prefix Modifier \"Rotund\" (Tier: 4) — Life }}\n+65(60-69) to maximum Life\n\
+             {{ Suffix Modifier \"of the Furnace\" (Tier: 2) }}\n+38(36-40)% to Fire Resistance"
+        ))
+    };
+    let hidden = |item: &Item| row_texts(rows_with(item, base_type(item), PseudoTotals::Hidden));
+
+    // A magic item: its lines checked, as its other modifiers.
+    let magic = ring("Magic", "");
+    assert!(
+        texts(&magic).contains(&"Pseudo".to_owned()),
+        "shown by default"
+    );
+    assert_eq!(
+        hidden(&magic),
+        [
+            "Item",
+            "■ Base: Sapphire Ring",
+            "□ ItemLevel: 77 ≥77",
+            "Prefixes 1/1",
+            "■ +65 to maximum Life ≥59 [0.50 T4 60–69]",
+            "Suffixes 1/1",
+            "■ +38% to Fire Resistance ≥34 [0.82 T2 36–40]",
+        ]
+    );
+    // A rare: its modifiers unchecked, the base checked alone.
+    assert_eq!(
+        hidden(&ring("Rare", "Storm Spiral\n")),
+        [
+            "Item",
+            "■ Base: Sapphire Ring",
+            "□ ItemLevel: 77 ≥77",
+            "Prefixes 1/3",
+            "□ +65 to maximum Life ≥59 [0.50 T4 60–69]",
+            "Suffixes 1/3",
+            "□ +38% to Fire Resistance ≥34 [0.82 T2 36–40]",
         ]
     );
 }
