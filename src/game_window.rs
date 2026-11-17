@@ -10,6 +10,8 @@
 //! no client.
 
 use std::sync::mpsc::{self, Receiver, TryRecvError};
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+use std::sync::mpsc::{SendError, Sender};
 use std::time::{Duration, Instant};
 
 #[cfg(target_os = "windows")]
@@ -74,6 +76,42 @@ pub struct Seen {
     pub is_open: bool,
     /// When the windows were read.
     pub at: Instant,
+}
+
+/// Sends a reading of the windows to the window when it changes whether the game is open, and
+/// wakes it then, for the thread of each system: the readings in between are the same.
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+struct ReadingSender<W> {
+    readings: Sender<Seen>,
+    wake: W,
+    /// What the last reading sent said, none before the first.
+    was_open: Option<bool>,
+}
+
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+impl<W: Fn()> ReadingSender<W> {
+    fn new(readings: Sender<Seen>, wake: W) -> Self {
+        Self {
+            readings,
+            wake,
+            was_open: None,
+        }
+    }
+
+    /// Sends `reading` when it differs from the last one sent, the first always.
+    ///
+    /// # Errors
+    ///
+    /// When the window no longer listens: the thread then ends.
+    fn send(&mut self, reading: Seen) -> Result<(), SendError<Seen>> {
+        if self.was_open == Some(reading.is_open) {
+            return Ok(());
+        }
+        self.readings.send(reading)?;
+        (self.wake)();
+        self.was_open = Some(reading.is_open);
+        Ok(())
+    }
 }
 
 /// What the game did, as the window is told.
@@ -156,7 +194,7 @@ impl GameWindowWatch {
     pub fn start(wake: impl Fn() + Send + 'static) -> Self {
         let (sender, receiver) = mpsc::channel();
         #[cfg(any(target_os = "linux", target_os = "windows"))]
-        if let Err(error) = system::follow(sender, wake) {
+        if let Err(error) = system::follow(ReadingSender::new(sender, wake)) {
             log::warn!("Whether the game is open can't be followed: {error}");
         }
         #[cfg(not(any(target_os = "linux", target_os = "windows")))]

@@ -2,7 +2,6 @@
 //! (`_NET_CLIENT_LIST`, EWMH), minimized or not, read again at each change of the list and of the
 //! active window (a window of the game titled after it is listed is seen once it is active).
 
-use std::sync::mpsc::Sender;
 use std::time::Instant;
 
 use x11rb::connection::Connection;
@@ -12,7 +11,7 @@ use x11rb::protocol::xproto::{
     Window,
 };
 
-use super::{Seen, is_game_class, is_game_title};
+use super::{ReadingSender, Seen, is_game_class, is_game_title};
 use crate::x11::{Result, Session};
 
 /// Reads the windows of the desktop on a thread of its own, and sends whether one of them is the
@@ -23,13 +22,13 @@ use crate::x11::{Result, Session};
 /// # Errors
 ///
 /// When the X server can't be reached, or the thread can't start: told at once.
-pub fn follow(seen: Sender<Seen>, wake: impl Fn() + Send + 'static) -> Result<()> {
+pub(super) fn follow(mut readings: ReadingSender<impl Fn() + Send + 'static>) -> Result<()> {
     let session = Session::connect()?;
     let client_list = session.intern(b"_NET_CLIENT_LIST")?;
     std::thread::Builder::new()
         .name("game-open".to_owned())
         .spawn(move || {
-            if let Err(error) = follow_windows(&session, client_list, &seen, &wake) {
+            if let Err(error) = follow_windows(&session, client_list, &mut readings) {
                 log::warn!("Whether the game is open can't be followed: {error}");
             }
         })?;
@@ -44,8 +43,7 @@ pub fn follow(seen: Sender<Seen>, wake: impl Fn() + Send + 'static) -> Result<()
 fn follow_windows(
     session: &Session,
     client_list: Atom,
-    seen: &Sender<Seen>,
-    wake: &impl Fn(),
+    readings: &mut ReadingSender<impl Fn()>,
 ) -> Result<()> {
     if !session.supports(client_list)? {
         return Err("the desktop doesn't tell its windows (_NET_SUPPORTED)".into());
@@ -60,18 +58,13 @@ fn follow_windows(
         )?
         .check()?;
     let lists = [client_list, session.atoms().active_window];
-    let mut was_open = None;
     loop {
         let at = Instant::now();
         let is_open = windows(session, client_list)?
             .into_iter()
             .any(|window| is_game(session, window));
-        if was_open != Some(is_open) {
-            if seen.send(Seen { is_open, at }).is_err() {
-                return Ok(());
-            }
-            wake();
-            was_open = Some(is_open);
+        if readings.send(Seen { is_open, at }).is_err() {
+            return Ok(());
         }
         loop {
             if let Event::PropertyNotify(event) = session.connection().wait_for_event()?

@@ -2,13 +2,12 @@
 //! hidden one), read once a second.
 
 use std::io;
-use std::sync::mpsc::Sender;
 use std::thread;
 use std::time::{Duration, Instant};
 
 use winsafe::HWND;
 
-use super::{Seen, is_game_window};
+use super::{ReadingSender, Seen, is_game_window};
 
 /// How often the windows are read. Windows tells their changes only to a hook
 /// (`SetWinEventHook`), whose callback can't be written without `unsafe`: read once a second
@@ -23,11 +22,10 @@ const WINDOWS_POLL: Duration = Duration::from_secs(1);
 /// # Errors
 ///
 /// When the thread can't start.
-pub fn follow(seen: Sender<Seen>, wake: impl Fn() + Send + 'static) -> io::Result<()> {
+pub(super) fn follow(mut readings: ReadingSender<impl Fn() + Send + 'static>) -> io::Result<()> {
     thread::Builder::new()
         .name("game-open".to_owned())
         .spawn(move || {
-            let mut was_open = None;
             loop {
                 let at = Instant::now();
                 let is_open = match is_game_open() {
@@ -37,12 +35,8 @@ pub fn follow(seen: Sender<Seen>, wake: impl Fn() + Send + 'static) -> io::Resul
                         return;
                     }
                 };
-                if was_open != Some(is_open) {
-                    if seen.send(Seen { is_open, at }).is_err() {
-                        return;
-                    }
-                    wake();
-                    was_open = Some(is_open);
+                if readings.send(Seen { is_open, at }).is_err() {
+                    return;
                 }
                 thread::sleep(WINDOWS_POLL);
             }

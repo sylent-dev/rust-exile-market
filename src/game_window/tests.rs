@@ -145,3 +145,39 @@ fn the_game_is_never_told_closed_once_its_windows_can_no_longer_be_read() {
     assert_eq!(watch.follow(start + Duration::from_secs(60)), []);
     assert_eq!(watch.next_check(start + Duration::from_secs(60)), None);
 }
+
+#[test]
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+fn a_reading_is_sent_only_when_it_changes_whether_the_game_is_open() {
+    let start = Instant::now();
+    let (sender, receiver) = mpsc::channel();
+    let wakes = std::cell::Cell::new(0);
+    let mut readings = ReadingSender::new(sender, || wakes.set(wakes.get() + 1));
+    for (seconds, is_open) in [
+        (0.0, false),
+        (1.0, false),
+        (2.0, true),
+        (3.0, true),
+        (4.0, false),
+    ] {
+        readings.send(seen(start, seconds, is_open)).unwrap();
+    }
+    assert_eq!(
+        receiver.try_iter().collect::<Vec<_>>(),
+        [
+            seen(start, 0.0, false),
+            seen(start, 2.0, true),
+            seen(start, 4.0, false)
+        ]
+    );
+    assert_eq!(wakes.get(), 3);
+}
+
+#[test]
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+fn the_thread_of_the_system_is_told_when_the_window_no_longer_listens() {
+    let (sender, receiver) = mpsc::channel();
+    let mut readings = ReadingSender::new(sender, || {});
+    drop(receiver);
+    assert!(readings.send(seen(Instant::now(), 0.0, true)).is_err());
+}
