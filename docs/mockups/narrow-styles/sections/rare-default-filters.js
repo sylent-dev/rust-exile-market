@@ -29,8 +29,8 @@ const statChecked = rows => {
   });
 };
 const NO_STAT = {
-  en: { lines: ["No market price for rare items.", "Check a modifier to estimate this item."] },
-  fr: { lines: ["Pas de prix de marché pour les objets rares.", "Cochez un modificateur pour estimer cet objet."] },
+  en: { lines: ["No market price for rare items.", "Check a stat that sets this item apart to estimate it."] },
+  fr: { lines: ["Pas de prix de marché pour les objets rares.", "Cochez une statistique qui distingue cet objet pour l'estimer."] },
 };
 const BEFORE_FR = { lines: ["Pas de prix de marché pour les objets rares.", "Cherchez des offres similaires pour l'estimer."] };
 // The window of `it` with its stats `rows` unfolded (`withRule`), its price block, and `offersBlock` when given.

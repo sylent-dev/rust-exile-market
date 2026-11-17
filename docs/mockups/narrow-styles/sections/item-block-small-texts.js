@@ -66,11 +66,19 @@ const stRing = (note, { fr = false, tip } = {}) => {
 };
 
 // The French bow of the in-game trade (13k2e): its runes and its base, without range field, over the range column.
-const stOverColumn = rows => rows.map(row => row.check !== undefined && row.min === undefined && row.mod ? { ...row, cls: "app-no-field" } : row);
+const stOverColumn = rows => rows.map(row => (row.check !== undefined || row.warning) && row.min === undefined && row.mod ? { ...row, cls: "app-no-field" } : row);
 const stBow = (rows, dpsTip = false) => {
   const html = item({ ...BOW_TRADE_FR, stats: rows }, true);
   return win(topBar(), dpsTip ? stDps(html, true) : html, price(BEFORE_FR, "fr"), foot("poe2scout il y a 12min · GGG trade il y a 2min"));
 };
+
+// A line the trade site can't search (13e), in French: no range field either, so over the column too (code review of
+// 22a, the owner's word on 2026-11-17).
+const stUnique = rows => win(topBar(), item({ rarity: "unique", name: "Foulée d'orage", base: "Sandales en treillis", cls: "Bottes",
+  tags: ["niv. 72"], props: [["Bouclier d'énergie", "64"]], req: "Niveau requis 52 · 41 Int", filters: "6 filtres", statsLabel: "Statistiques (8)",
+  tradeLabel: "Voir sur l'échange", tradeTitle: "Ouvrir la recherche sur le site d'échange", stats: rows }, true),
+  price({ values: ["0.3", "3", "220"], offers: "9 offres", trend: "Stable sur les 7 derniers jours", stable: true }, "fr"),
+  foot("poe2scout il y a 12min · GGG trade il y a 2min"));
 
 SECTIONS.unshift(["Small texts of the item block (22a): the DPS, the note of the price block, the filters without range field", [
   ["1 · Chosen · The DPS: its tooltip under the pointer, on each DPS", win(topBar(), stDps(item(BOW), false), price(RARE_ESTIMATE_BEFORE), foot())],
@@ -82,4 +90,6 @@ SECTIONS.unshift(["Small texts of the item block (22a): the DPS, the note of the
   ["2 · The note · Chosen · C · en français", stRing(ST_TEXT.fr.c, { fr: true })],
   ["3 · Filters without range field · Today: the range column kept, the runes wrap", stBow(bowTradeStatsFr)],
   ["3 · Filters without range field · Chosen: over the range column", stBow(stOverColumn(bowTradeStatsFr))],
+  ["3 · A line the trade site can't search · Today: the range column kept", stUnique(stormtreadStats("fr"))],
+  ["3 · A line the trade site can't search · Chosen: over the range column too", stUnique(stOverColumn(stormtreadStats("fr")))],
 ]]);
