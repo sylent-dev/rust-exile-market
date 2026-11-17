@@ -12,9 +12,14 @@
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::time::{Duration, Instant};
 
+#[cfg(target_os = "windows")]
+mod windows;
 #[cfg(target_os = "linux")]
 mod x11;
 
+// The windows of each system read: `follow`, once at the start.
+#[cfg(target_os = "windows")]
+use self::windows as system;
 #[cfg(target_os = "linux")]
 use self::x11 as system;
 
@@ -149,11 +154,11 @@ impl GameWindowWatch {
     /// be read, the reason goes to the log once, and the game is never told open.
     pub fn start(wake: impl Fn() + Send + 'static) -> Self {
         let (sender, receiver) = mpsc::channel();
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "windows"))]
         if let Err(error) = system::follow(sender, wake) {
             log::warn!("Whether the game is open can't be followed: {error}");
         }
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(not(any(target_os = "linux", target_os = "windows")))]
         drop((sender, wake));
         Self {
             seen: Some(receiver),
