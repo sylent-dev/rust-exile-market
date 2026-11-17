@@ -19,7 +19,7 @@ use self::overlay_window::OverlayWindow;
 use crate::bug_report::{Facts, GameSettings, JoinedItem, LogSession, Report};
 use crate::clipboard::{self, ClipboardEvent, ClipboardWatch};
 use crate::filters::Window;
-use crate::game_window::GameWindowWatch;
+use crate::game_window::{self, GameWindowWatch};
 use crate::hotkey::PriceCheckHotkey;
 use crate::i18n::{DOWNLOAD_QUOTE_COUNT, Message, Translator};
 use crate::item::CopiedItem;
@@ -337,7 +337,11 @@ impl App for ExileMarketApp {
         self.overlay_window.follow(ctx, &self.hotkey, now);
         let main_focused = ctx.input(|input| input.viewport().focused.unwrap_or(false));
         self.hotkey.follow_game(main_focused);
-        self.game_window.follow(now);
+        if quits_with_the_game(&self.game_window.follow(now), &self.settings) {
+            log::info!("Closing with the game");
+            // As the Close of the title bar: eframe saves the window on the way out.
+            ctx.send_viewport_cmd(ViewportCommand::Close);
+        }
         if let Some(wait) = self.game_window.next_check(now) {
             ctx.request_repaint_after(wait);
         }
@@ -546,6 +550,12 @@ fn random_quote() -> usize {
     // Each `RandomState` has its own keys: enough to draw a sentence.
     let [byte, ..] = RandomState::new().hash_one(()).to_le_bytes();
     usize::from(byte) % DOWNLOAD_QUOTE_COUNT
+}
+
+/// Whether the application quits after the `changes` of the game: once it closed, when the
+/// player checked Close with the game.
+fn quits_with_the_game(changes: &[game_window::Change], settings: &Settings) -> bool {
+    settings.close_with_game() && changes.contains(&game_window::Change::Closed)
 }
 
 #[cfg(test)]
