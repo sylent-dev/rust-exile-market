@@ -19,6 +19,7 @@ use self::overlay_window::OverlayWindow;
 use crate::bug_report::{Facts, JoinedItem, LogSession, Report};
 use crate::clipboard::{self, ClipboardEvent, ClipboardWatch};
 use crate::filters::Window;
+use crate::game_window::GameWindowWatch;
 use crate::hotkey::PriceCheckHotkey;
 use crate::i18n::{DOWNLOAD_QUOTE_COUNT, Message, Translator};
 use crate::item::CopiedItem;
@@ -76,6 +77,8 @@ pub struct ExileMarketApp {
     /// Ctrl+D copies the item in the game: the copy then arrives through the clipboard, and
     /// opens the window over the game.
     hotkey: PriceCheckHotkey,
+    /// Whether Path of Exile 2 is open.
+    game_window: GameWindowWatch,
     overlay_window: OverlayWindow,
     market: MarketWatch,
     item_names: ItemNamesWatch,
@@ -108,6 +111,7 @@ impl ExileMarketApp {
         let names_ctx = creation.egui_ctx.clone();
         let search_ctx = creation.egui_ctx.clone();
         let hotkey_ctx = creation.egui_ctx.clone();
+        let game_window_ctx = creation.egui_ctx.clone();
         let overlay_ctx = creation.egui_ctx.clone();
         let update_ctx = creation.egui_ctx.clone();
         let clipboard = ClipboardWatch::start(move || clipboard_ctx.request_repaint());
@@ -133,6 +137,7 @@ impl ExileMarketApp {
             lists: OpenLists::default(),
             clipboard,
             hotkey,
+            game_window: GameWindowWatch::start(move || game_window_ctx.request_repaint()),
             overlay_window: OverlayWindow::start(move || overlay_ctx.request_repaint()),
             market,
             item_names: ItemNamesWatch::start(refusal.clone(), move || {
@@ -328,6 +333,10 @@ impl App for ExileMarketApp {
         self.overlay_window.follow(ctx, &self.hotkey, now);
         let main_focused = ctx.input(|input| input.viewport().focused.unwrap_or(false));
         self.hotkey.follow_game(main_focused);
+        self.game_window.follow(now);
+        if let Some(wait) = self.game_window.next_check(now) {
+            ctx.request_repaint_after(wait);
+        }
         if self
             .search
             .receive(|answer| self.desk.apply_answer(answer, SystemTime::now()))

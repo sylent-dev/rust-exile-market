@@ -26,6 +26,12 @@ pub struct Atoms {
     /// `_EXILE_MARKET_GAME`, the game the helper of the window over the game carries
     /// ([`crate::overlay`]), while it is shown.
     pub game_behind: Atom,
+    /// `_NET_SUPPORTED`, the hints the desktop keeps, on the root window.
+    pub supported: Atom,
+    /// `_NET_WM_NAME`, the title of a window in UTF-8.
+    pub net_wm_name: Atom,
+    /// `UTF8_STRING`, the type of `_NET_WM_NAME`.
+    pub utf8_string: Atom,
 }
 
 /// A connection to the X server, with its root window and the atoms of the application. Each
@@ -51,6 +57,9 @@ impl Session {
             active_window: atom(b"_NET_ACTIVE_WINDOW")?,
             pid: atom(b"_NET_WM_PID")?,
             game_behind: atom(b"_EXILE_MARKET_GAME")?,
+            supported: atom(b"_NET_SUPPORTED")?,
+            net_wm_name: atom(b"_NET_WM_NAME")?,
+            utf8_string: atom(b"UTF8_STRING")?,
         };
         Ok(Self {
             connection,
@@ -99,6 +108,50 @@ impl Session {
             .and_then(|mut windows| windows.next())
             .unwrap_or(x11rb::NONE);
         Ok((window != x11rb::NONE).then_some(window))
+    }
+
+    /// Whether the desktop keeps the hint `hint` up to date (`_NET_SUPPORTED`, EWMH), such as
+    /// `_NET_ACTIVE_WINDOW`: none is kept before the window manager starts.
+    pub fn supports(&self, hint: Atom) -> Result<bool> {
+        // Read whole: the server sends the property up to its length.
+        let supported = self
+            .connection
+            .get_property(
+                false,
+                self.root,
+                self.atoms.supported,
+                AtomEnum::ATOM,
+                0,
+                u32::MAX,
+            )?
+            .reply()?;
+        Ok(supports(supported.value32().into_iter().flatten(), hint))
+    }
+
+    /// The `WM_CLASS` of `window`, an instance name then a class name, each ended by a null
+    /// byte.
+    pub fn window_class(&self, window: Window) -> Result<Vec<u8>> {
+        self.property(window, AtomEnum::WM_CLASS.into(), AtomEnum::STRING.into())
+    }
+
+    /// The title of `window`: its `_NET_WM_NAME`, otherwise its old `WM_NAME` of any type, read
+    /// only then: Wine or Xlib may write it in UTF-8 or as compound text, the title of the game
+    /// being in ASCII alike in each.
+    pub fn window_title(&self, window: Window) -> Result<Vec<u8>> {
+        title(
+            self.property(window, self.atoms.net_wm_name, self.atoms.utf8_string)?,
+            || self.property(window, AtomEnum::WM_NAME.into(), AtomEnum::ANY.into()),
+        )
+    }
+
+    /// The first 1,024 bytes of the property `name` of `window`, of type `kind`: enough for a
+    /// class or a title.
+    fn property(&self, window: Window, name: Atom, kind: Atom) -> Result<Vec<u8>> {
+        Ok(self
+            .connection
+            .get_property(false, window, name, kind, 0, 256)?
+            .reply()?
+            .value)
     }
 
     /// The pointer, on the root window: where it is, its child window there and the buttons and
@@ -187,6 +240,20 @@ impl Session {
     /// mapping, which are never needed, so that they don't pile up.
     pub fn drop_events(&self) {
         while let Ok(Some(_)) = self.connection.poll_for_event() {}
+    }
+}
+
+/// Whether the hints of `_NET_SUPPORTED`, `supported`, hold `hint`.
+fn supports(mut supported: impl Iterator<Item = Atom>, hint: Atom) -> bool {
+    supported.any(|atom| atom == hint)
+}
+
+/// The title of a window: its `_NET_WM_NAME`, otherwise its old `WM_NAME`, read only then.
+fn title(net_wm_name: Vec<u8>, wm_name: impl FnOnce() -> Result<Vec<u8>>) -> Result<Vec<u8>> {
+    if net_wm_name.is_empty() {
+        wm_name()
+    } else {
+        Ok(net_wm_name)
     }
 }
 
@@ -337,5 +404,27 @@ mod tests {
         assert!(is_nowhere(x11rb::NONE, ROOT));
         assert!(!is_nowhere(u32::from(InputFocus::POINTER_ROOT), ROOT));
         assert!(!is_nowhere(0x660_0001, ROOT));
+    }
+
+    #[test]
+    fn a_hint_is_kept_only_when_the_desktop_says_it() {
+        let (active_window, other) = (300, 404);
+        assert!(supports(
+            [301, other, active_window].into_iter(),
+            active_window
+        ));
+        assert!(!supports([other, 405].into_iter(), active_window));
+        // No `_NET_SUPPORTED` at all: a window manager not started yet, or none.
+        assert!(!supports(std::iter::empty(), active_window));
+    }
+
+    #[test]
+    fn reads_the_old_title_only_without_net_wm_name() {
+        let old = || -> Result<Vec<u8>> { Ok(b"Path of Exile 2".to_vec()) };
+        assert_eq!(title(Vec::new(), old).unwrap(), b"Path of Exile 2");
+        assert_eq!(
+            title(b"Steam".to_vec(), || panic!("read without need")).unwrap(),
+            b"Steam"
+        );
     }
 }

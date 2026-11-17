@@ -45,8 +45,6 @@ pub fn follow_game(mut game: impl FnMut(Active) -> bool + Send + 'static) -> Res
 struct WatchAtoms {
     /// `_NET_ACTIVE_WINDOW`, on the root window.
     active_window: Atom,
-    /// `_NET_SUPPORTED`, the hints the desktop keeps, on the root window.
-    supported: Atom,
     /// `_NET_WM_NAME`, the title of a window in UTF-8.
     net_wm_name: Atom,
     /// `UTF8_STRING`, the type of `_NET_WM_NAME`.
@@ -65,9 +63,8 @@ impl ActiveWindow {
         let session = Session::connect()?;
         let atoms = WatchAtoms {
             active_window: session.atoms().active_window,
-            supported: session.intern(b"_NET_SUPPORTED")?,
-            net_wm_name: session.intern(b"_NET_WM_NAME")?,
-            utf8_string: session.intern(b"UTF8_STRING")?,
+            net_wm_name: session.atoms().net_wm_name,
+            utf8_string: session.atoms().utf8_string,
         };
         Ok(Self { session, atoms })
     }
@@ -84,7 +81,8 @@ impl ActiveWindow {
             Ok(name) => log::info!("Window manager: {name}"),
             Err(error) => log::info!("Window manager: unknown ({error})"),
         }
-        if !self.tells_active_window()? {
+        // A desktop started after the application leaves the hotkey grabbed for every window.
+        if !self.session.supports(self.atoms.active_window)? {
             return Err("the desktop doesn't tell its active window (_NET_SUPPORTED)".into());
         }
         // Listened to before the active window is read, so that no change is missed.
@@ -123,28 +121,6 @@ impl ActiveWindow {
             }
             self.wait_for_change(followed)?;
         }
-    }
-
-    /// Whether the desktop keeps `_NET_ACTIVE_WINDOW` up to date, read once at the start: a
-    /// desktop started after the application leaves the hotkey grabbed for every window.
-    fn tells_active_window(&self) -> Result<bool> {
-        // Read whole: the server sends the property up to its length.
-        let supported = self
-            .session
-            .connection()
-            .get_property(
-                false,
-                self.session.root(),
-                self.atoms.supported,
-                AtomEnum::ATOM,
-                0,
-                u32::MAX,
-            )?
-            .reply()?;
-        Ok(supports(
-            supported.value32().into_iter().flatten(),
-            self.atoms.active_window,
-        ))
     }
 
     /// The name of the window manager: the `_NET_WM_NAME` of the window it names on the root
@@ -207,25 +183,11 @@ impl ActiveWindow {
         if self.session.game_behind(window)?.is_some() {
             return Ok(true);
         }
-        let property = |name: Atom, kind: Atom| -> Result<Vec<u8>> {
-            Ok(self
-                .session
-                .connection()
-                .get_property(false, window, name, kind, 0, 256)?
-                .reply()?
-                .value)
-        };
-        let class = property(AtomEnum::WM_CLASS.into(), AtomEnum::STRING.into())?;
+        let class = self.session.window_class(window)?;
         if is_game_class(&class) {
             return Ok(true);
         }
-        // `WM_NAME` of any type: Wine or Xlib may write it in UTF-8 or as compound text, the
-        // title of the game being in ASCII alike in each.
-        let title = title(
-            property(self.atoms.net_wm_name, self.atoms.utf8_string)?,
-            || property(AtomEnum::WM_NAME.into(), AtomEnum::ANY.into()),
-        )?;
-        let is_game = is_game_title(&title);
+        let is_game = is_game_title(&self.session.window_title(window)?);
         let class = window_class(&class);
         if !classes_told.contains(&class) {
             // The class of the game told by its title (a client run by Wine, whose class is
@@ -239,11 +201,6 @@ impl ActiveWindow {
         }
         Ok(is_game)
     }
-}
-
-/// Whether the hints of `_NET_SUPPORTED`, `supported`, hold `hint`.
-fn supports(mut supported: impl Iterator<Item = Atom>, hint: Atom) -> bool {
-    supported.any(|atom| atom == hint)
 }
 
 /// The active window read, none for the root window, which a desktop may write there: listened to
@@ -273,15 +230,6 @@ fn matters(
         .contains(&event.atom)
 }
 
-/// The title of a window: its `_NET_WM_NAME`, otherwise its old `WM_NAME`, read only then.
-fn title(net_wm_name: Vec<u8>, wm_name: impl FnOnce() -> Result<Vec<u8>>) -> Result<Vec<u8>> {
-    if net_wm_name.is_empty() {
-        wm_name()
-    } else {
-        Ok(net_wm_name)
-    }
-}
-
 /// The name of a window manager from its `_NET_WM_NAME`, as the log writes the text of another
 /// program: one short line.
 fn window_manager_name(name: &[u8]) -> String {
@@ -301,7 +249,6 @@ mod tests {
     const FOLLOWED: Window = 0x0060_0001;
     const ATOMS: WatchAtoms = WatchAtoms {
         active_window: 300,
-        supported: 301,
         net_wm_name: 302,
         utf8_string: 303,
     };
@@ -378,29 +325,10 @@ mod tests {
     }
 
     #[test]
-    fn follows_the_game_only_on_a_desktop_that_tells_its_active_window() {
-        let supported = [ATOMS.supported, 404, ATOMS.active_window];
-        assert!(supports(supported.into_iter(), ATOMS.active_window));
-        assert!(!supports([404, 405].into_iter(), ATOMS.active_window));
-        // No `_NET_SUPPORTED` at all: a window manager not started yet, or none.
-        assert!(!supports(std::iter::empty(), ATOMS.active_window));
-    }
-
-    #[test]
     fn never_follows_the_root_window_as_the_active_window() {
         assert_eq!(known_active(Some(ROOT), ROOT), None);
         assert_eq!(known_active(Some(FOLLOWED), ROOT), Some(FOLLOWED));
         assert_eq!(known_active(None, ROOT), None);
-    }
-
-    #[test]
-    fn reads_the_old_title_only_without_net_wm_name() {
-        let old = || -> Result<Vec<u8>> { Ok(b"Path of Exile 2".to_vec()) };
-        assert_eq!(title(Vec::new(), old).unwrap(), b"Path of Exile 2");
-        assert_eq!(
-            title(b"Steam".to_vec(), || panic!("read without need")).unwrap(),
-            b"Steam"
-        );
     }
 
     #[test]
