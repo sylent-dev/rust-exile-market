@@ -462,6 +462,8 @@ language-system = System
 language-english = English
 language-french = Français
 settings-always-on-top = Always on top
+# The line under Always on top, what it does.
+settings-always-on-top-help = Keeps the window above the game.
 # Label above the price-check hotkey.
 settings-hotkey = Hotkey
 # The hotkey turned on or off; its keys are drawn after it, in a button that opens the list of the keys.

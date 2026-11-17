@@ -81,6 +81,7 @@ messages! {
     LanguageEnglish => "language-english",
     LanguageFrench => "language-french",
     SettingsAlwaysOnTop => "settings-always-on-top",
+    SettingsAlwaysOnTopHelp => "settings-always-on-top-help",
     SettingsHotkey => "settings-hotkey",
     SettingsHotkeyPriceCheck => "settings-hotkey-price-check",
     SettingsHotkeyHelp => "settings-hotkey-help",

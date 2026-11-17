@@ -1,8 +1,8 @@
 //! The settings, in place of the content of the window: the language, always on top, the
 //! price-check hotkey, and at the bottom the link to the donation page and the disclaimer.
 
-use egui::text::TextFormat;
-use egui::{Align, CentralPanel, Frame, Label, Layout, RichText, Ui, Vec2, vec2};
+use egui::text::{LayoutJob, TextFormat};
+use egui::{Align, CentralPanel, Frame, Label, Layout, RichText, Ui, UiBuilder, Vec2, vec2};
 
 use super::hotkey_list::{self, HotkeyList, HotkeyListAction, KeysButton};
 use super::keys::{self, Emphasis};
@@ -18,6 +18,11 @@ const PADDING_Y: f32 = 12.0;
 const GROUP_GAP: f32 = 16.0;
 /// The space between the choices of a group, and under its label.
 const CHOICE_GAP: f32 = 6.0;
+/// The space above a row of a checkbox outside a group, closer than the groups (mock-up section
+/// "Close with the game (20a1)").
+const CHECK_ROW_GAP: f32 = 12.0;
+/// The space between the title of a checkbox and its line under it (the same mock-up section).
+const LINE_GAP: f32 = 1.0;
 /// The space above the line of the donation page, at the bottom of the settings.
 const DONATION_GAP: f32 = 22.0;
 /// The space between the line of the donation page and the disclaimer under it.
@@ -140,16 +145,19 @@ impl<'a> SettingsPanel<'a> {
     }
 
     fn always_on_top(&self, ui: &mut Ui) -> Option<SettingChange> {
-        ui.add_space(GROUP_GAP);
+        ui.add_space(CHECK_ROW_GAP);
         let checked = self.settings.always_on_top();
-        let label = self.i18n.text(Message::SettingsAlwaysOnTop);
-        widgets::choice(ui, Mark::Check { checked }, &label)
-            .clicked()
-            .then_some(SettingChange::AlwaysOnTop(!checked))
+        let title = self.i18n.text(Message::SettingsAlwaysOnTop);
+        let clicked = widgets::choice(ui, Mark::Check { checked }, &title).clicked();
+        line_under_title(
+            ui,
+            faint_line(self.i18n.text(Message::SettingsAlwaysOnTopHelp)),
+        );
+        clicked.then_some(SettingChange::AlwaysOnTop(!checked))
     }
 
     /// The price-check hotkey: its checkbox, the button of its keys on the right of the row and
-    /// their list under it, then a line under the row, what it does, or in the color of the
+    /// their list under it, then a line under its title, what it does, or in the color of the
     /// warnings that its key is taken.
     fn hotkey(&self, ui: &mut Ui) -> Option<SettingsAction> {
         self.group_label(ui, Message::SettingsHotkey);
@@ -177,8 +185,7 @@ impl<'a> SettingsPanel<'a> {
             })
             .inner;
         let list = HotkeyList::new(shortcut, self.i18n).show(ui.ctx(), &button, self.keys_open);
-        ui.add_space(CHOICE_GAP);
-        let note = if self.hotkey == HotkeyState::Taken {
+        let line = if self.hotkey == HotkeyState::Taken {
             let held = keys::joined(&keys::named(&self.held.keys(), self.i18n));
             let copy = keys::joined(&keys::COPY);
             keys::two_lines(
@@ -191,12 +198,9 @@ impl<'a> SettingsPanel<'a> {
                 },
             )
         } else {
-            egui::text::LayoutJob::simple_format(
-                self.i18n.text(Message::SettingsHotkeyHelp),
-                TextFormat::simple(text::small(), color::FAINT),
-            )
+            faint_line(self.i18n.text(Message::SettingsHotkeyHelp))
         };
-        ui.add(Label::new(note).wrap());
+        line_under_title(ui, line);
         hotkey_action(checked.then_some(!on), button.clicked(), list)
     }
 
@@ -230,6 +234,22 @@ impl<'a> SettingsPanel<'a> {
             .wrap(),
         );
     }
+}
+
+/// The line under the title of a checkbox, from the start of the title to the right edge of the
+/// settings, under the keys of the hotkey too.
+fn line_under_title(ui: &mut Ui, line: LayoutJob) {
+    ui.add_space(LINE_GAP);
+    let mut rect = ui.available_rect_before_wrap();
+    rect.min.x += widgets::CHOICE_TEXT_LEFT;
+    ui.scope_builder(UiBuilder::new().max_rect(rect), |ui| {
+        ui.add(Label::new(line).wrap());
+    });
+}
+
+/// What a checkbox does, in faint text.
+fn faint_line(text: String) -> LayoutJob {
+    LayoutJob::simple_format(text, TextFormat::simple(text::small(), color::FAINT))
 }
 
 /// What the player did with the hotkey in a frame: the checkbox `turned` on or off, the button of
