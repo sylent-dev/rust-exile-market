@@ -172,16 +172,30 @@ impl BaseValue {
         }
     }
 
-    /// The name of the game of a label written short, for its tooltip: the revives, and in
-    /// French the drop chance of a waystone.
-    fn full_label(self) -> Option<Message> {
-        match self {
-            Self::Waystone(WaystoneProperty::Revives, _) => Some(Message::WaystoneRevivesFull),
-            Self::Waystone(WaystoneProperty::DropChance, _) => {
-                Some(Message::WaystoneDropChanceFull)
-            }
-            _ => None,
-        }
+    /// The tooltip of the value: for a DPS, that it is the game's, with the quality, the
+    /// modifiers and the runes, not the DPS of the base; for a label written short, the name of
+    /// the game (the revives, and in French the drop chance of a waystone), none when the
+    /// language writes it whole.
+    fn tooltip(self, i18n: &Translator) -> Option<String> {
+        let tooltip = match self {
+            Self::Dps(..) => Message::DpsTooltip,
+            Self::Waystone(WaystoneProperty::Revives, _) => Message::WaystoneRevivesFull,
+            Self::Waystone(WaystoneProperty::DropChance, _) => Message::WaystoneDropChanceFull,
+            Self::Armour(_)
+            | Self::Evasion(_)
+            | Self::EnergyShield(_)
+            | Self::Block(_)
+            | Self::RunicWard(_)
+            | Self::Waystone(
+                WaystoneProperty::ItemRarity
+                | WaystoneProperty::PackSize
+                | WaystoneProperty::MonsterRarity
+                | WaystoneProperty::MonsterEffectiveness,
+                _,
+            ) => return None,
+        };
+        let tooltip = i18n.text(tooltip);
+        (tooltip != i18n.text(self.label())).then_some(tooltip)
     }
 
     /// The color of the label: the one of the attribute a defence comes from, as in the
@@ -497,11 +511,8 @@ impl<'a> ItemBlock<'a> {
                     TextFormat::simple(text::base_value(), color::TEXT),
                 );
                 let response = ui.add(Label::new(job).extend());
-                if let Some(full) = value.full_label() {
-                    let (short, full) = (self.i18n.text(value.label()), self.i18n.text(full));
-                    if full != short {
-                        response.on_hover_text(full);
-                    }
+                if let Some(tooltip) = value.tooltip(self.i18n) {
+                    response.on_hover_text(tooltip);
                 }
             }
         });

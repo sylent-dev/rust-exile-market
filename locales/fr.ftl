@@ -137,6 +137,8 @@ gem-level = Niveau { $value }
 dps-physical = DPS physique
 dps-elemental = DPS élémentaire
 dps-chaos = DPS de chaos
+# L'infobulle de chaque DPS : la valeur du jeu, pas le DPS de la base.
+dps-tooltip = Avec sa qualité, ses modificateurs et ses runes
 defence-armour = Armure
 defence-evasion = Évasion
 defence-energy-shield = Bouclier d'énergie
@@ -383,7 +385,7 @@ no-market-price-normal = Pas de prix de marché pour les objets normaux.
 search-to-estimate = Cherchez des offres similaires pour l'estimer.
 # Un objet rare ou magique dont aucun filtre ne compare les statistiques : les offres de tout
 # objet de sa base ne diraient rien de son prix.
-check-to-estimate = Cochez un modificateur pour estimer cet objet.
+check-to-estimate = Cochez une statistique qui distingue cet objet pour l'estimer.
 # Un objet à nom fixe dont le prix n'est pas encore connu, ou manquant.
 prices-downloading = Les prix de { $league } sont en cours de téléchargement…
 # Avant que la ligue soit connue, au premier lancement.

@@ -1,8 +1,28 @@
-//! What the drawing computes before it draws: the tooltip of a range field, the bar of the tier
-//! of a waystone.
+//! What the drawing computes before it draws: the width of the text of a stat, the tooltip of a
+//! range field, the bar of the tier of a waystone.
 
 use super::*;
 use crate::tier_rolls::TierSpan;
+
+#[test]
+fn the_text_of_a_filter_without_range_field_runs_over_its_column() {
+    let without = filter_text_width(300.0, None);
+    assert_eq!(without, 300.0 - CHECKBOX_COLUMN - COLUMN_GAP);
+    let narrow = Limit::minimum(52.0);
+    assert!(!narrow.is_wide());
+    assert_eq!(
+        without - filter_text_width(300.0, Some(narrow)),
+        COLUMN_GAP + RANGE_COLUMN
+    );
+    let wide = Limit::minimum(2250.0);
+    assert!(wide.is_wide());
+    assert_eq!(
+        without - filter_text_width(300.0, Some(wide)),
+        COLUMN_GAP + WIDE_RANGE_COLUMN
+    );
+    // Never below zero in a row too narrow.
+    assert_eq!(filter_text_width(10.0, Some(narrow)), 0.0);
+}
 
 #[test]
 fn the_tooltip_of_a_range_field_tells_its_rolls_and_its_better_side() {

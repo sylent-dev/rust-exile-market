@@ -149,6 +149,7 @@ messages! {
     DpsPhysical => "dps-physical",
     DpsElemental => "dps-elemental",
     DpsChaos => "dps-chaos",
+    DpsTooltip => "dps-tooltip",
     DefenceArmour => "defence-armour",
     DefenceEvasion => "defence-evasion",
     DefenceEnergyShield => "defence-energy-shield",
