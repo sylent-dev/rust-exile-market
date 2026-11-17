@@ -1,0 +1,132 @@
+// Section Uncertain prices (22b): what the price block says of a price on few trades or offers, beyond its warning.
+// The warnings are there already ("Only 3 similar offers: the estimate is uncertain", 13i; "Only 3 trades: the price
+// is uncertain", 17e3c, the amounts of a thin currency kept as they are).
+// 1. How sure an estimate is. A, today: the warning under 5 offers, the note of the median. B, the range of the
+//    offers counted at the end of the note, also with 5 offers (a narrow range tells a price to trust), in Divine Orbs
+//    from one Divine Orb at the median and in Exalted Orbs under it, as the price of a possible unique. C, a mark of
+//    reliability right of the title (PoE Overlay II shows "a reliability rating", computed by a closed model): low,
+//    medium or high, from the number of offers and their spread, in place of the warning. Recommended: B, which says
+//    why in numbers the player can check against the list; C gives a precision the median of 5 offers doesn't have.
+// 2. An offer paid in a currency the estimate doesn't count (priced on fewer than 10 trades, or without price: a
+//    Wombgift) is shown today as any other. A, faint, why in the tooltip of its icon; B, faint, "not counted" after
+//    its name, as the kind of an offer of another quality (13k4b). Recommended: B, seen without the pointer.
+// 3. After a search whose offers none is counted, the price block still says "Search similar offers to estimate it.".
+//    Its own words; after a search without any offer, no second line (the offers block says what to do).
+// 4. The price of a unique on fewer than 5 offers, told uncertain, still tells the suspicious offers: an honest offer
+//    under a quarter of a stale price is struck through. Recommended: none suspicious then, as a currency on fewer
+//    than 10 trades (17e3c): the rule "a price the application calls uncertain doesn't judge the offers".
+
+const UP_TEXT = {
+  en: { uncertain3: "Only 3 similar offers: the estimate is uncertain", median3: "Median of the 3 similar offers.",
+    median3Range: "Median of the 3 similar offers, 40 to 300 ex.", median5: "Median of the 5 cheapest similar offers.",
+    median5Range: "Median of the 5 cheapest similar offers, 2 to 3 div.", notCounted: "not counted",
+    tipThin: "Not counted: its price stands on 1 trade", tipNone: "Not counted: this currency has no price",
+    noneCounted: "No similar offer is paid in a currency with a reliable price.",
+    low: "Low reliability", medium: "Medium reliability", high: "High reliability" },
+  fr: { uncertain3: "Seulement 3 offres similaires : l'estimation est incertaine", median3Range: "Médiane des 3 offres similaires, de 40 à 300 ex.",
+    median5Range: "Médiane des 5 offres similaires les moins chères, de 2 à 3 div.", notCounted: "non comptée",
+    noneCounted: "Aucune offre similaire n'est payée dans une devise au prix fiable." },
+};
+
+// The magic ring of three similar offers, far apart: 40, 95 and 300 ex, the median 95 ex.
+const UP_RING_ROWS = (fr = false) => [
+  { v: "40", k: "ex", when: fr ? "il y a 2j" : "2d ago" }, { v: "95", k: "ex", when: fr ? "il y a 5h" : "5h ago" },
+  { v: "300", k: "ex", when: fr ? "il y a 1h" : "1h ago" }];
+const UP_RING_FR = { ...MAGIC, name: "Anneau de saphir scintillant du lynx", cls: "Anneaux", tags: ["niv. 68"], req: "Niveau requis 44",
+  statsLabel: "Statistiques (3)", filters: "2 filtres" };
+const upRing = (p, { fr = false } = {}) => win(topBar(), item(fr ? UP_RING_FR : MAGIC),
+  price({ estimate: true, values: ["0.14", "1.4", "95"], offers: fr ? "3 similaires" : "3 similar", ...p }, fr ? "fr" : "en"),
+  offers(fr ? { count: "3 sur 3 en ligne", columns: ["Prix", "Publiée"], age: "recherche il y a 2min", rows: UP_RING_ROWS(true) }
+    : { count: "3 of 3 online", columns: ["Price", "Listed"], rows: UP_RING_ROWS() }, fr ? "fr" : "en"),
+  foot(fr ? "poe2scout il y a 12min · GGG trade il y a 2min" : undefined));
+
+// The rare bow of five offers counted, close: 2 to 3 div, the median 2.4 div; the bait at 300 ex left out.
+const UP_BOW_ROWS = [
+  { v: "300", k: "ex", when: "1h ago", sus: true }, { v: "2", k: "div", when: "20min ago" }, { v: "2.2", k: "div", when: "4h ago" },
+  { v: "2.4", k: "div", when: "1d ago", away: true }, { v: "2.5", k: "div", when: "2h ago" }, { v: "3", k: "div", when: "6h ago" }];
+const upBow = (p, rows = UP_BOW_ROWS) => win(topBar(), item(BOW_RARE),
+  price({ estimate: true, values: ["2.4", "24", "1.7K"], offers: "18 similar", ...p }),
+  offers({ count: "10 of 18 online", columns: ["Price", "Listed"], rows }), foot());
+
+// C: the mark of reliability right of the title, before the count of the offers.
+const reliability = (html, level, words) => html.replace(/<span class="right">([^<]*)<\/span>/,
+  `<span class="right"><span class="app-reliability is-${level}">${words}</span>$1</span>`);
+
+// 2. The bow, two of its offers paid in a currency the estimate doesn't count: a Lesser Charging Rune priced on one
+// trade (40,156 ex), and a Banded Wombgift, without price.
+const UP_NOT_COUNTED = [
+  { v: "2", k: "div", when: "20min ago", name: "Divine Orb" },
+  { v: "1", k: "lesser-charging-rune", when: "35min ago", name: "Lesser Charging Rune", thin: true },
+  { v: "2.2", k: "div", when: "4h ago", name: "Divine Orb" },
+  { v: "3", k: "banded-wombgift", when: "1h ago", name: "Banded Wombgift", none: true },
+  { v: "2.4", k: "div", when: "1d ago", away: true, name: "Divine Orb" },
+  { v: "2.5", k: "div", when: "2h ago", name: "Divine Orb" },
+  { v: "3", k: "div", when: "6h ago", name: "Divine Orb" }];
+const UP_NOT_COUNTED_FR = [
+  { v: "2", k: "div", when: "il y a 20min", name: "Orbe divin" },
+  { v: "1", k: "lesser-charging-rune", when: "il y a 35min", name: "Rune de charge inférieure", thin: true },
+  { v: "2.2", k: "div", when: "il y a 4h", name: "Orbe divin" },
+  { v: "3", k: "banded-wombgift", when: "il y a 1h", name: "Matrice cerclée", none: true },
+  { v: "2.4", k: "div", when: "il y a 1j", away: true, name: "Orbe divin" },
+  { v: "2.5", k: "div", when: "il y a 2h", name: "Orbe divin" },
+  { v: "3", k: "div", when: "il y a 6h", name: "Orbe divin" }];
+// A: faint, the tooltip of the icon of the row `hovered` open. B: faint, "not counted" after the name.
+const upTagged = (rows, option, { hovered, fr = false } = {}) => rows.map((r, i) => {
+  if (!r.thin && !r.none) return r;
+  if (option === "today") return r;
+  if (option === "A") return { ...r, faint: true, tip: r.thin ? UP_TEXT.en.tipThin : UP_TEXT.en.tipNone, tipShown: i === hovered };
+  return { ...r, kindTag: UP_TEXT[fr ? "fr" : "en"].notCounted };
+});
+const upNotCounted = (option, { hovered, fr = false } = {}) => {
+  const rows = upTagged(fr ? UP_NOT_COUNTED_FR : UP_NOT_COUNTED, option, { hovered, fr });
+  const block = offers(fr ? { count: "10 sur 18 en ligne", columns: ["Prix", "Publiée"], age: "recherche il y a 2min", rows }
+    : { count: "10 of 18 online", columns: ["Price", "Listed"], rows }, fr ? "fr" : "en");
+  const p = fr ? { estimate: true, values: ["2.4", "24", "1.7K"], offers: "18 similaires", note: "Médiane des 5 offres similaires les moins chères." }
+    : { estimate: true, values: ["2.4", "24", "1.7K"], offers: "18 similar", note: UP_TEXT.en.median5 };
+  return win(topBar(), item(fr ? { ...BOW_RARE, cls: "Arcs" } : BOW_RARE), price(p, fr ? "fr" : "en"), block,
+    foot(fr ? "poe2scout il y a 12min · GGG trade il y a 2min" : undefined));
+};
+
+// 3. A search whose two offers are both paid in a currency the estimate doesn't count, then one without any offer.
+const upNoneCounted = (second, fr = false) => {
+  const rows = upTagged((fr ? UP_NOT_COUNTED_FR : UP_NOT_COUNTED).filter(r => r.thin || r.none), "B", { fr });
+  const lines = fr ? ["Pas de prix de marché pour les objets rares.", second] : ["No market price for rare items.", second];
+  return win(topBar(), item(fr ? { ...BOW_RARE, cls: "Arcs" } : BOW_RARE), price({ lines: lines.filter(Boolean) }, fr ? "fr" : "en"),
+    offers(fr ? { count: "2 sur 2 en ligne", columns: ["Prix", "Publiée"], age: "recherche il y a 2min", rows }
+      : { count: "2 of 2 online", columns: ["Price", "Listed"], rows }, fr ? "fr" : "en"),
+    foot(fr ? "poe2scout il y a 12min · GGG trade il y a 2min" : undefined));
+};
+const upNoOffer = second => win(topBar(), item(BOW_RARE), price({ lines: ["No market price for rare items.", second].filter(Boolean) }),
+  offers({ lines: ["No offer online with these filters. Uncheck a stat or widen a range, then search again."] }), foot());
+
+// 4. A unique priced on 3 offers at 150 ex, the market fallen since: its offers now ask 30 to 140 ex.
+const UP_UNIQUE = { rarity: "unique", name: "Ryslatha's Coil", base: "Wide Belt", cls: "Belts", tags: ["ilvl 74"], req: "Requires Level 55",
+  statsLabel: "Stats (4)", filters: "3 filters" };
+const upUnique = suspicious => win(topBar(), item(UP_UNIQUE),
+  price({ values: ["0.21", "2.1", "150"], offers: "3 offers", trend: "Stable over the last 7 days", stable: true,
+    warning: "Only 3 offers: the price is uncertain" }),
+  offers({ count: "4 of 4 online", columns: ["Price", "Listed"], rows: [
+    { v: "30", k: "ex", when: "40min ago", sus: suspicious }, { v: "35", k: "ex", when: "2h ago", sus: suspicious },
+    { v: "90", k: "ex", when: "1d ago", away: true }, { v: "140", k: "ex", when: "3d ago" }] }), foot());
+
+SECTIONS.unshift(["Uncertain prices (22b): how sure an estimate is, the offers not counted, the suspicious offers of an uncertain price", [
+  ["1 · How sure · A · Today: the warning under 5 offers", upRing({ warning: UP_TEXT.en.uncertain3, note: UP_TEXT.en.median3 })],
+  ["1 · How sure · A · Today: 5 offers, no warning", upBow({ note: UP_TEXT.en.median5 })],
+  ["1 · How sure · Recommended · B · the range of the offers counted, 3 offers far apart", upRing({ warning: UP_TEXT.en.uncertain3, note: UP_TEXT.en.median3Range })],
+  ["1 · How sure · Recommended · B · 5 offers close: a narrow range", upBow({ note: UP_TEXT.en.median5Range })],
+  ["1 · How sure · Recommended · B · en français", upRing({ warning: UP_TEXT.fr.uncertain3, note: UP_TEXT.fr.median3Range }, { fr: true })],
+  ["1 · How sure · C · a mark of reliability, low: 3 offers far apart", reliability(upRing({ note: UP_TEXT.en.median3 }), "low", UP_TEXT.en.low)],
+  ["1 · How sure · C · medium", reliability(upBow({ note: UP_TEXT.en.median5 }, UP_BOW_ROWS.slice(0, 5)).replace("18 similar", "4 similar"), "medium", UP_TEXT.en.medium)],
+  ["1 · How sure · C · high: 5 offers close", reliability(upBow({ note: UP_TEXT.en.median5 }), "high", UP_TEXT.en.high)],
+  ["2 · Offers not counted · Today: shown as any other", upNotCounted("today")],
+  ["2 · Offers not counted · A · faint, why in the tooltip of the icon", upNotCounted("A", { hovered: 1 })],
+  ["2 · Offers not counted · Recommended · B · faint, \"not counted\" after the name", upNotCounted("B")],
+  ["2 · Offers not counted · Recommended · B · en français", upNotCounted("B", { fr: true })],
+  ["3 · No offer counted · Today: \"Search similar offers\" after the search", upNoneCounted("Search similar offers to estimate it.")],
+  ["3 · No offer counted · Recommended: its own words", upNoneCounted(UP_TEXT.en.noneCounted)],
+  ["3 · No offer counted · Recommended · en français", upNoneCounted(UP_TEXT.fr.noneCounted, true)],
+  ["3 · No offer at all · Today: \"Search similar offers\" after the search", upNoOffer("Search similar offers to estimate it.")],
+  ["3 · No offer at all · Recommended: no second line, the offers block says what to do", upNoOffer()],
+  ["4 · An uncertain unique · Today: its honest offers struck through", upUnique(true)],
+  ["4 · An uncertain unique · Recommended: none suspicious, as a thin currency", upUnique(false)],
+]]);

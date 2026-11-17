@@ -17,3 +17,9 @@
 /* B of the thin prices (17e3c): the amounts of a price on fewer than 10 trades, faint. */
 .app-thin .price { color: var(--weak); }
 .app-thin .price img, .app-thin .price .orb { opacity: .5; }
+
+/* 22b, lead C: a mark of reliability right of the title, before the count of the offers. */
+.app-reliability { margin-right: 8px; padding: 1px 6px; border: 1px solid currentColor; border-radius: var(--radius); font-size: 11px; }
+.app-reliability.is-low { color: var(--warn); }
+.app-reliability.is-medium { color: var(--weak); }
+.app-reliability.is-high { color: var(--rise); }
