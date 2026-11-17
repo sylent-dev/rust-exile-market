@@ -14,6 +14,7 @@ mod files;
 mod filters;
 mod format;
 mod game_data;
+mod game_window;
 mod hotkey;
 mod http;
 mod i18n;

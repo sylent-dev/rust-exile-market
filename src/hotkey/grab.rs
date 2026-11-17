@@ -8,25 +8,6 @@ use std::fmt::Display;
 
 use super::Shortcut;
 
-/// The exact title of the window of the game: the title Exiled Exchange 2 looks for
-/// (`attachByTitle`), the standalone client and the one of Steam alike on Windows, and the
-/// standalone client run by Wine on Linux, whose class is unknown. Never a part of the title: the
-/// page of a browser about the game is titled `Path of Exile 2 - …`.
-pub const GAME_TITLE: &str = "Path of Exile 2";
-
-/// The class of a window of the File Explorer of Windows, titled after its folder: the folder of
-/// the game is titled `Path of Exile 2` too, and Ctrl+D there must stay to it (a copy sent there
-/// would copy the files selected).
-#[cfg(any(target_os = "windows", test))]
-const EXPLORER_CLASS: &str = "CabinetWClass";
-
-/// Whether a window of another application, of `title` and `class`, is the game on Windows: its
-/// exact title, unless it is a folder of the File Explorer.
-#[cfg(any(target_os = "windows", test))]
-pub fn is_game_window(title: &str, class: &str) -> bool {
-    title == GAME_TITLE && class != EXPLORER_CLASS
-}
-
 /// The active window, as the desktop tells it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Active {
@@ -48,7 +29,7 @@ pub enum Active {
 #[cfg(any(target_os = "windows", test))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Foreground {
-    /// The game, by its exact title ([`GAME_TITLE`]).
+    /// The game, by its exact title ([`crate::game_window::GAME_TITLE`]).
     Game,
     /// A window of this application: the window over the game, in front after a click in it
     /// (until the game gets the focus back, or while one of its fields is edited), or the main

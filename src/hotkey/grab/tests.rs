@@ -164,18 +164,6 @@ fn follow_foreground(
 }
 
 #[test]
-fn the_game_is_told_by_its_exact_title_out_of_the_file_explorer() {
-    assert!(is_game_window("Path of Exile 2", "POEWindowClass"));
-    // A page of a browser about the game.
-    assert!(!is_game_window(
-        "Path of Exile 2 - Wiki",
-        "Chrome_WidgetWin_1"
-    ));
-    // The folder of the game.
-    assert!(!is_game_window("Path of Exile 2", "CabinetWClass"));
-}
-
-#[test]
 fn the_game_in_front_is_the_game_whether_the_main_window_has_the_keyboard_or_not() {
     assert_eq!(Foreground::Game.active(false), Active::Game);
     // The keyboard of the main window not told yet as lost.

@@ -5,7 +5,7 @@
 use std::collections::HashSet;
 use std::ops::Range;
 
-use crate::hotkey::GAME_CLASS;
+use crate::game_window::GAME_CLASS;
 
 /// What the log writes before the name of a window (`The active window, of class steam, isn't
 /// the game`, `Copy sent … to the window of class steam_app_2694490 (Ctrl …)`).
