@@ -6,7 +6,7 @@ use crate::filters::Filter;
 use crate::item;
 use crate::settings::PseudoTotals;
 use crate::ui::item_stats::fixtures::{
-    base_type, default_checks, limit, parse, row_texts, rows, rows_with, texts,
+    base_type, default_checks, default_checks_with, limit, parse, row_texts, rows, rows_with, texts,
 };
 
 #[test]
@@ -62,11 +62,23 @@ fn hidden_pseudo_totals_leave_the_lines_as_when_no_total_counts_them() {
     };
     let hidden = |item: &Item| row_texts(rows_with(item, base_type(item), PseudoTotals::Hidden));
 
-    // A magic item: its lines checked, as its other modifiers.
+    // A magic item: shown by default, its totals count its lines, unchecked; hidden, its lines
+    // checked, as its other modifiers.
     let magic = ring("Magic", "");
-    assert!(
-        texts(&magic).contains(&"Pseudo".to_owned()),
-        "shown by default"
+    assert_eq!(
+        texts(&magic),
+        [
+            "Item",
+            "■ Base: Sapphire Ring",
+            "□ ItemLevel: 77 ≥77",
+            "Pseudo",
+            "■ ElementalResistance: 38 ≥34",
+            "■ Life: 65 ≥59",
+            "Prefixes 1/1",
+            "□ +65 to maximum Life ≥59 [0.50 T4 60–69]",
+            "Suffixes 1/1",
+            "□ +38% to Fire Resistance ≥34 [0.82 T2 36–40]",
+        ]
     );
     assert_eq!(
         hidden(&magic),
@@ -80,9 +92,16 @@ fn hidden_pseudo_totals_leave_the_lines_as_when_no_total_counts_them() {
             "■ +38% to Fire Resistance ≥34 [0.82 T2 36–40]",
         ]
     );
-    // A rare: its modifiers unchecked, the base checked alone.
+    // A rare: its modifiers unchecked, the base checked alone, and the price block asks for a
+    // modifier ("Check a modifier to estimate this item.").
+    let rare = ring("Rare", "Storm Spiral\n");
+    assert_eq!(default_checks(&rare), crate::ui::StatChecks::Checked);
     assert_eq!(
-        hidden(&ring("Rare", "Storm Spiral\n")),
+        default_checks_with(&rare, PseudoTotals::Hidden),
+        crate::ui::StatChecks::Unchecked
+    );
+    assert_eq!(
+        hidden(&rare),
         [
             "Item",
             "■ Base: Sapphire Ring",

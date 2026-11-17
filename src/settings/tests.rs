@@ -396,7 +396,8 @@ fn every_setting() -> Settings {
 }
 
 /// The file the version 0.2.0 writes, every setting changed: the file of 0.1.0 with Close with
-/// the game and the pseudo totals hidden. It no longer changes once that version is out, as the file of 0.1.0.
+/// the game and the pseudo totals hidden. It no longer changes once that version is out, as the
+/// file of 0.1.0.
 const VERSION_0_2_0: &str = include_str!("settings-v0.2.0.toml");
 
 #[test]

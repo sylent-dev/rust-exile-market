@@ -108,8 +108,7 @@ impl ItemView<'_> {
         let action = ItemBlock::new(item, line_facts(shown), filters, i18n)
             // The pill shows only when its link can be opened: the league and the search known.
             .tradable(trade.is_tradable())
-            .stats(stats_open, trade.filtered_base_type())
-            .pseudo_totals(pseudo_totals)
+            .stats(stats_open, trade.filtered_base_type(), pseudo_totals)
             .show(ui);
         // With the filters as the player just left them.
         let (all, searched) = every_filter(&trade, shown, filters, pseudo_totals);

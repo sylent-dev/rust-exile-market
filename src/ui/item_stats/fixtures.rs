@@ -332,6 +332,14 @@ pub(super) fn explicit_rows(texts: Vec<String>) -> Vec<String> {
 
 /// The checks of the filters of `item` by default, as the item view decides them.
 pub(super) fn default_checks(item: &Item) -> crate::ui::StatChecks {
+    default_checks_with(item, PseudoTotals::Shown)
+}
+
+/// The checks of [`default_checks`], its `pseudo_totals` shown or hidden by the settings.
+pub(super) fn default_checks_with(
+    item: &Item,
+    pseudo_totals: PseudoTotals,
+) -> crate::ui::StatChecks {
     let base = base_type(item);
     let lines = CopiedLines::new(
         item.language(),
@@ -349,7 +357,7 @@ pub(super) fn default_checks(item: &Item) -> crate::ui::StatChecks {
             tier_rolls: &tiers,
         },
         base,
-        PseudoTotals::Shown,
+        pseudo_totals,
     );
     let all = stats.filters(&Filters::default());
     crate::ui::StatChecks::of(&line_stats.search_filters(&all), &line_stats, &all)

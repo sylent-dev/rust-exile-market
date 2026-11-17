@@ -38,6 +38,53 @@ fn a_lit_state_tag_reaches_the_search() {
     assert_eq!(corrupted(&filters), Some(true));
 }
 
+/// The settings hide the pseudo totals (20b): none is searched, and a total the player changed
+/// is kept, to come back as they left it with the group.
+#[test]
+fn hidden_pseudo_totals_are_not_searched_and_come_back_as_the_player_left_them() {
+    let mut session = Session::new(Some(League::new("Standard")));
+    session.apply(ClipboardEvent::Copied {
+        item: CopiedItem::from_text(include_str!(
+            "../../item/test-items/en-owner-rare-ring-breach.txt"
+        ))
+        .unwrap(),
+        hotkey: None,
+    });
+    let shown = session.item().expect("an item");
+    let trade = session.trade(shown.parsed().expect("read"));
+    let totals = |filters: &Filters, pseudo_totals| {
+        let (all, search) = every_filter(&trade, shown, filters, pseudo_totals);
+        let searched = search
+            .stats
+            .iter()
+            .filter(|stat| stat.ids.iter().any(|id| id.starts_with("pseudo.")))
+            .count();
+        let totals: Vec<_> = all
+            .into_iter()
+            .filter(|(key, _)| matches!(key, FilterKey::Pseudo(_)))
+            .collect();
+        (totals, searched)
+    };
+    let mut filters = Filters::default();
+
+    let (shown_totals, searched) = totals(&filters, PseudoTotals::Shown);
+    assert_eq!((shown_totals.len(), searched), (3, 3));
+    assert_eq!(totals(&filters, PseudoTotals::Hidden), (Vec::new(), 0));
+
+    let (key, filter) = shown_totals[0].clone();
+    filters.set(
+        key,
+        Filter {
+            checked: false,
+            ..filter
+        },
+    );
+    assert_eq!(totals(&filters, PseudoTotals::Hidden), (Vec::new(), 0));
+    let (back, searched) = totals(&filters, PseudoTotals::Shown);
+    assert!(!back[0].1.checked, "kept as the player left it");
+    assert_eq!(searched, 2);
+}
+
 const RATES: Rates = Rates {
     chaos: 70.0,
     divine: 700.0,

@@ -162,7 +162,7 @@ pub(super) fn property_value(property: Property, value: f64) -> String {
 
 /// The rows of the stats of `item`, of whose lines the application knows the `facts`;
 /// `base_type` is the base type its search looks for, a filter. Its `pseudo_totals` hidden, no
-/// total counts its lines.
+/// pseudo total counts its lines.
 fn rows<'a>(
     item: &'a Item,
     facts: LineFacts<'_>,

@@ -121,21 +121,15 @@ impl<'a> SettingsPanel<'a> {
                         .color(color::TEXT),
                 );
                 let language = self.language(ui);
-                self.group_label(ui, Message::SettingsGame);
-                let always_on_top = self.always_on_top(ui);
-                let (close_with_game, hotkey) = if crate::HAS_THE_GAME {
-                    (self.close_with_game(ui), self.hotkey(ui))
-                } else {
-                    (None, None)
-                };
-                let pseudo_totals = self.pseudo_totals(ui);
+                let game = self.game(ui);
+                let hotkey = crate::HAS_THE_GAME.then(|| self.hotkey(ui)).flatten();
+                let search = self.search(ui);
                 self.donation(ui);
                 self.disclaimer(ui);
                 // A change wins over the click outside the list of the keys, which it closes too.
                 language
-                    .or(always_on_top)
-                    .or(close_with_game)
-                    .or(pseudo_totals)
+                    .or(game)
+                    .or(search)
                     .map(SettingsAction::Change)
                     .or(hotkey)
             })
@@ -169,24 +163,27 @@ impl<'a> SettingsPanel<'a> {
         change
     }
 
-    /// The first row of the group Game.
-    fn always_on_top(&self, ui: &mut Ui) -> Option<SettingChange> {
+    /// The group Game: Always on top, then Close with the game on a system where the game runs.
+    fn game(&self, ui: &mut Ui) -> Option<SettingChange> {
+        self.group_label(ui, Message::SettingsGame);
         ui.add_space(CHOICE_GAP);
-        let checked = self.settings.always_on_top();
-        self.check_row(ui, checked, &ALWAYS_ON_TOP)
-            .then_some(SettingChange::AlwaysOnTop(!checked))
-    }
-
-    /// The second row of the group Game, under Always on top.
-    fn close_with_game(&self, ui: &mut Ui) -> Option<SettingChange> {
-        ui.add_space(CHECK_ROW_GAP);
-        let checked = self.settings.close_with_game();
-        self.check_row(ui, checked, &CLOSE_WITH_GAME)
-            .then_some(SettingChange::CloseWithGame(!checked))
+        let on_top = self.settings.always_on_top();
+        let always_on_top = self
+            .check_row(ui, on_top, &ALWAYS_ON_TOP)
+            .then_some(SettingChange::AlwaysOnTop(!on_top));
+        let close_with_game = crate::HAS_THE_GAME
+            .then(|| {
+                ui.add_space(CHECK_ROW_GAP);
+                let close = self.settings.close_with_game();
+                self.check_row(ui, close, &CLOSE_WITH_GAME)
+                    .then_some(SettingChange::CloseWithGame(!close))
+            })
+            .flatten();
+        always_on_top.or(close_with_game)
     }
 
     /// The group Search, its one row: the pseudo totals shown or hidden.
-    fn pseudo_totals(&self, ui: &mut Ui) -> Option<SettingChange> {
+    fn search(&self, ui: &mut Ui) -> Option<SettingChange> {
         self.group_label(ui, Message::SettingsSearch);
         ui.add_space(CHOICE_GAP);
         let shown = self.settings.pseudo_totals() == PseudoTotals::Shown;

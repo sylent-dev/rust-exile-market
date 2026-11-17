@@ -258,17 +258,17 @@ impl<'a> ItemBlock<'a> {
         }
     }
 
-    /// Unfolds the stats, with the base type its search looks for.
+    /// Unfolds the stats, with the base type its search looks for and its `pseudo_totals`
+    /// shown or hidden by the settings, as its search takes them.
     #[must_use]
-    pub fn stats(mut self, open: bool, base_type: Option<&'a str>) -> Self {
+    pub fn stats(
+        mut self,
+        open: bool,
+        base_type: Option<&'a str>,
+        pseudo_totals: PseudoTotals,
+    ) -> Self {
         self.stats_open = open;
         self.base_type = base_type;
-        self
-    }
-
-    /// Shows or hides the pseudo totals among its filters, as the settings say.
-    #[must_use]
-    pub fn pseudo_totals(mut self, pseudo_totals: PseudoTotals) -> Self {
         self.pseudo_totals = pseudo_totals;
         self
     }
