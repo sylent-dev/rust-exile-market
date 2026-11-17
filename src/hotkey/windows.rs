@@ -15,8 +15,9 @@ use global_hotkey::HotKeyState;
 use winsafe::{HWND, co};
 
 use super::Shortcut;
-use super::grab::{Foreground, is_game_window};
+use super::grab::Foreground;
 use super::sent_keys::{Held, Key, copy_keys_after_focus, modifiers_for_log, send_all};
+use crate::game_window::is_game_window;
 use crate::logging;
 use crate::overlay::{KeyboardBack, Point, ScreenRect, Target};
 

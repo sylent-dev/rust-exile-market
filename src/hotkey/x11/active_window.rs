@@ -11,15 +11,12 @@ use x11rb::protocol::xproto::{
 };
 use x11rb::rust_connection::RustConnection;
 
-use crate::hotkey::grab::{Active, GAME_TITLE};
+use crate::game_window::{is_game_class, is_game_title};
+use crate::hotkey::grab::Active;
 use crate::logging;
 use crate::x11::{Result, Session};
 
 use super::window_class;
-
-/// The class of the game run by Steam through Proton, its instance and class names alike in
-/// `WM_CLASS`.
-const GAME_CLASS: &[u8] = crate::hotkey::GAME_CLASS.as_bytes();
 
 /// Follows the active window of the desktop on a thread of its own, and tells `game` what it is:
 /// at the start, then at each change of the active window or of its class or title (a window may
@@ -294,19 +291,6 @@ fn window_manager_name(name: &[u8]) -> String {
     logging::plain(&String::from_utf8_lossy(name))
 }
 
-/// Whether a window title is the title of the game, exactly.
-fn is_game_title(title: &[u8]) -> bool {
-    title == GAME_TITLE.as_bytes()
-}
-
-/// Whether a `WM_CLASS`, an instance name then a class name each ended by a null byte, is the
-/// class of the game.
-fn is_game_class(property: &[u8]) -> bool {
-    property
-        .split(|&byte| byte == 0)
-        .any(|name| name == GAME_CLASS)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -417,30 +401,6 @@ mod tests {
             title(b"Steam".to_vec(), || panic!("read without need")).unwrap(),
             b"Steam"
         );
-    }
-
-    #[test]
-    fn tells_the_game_by_its_class_under_proton() {
-        assert!(is_game_class(b"steam_app_2694490\0steam_app_2694490\0"));
-        assert!(is_game_class(b"steam_app_2694490"));
-    }
-
-    #[test]
-    fn tells_the_game_by_its_exact_title_only() {
-        assert!(is_game_title(b"Path of Exile 2"));
-        // Path of Exile 1, a page of a browser about the game.
-        assert!(!is_game_title(b"Path of Exile"));
-        assert!(!is_game_title(b"Path of Exile 2 - Mozilla Firefox"));
-        assert!(!is_game_title(b""));
-    }
-
-    #[test]
-    fn tells_another_window_by_its_class() {
-        // Path of Exile 1, the Steam client, a class that only starts like the game's.
-        assert!(!is_game_class(b"steam_app_238960\0steam_app_238960\0"));
-        assert!(!is_game_class(b"steam\0steam\0"));
-        assert!(!is_game_class(b"steam_app_26944900\0"));
-        assert!(!is_game_class(b""));
     }
 
     #[test]
