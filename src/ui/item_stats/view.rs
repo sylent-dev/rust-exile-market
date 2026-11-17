@@ -218,8 +218,7 @@ fn unsearchable_row(ui: &mut Ui, stat: &Stat<'_>, i18n: &Translator) {
         unsearchable_tooltip(ui, stat.key, sign.rect, i18n);
     }
     ui.add_space(COLUMN_GAP);
-    let (column, _) = range_widths(None);
-    text_column(ui, text_width(width, column), |ui| {
+    text_column(ui, text_width(width, Some(RANGE_COLUMN)), |ui| {
         stat_text(ui, stat, i18n);
     });
 }
@@ -253,16 +252,16 @@ fn filter_row(ui: &mut Ui, stat: &Stat<'_>, filters: &mut Filters, i18n: &Transl
         } if !choice.checked => Some(i18n.filter_item_class(class)),
         _ => None,
     };
-    let (column, _) = range_widths(filter.limit);
-    let column_width = text_width(width, column);
+    // Without range field, the text runs over its column too, so that it wraps less.
+    let column_width = text_width(width, filter.limit.map(|limit| range_widths(limit).0));
     text_column(ui, column_width, |ui| {
         stat_text(ui, stat, i18n);
         if let Some(note) = &note {
             faint_note(ui, note, column_width);
         }
     });
-    ui.add_space(COLUMN_GAP);
     let edited = filter.limit.and_then(|limit| {
+        ui.add_space(COLUMN_GAP);
         let field = range_field(ui, stat.key, &mut choice, limit);
         if ui.rect_contains_pointer(field.rect) {
             field_tooltip(ui, stat.key, field.rect, tooltip_lines(limit, i18n));
@@ -283,16 +282,17 @@ fn line_height(ui: &Ui) -> f32 {
     ui.fonts_mut(|fonts| fonts.row_height(&text::body()))
 }
 
-/// The width of the text of a stat in a row `width` across, between the column of the checkbox
-/// and the range `column`.
-fn text_width(width: f32, column: f32) -> f32 {
-    (width - CHECKBOX_COLUMN - COLUMN_GAP - COLUMN_GAP - column).max(0.0)
+/// The width of the text of a stat in a row `width` across, after the column of the checkbox,
+/// and before the range `column` when the row has one.
+fn text_width(width: f32, column: Option<f32>) -> f32 {
+    let column = column.map_or(0.0, |column| COLUMN_GAP + column);
+    (width - CHECKBOX_COLUMN - COLUMN_GAP - column).max(0.0)
 }
 
 /// The column of the range field of `limit` and the width of each of its halves: wider for
 /// four characters a side.
-fn range_widths(limit: Option<Limit>) -> (f32, f32) {
-    if limit.is_some_and(Limit::is_wide) {
+fn range_widths(limit: Limit) -> (f32, f32) {
+    if limit.is_wide() {
         (WIDE_RANGE_COLUMN, WIDE_HALF_WIDTH)
     } else {
         (RANGE_COLUMN, HALF_WIDTH)
@@ -373,7 +373,7 @@ fn range_field(ui: &mut Ui, key: FilterKey, choice: &mut Filter, limit: Limit) -
     } else {
         color::CONTROL_LINE
     };
-    let (column, half_width) = range_widths(Some(limit));
+    let (column, half_width) = range_widths(limit);
     let stroke = Stroke::new(1.0, line_color);
     let mut edited = None;
     let dash_width =
