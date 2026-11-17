@@ -234,3 +234,15 @@
 /* 20b, lead C: the link that folds the Pseudo group, faint, the text color under the pointer. */
 .app-group-toggle { font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--weak); cursor: pointer; }
 .app-group-toggle:hover { color: var(--text); }
+/* 22a: the tooltip of a DPS of the item block, under the pointer, opening to the right like the other tooltips of
+   a text on the left. */
+.props .app-prop-tip { position: relative; cursor: default; }
+.props .app-prop-tip .app-tip { left: -4px; right: auto; top: calc(100% + 6px); color: var(--text); }
+.props .app-prop-tip:is(:hover, .is-hovered) .app-tip { display: block; }
+/* 22a, lead B: the tooltip of the note of the price block, wrapped. */
+.app-msg-tip { position: relative; cursor: default; }
+.app-msg-tip .app-tip { left: 0; right: auto; top: calc(100% + 6px); width: max-content; max-width: 260px; white-space: normal; line-height: 1.35; }
+.app-msg-tip:is(:hover, .is-hovered) .app-tip { display: block; }
+/* 22a: the text of a filter without range field over the range column too, so that it wraps less. */
+.mod2.min-top.app-no-field > .text { grid-column: 2 / 4; }
+.mod2.min-top.app-no-field > .text + span:empty { display: none; }
