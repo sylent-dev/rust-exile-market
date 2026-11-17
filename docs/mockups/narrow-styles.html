@@ -11,8 +11,8 @@
   them directly, e.g. ?theme=slate&league=hardcore.
   All prices and offers are sample data. Serve the repository root so that the
   orb icons of assets/currencies/ load:
-    python3 -m http.server 8765 --bind 127.0.0.1
-  then open http://127.0.0.1:8765/docs/mockups/narrow-styles.html?theme=forge
+    python3 docs/mockups/serve.py 8771
+  then open http://127.0.0.1:8771/docs/mockups/narrow-styles.html?theme=forge
   The page is split into small files in narrow-styles/, so that a change reads
   only what it needs: css/ (one sheet per block), js/ (one script per block,
   the samples, the rendering) and sections/ (one per section of the sheet).
@@ -49,8 +49,8 @@
 <nav class="styles" id="styles" aria-label="Variants"></nav>
 <div class="file-warning" id="file-warning" hidden>
   This page is open as a file: the browser can't reach <code>assets/</code>, so the orbs and the logo are missing.
-  Serve the repository root (<code>python3 -m http.server 8765 --bind 127.0.0.1</code>) and open
-  <code>http://127.0.0.1:8765/docs/mockups/narrow-styles.html</code>.
+  Serve the repository root (<code>python3 docs/mockups/serve.py 8771</code>) and open
+  <code>http://127.0.0.1:8771/docs/mockups/narrow-styles.html</code>.
 </div>
 <div class="sheet" id="sheet"></div>
 

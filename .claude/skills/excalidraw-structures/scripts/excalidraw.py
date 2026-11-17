@@ -1,4 +1,4 @@
-"""Write Excalidraw wireframes from Python: grayscale, hand-drawn, one group per block.
+"""Write Excalidraw drawings (structures, wireframes) from Python: grayscale, hand-drawn, one group per block.
 
 Import it from a generator script kept in the scratchpad:
 

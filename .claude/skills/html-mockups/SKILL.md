@@ -1,6 +1,6 @@
 ---
 name: html-mockups
-description: Build the interactive HTML mock-up of a user interface from its approved wireframe, in docs/mockups/, comparing 3 or 4 styles with tabs, then iterate with the owner one decision at a time (one tab group per open decision) until the mock-up becomes the visual reference, and write the design tokens. Use it after the wireframes are approved, when the owner asks for a mock-up, a style, a visual design, or to compare variants of a screen before coding it.
+description: Build the interactive HTML mock-up of a user interface from its approved wireframe, in docs/mockups/, with every window, scenario and state, and 3 or 4 styles compared with tabs. Use it after the wireframes are approved, when the owner asks for a mock-up, a style, a visual design, or a new section of an existing mock-up. Serving and checking the page is the mockup-screenshots skill; iterating on the chosen style, the mockup-decisions skill.
 ---
 
 # HTML mock-ups
@@ -9,14 +9,22 @@ Goal: choose the style with real content, every scenario and every state, before
 
 ## 1. Build the page
 
+Before drawing the options of a design question:
+
+- **Ask the owner for their own idea first**, or draw it alongside: theirs beat the three entries drawn for a bug report (an icon in the title bar rather than a link or a row in the settings).
+- **Look at the real data** the window will show: the 771 items of a list had only 639 images (several shared one icon), which ruled out an icon alone before any option was drawn.
+
 Start from `assets/mockup-template.html` (read its comments), copied to `docs/mockups/<name>.html`:
 
 - **Small files**, so that a change reads only what it needs: the page `docs/mockups/<name>.html` only loads, in order, the files of `docs/mockups/<name>/`: `css/` (the fonts, the tokens, the page, then one sheet per block of the interface), `js/` (the shared helpers and icons, one script per block, the sample data, the rendering last) and `sections/` (one script per section, each adding its windows to `SECTIONS`). Plain `<link>` and `<script>` tags, no modules, so that the files share their constants. The template is one file: split it as soon as the page has more than a few blocks.
-- **Every frame of the wireframe becomes a window**, at its real size, with sample data close to real ones (long names, large numbers, the other language). Add every scenario and state in `SECTIONS`: empty, loading, waiting, each error, each kind of content.
+- **Every frame of the wireframe becomes a window**, at its real size in logical pixels and with its title bar, with sample data close to real ones (long names, large numbers, the other language). Add every scenario and state in `SECTIONS`: empty, loading, waiting, each error, each kind of content. **A new section goes at the top** of `SECTIONS`, so that the owner finds it at once; past ten sections, the page shows a table of contents under its header, one link per section.
 - **3 or 4 styles on the same page**, switched with the tabs at the top; the address keeps the choice (`?theme=…`) to share it. Each style only sets **tokens** (CSS variables under `:root[data-theme="…"]`): fonts, colors, radius, spacing. The components use nothing else, so that a style is cheap to add or tweak.
-- The styles explore **new directions** for this application, its users and its subject. If the project has a `design-journal.md`, it records past experiences: it may inspire one style, never all of them, and nothing in it is a default.
+- The styles explore **new directions** for this application, its users and its subject, from sober to spectacular: the owner decides by seeing, and a variant set aside is not wasted. If the project has a `design-journal.md`, it records past experiences: it may inspire one style, never all of them, and nothing in it is a default.
+- **Only what egui draws well**: flat fills, strokes, rounded corners, shadows, the fonts and images the application embeds, simple motions (a hover, a fade, a size that changes over time). An effect of the browser that egui lacks (a blur behind a panel, a gradient on a text, a complex transition) would be approved and then never built.
 - **Fonts the application can embed** (e.g. SIL Open Font License, from Google Fonts), preloaded with `font-display: block`, so that the page and its screenshots only finish loading once the fonts are there.
 - **Icons as SVG lines** in the text color, not text symbols (⚙, ⌕, ✓), which render small and off-center.
+- **Every notice is drawn with its way out**: how it closes, for how long, what brings it back. A notice the user can't dismiss stays for as long as they ignore it: a dot on an icon and a line in the settings, left until the user updates, gave way to a bubble that closes for good and a discreet link where the version is written.
+- **A motion is chosen by clicking it**, not by reading about it: draw each variant as a window that plays it on a click (180 ms with an overshoot, 220 ms smooth, 140 ms quick settled a sliding pill in one look), then write the duration and its curve in `specs.md` and the tokens.
 
 Pitfalls met before:
 
@@ -24,36 +32,6 @@ Pitfalls met before:
 - A JavaScript function named like a browser global (`top`, `name`, `status`) breaks the page: give the components specific names.
 - A `url()` in a style sheet is relative to the sheet, not to the page: from `docs/mockups/<name>/css/`, `assets/` is `../../../../assets/`.
 
-## 2. Show it
+## 2. Hand it over
 
-Serve the repository root, so that the page reaches `assets/` even in a sandboxed browser (Flatpak, Snap) that only receives the HTML file; keep the server running in the background:
-
-```sh
-python3 -m http.server 8765 --bind 127.0.0.1
-```
-
-The owner opens `http://127.0.0.1:8765/docs/mockups/<name>.html` and reloads after each change.
-
-Before asking for a review, check each change with a headless screenshot (`scripts/screenshot.sh <url> <output.png> [width] [height | full] [selector]`) and look at it, then delete it: the screenshots are for this check only, the owner looks at the mock-up itself. Capture only the window concerned, with a selector (`'#section-1 .slot:nth-child(4) .win'`), rather than the whole page.
-
-The script uses **Playwright** and its own Chromium when installed, otherwise Firefox (normal or Flatpak). Prefer Playwright: its Chromium is closer to the one of VS Code where the owner looks at the mock-up (Firefox draws the fonts a few pixels wider or narrower); it prints the errors of the browser console (scripts, missing files) and fails on them; with a selector it captures that window only and lists its texts cut (wider than their box) or wrapped (on more lines than written), with their widths, the measures a screenshot doesn't give; `full` captures the whole page; `SCALE=1.5` takes the scale of a screen other than 100 %. It is also the only choice when Claude Code runs in a sandbox that doesn't see the browsers of the system, such as VS Code installed as a Flatpak. Install it once, outside the projects (about 150 MB):
-
-```sh
-mkdir -p ~/.local/share/mockup-tools && cd ~/.local/share/mockup-tools
-npm init -y && npm install playwright && npx playwright install chromium
-```
-
-## 3. Iterate with the owner
-
-1. The owner picks a style, or mixes two. Iterate on it alone, **one change at a time** (the main color, then the logo, then a font…).
-2. **Give each open decision its own group of tabs** in `VARIANTS` (two button shapes, three header variants, five offsets…), so that the owner compares on screen instead of imagining; once decided, remove the group and keep the choice in the tokens. About a hundred small decisions went this way on the first project, each in a minute.
-3. **Pixel alignments are tuned by eye on the owner's real screen**, with a tab of offsets (0, 0.5, 1, 1.5 px): the display scale of headless screenshots differs, so they only give the direction. Align icons on the lowercase letters next to them, not on the box of the text.
-4. When the owner points at something, change only that, and say what changed.
-5. From then on, **the mock-up is the single source of truth** of the interface: say so in `specs.md`; the wireframe only fixed the first layout and isn't kept up to date.
-
-## 4. Finish: the design tokens
-
-- Write the chosen style in `specs.md` (visual style section) as named tokens: colors (bands, text, weak text, accent, warning, error, the colors of the domain), sizes (spacing, radius, heights), typography (fonts, size and weight per role, number formatting), icons and images (source, license, what is bundled in `assets/` with an `assets/NOTICE.md`), shapes and motion.
-- Remove the styles that were not chosen from the page, or keep them in a section that says they were rejected.
-- If the project has a `design-journal.md` (or the template it came from), add an entry: the context, the choices kept, the ones rejected, and why.
-- The application then implements exactly these tokens, in one module, so that changing a color or a size happens in one place.
+Serve the page and check each change with a headless screenshot before giving the owner its link (`mockup-screenshots` skill). Once the owner picks a style, iterate on it one decision at a time, then write the design tokens (`mockup-decisions` skill).

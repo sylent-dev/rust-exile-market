@@ -3,13 +3,14 @@
 #
 #   screenshot.sh <url> <output.png> [width] [height | full] [selector]
 #
-# The page must be served (python3 -m http.server 8765 --bind 127.0.0.1 at the repository
-# root). Uses Playwright and its own Chromium when installed (see screenshot.cjs): closer to
-# the Chromium of VS Code where the owner looks at the mock-up, it reports the errors of the
-# browser console, `full` captures the whole page, and a selector captures one window only
-# and lists its texts cut or wrapped. Otherwise uses Firefox, installed normally or as a
-# Flatpak; a throwaway profile avoids disturbing a running Firefox; its fonts differ, so the
-# screenshot shows the direction and the owner tunes the pixels by eye.
+# The page must be served (python3 docs/mockups/serve.py <port>, from the repository root,
+# on the port of the project). Uses Playwright and its own Chromium when installed (see
+# screenshot.cjs): it waits for the page to settle, reports the errors of the browser
+# console, `full` captures the whole page, and a selector captures one window only and lists
+# its texts cut or wrapped. Otherwise uses Firefox, installed normally or
+# as a Flatpak; a throwaway profile avoids disturbing a running Firefox. The display scale
+# differs from the owner's screen: the screenshot shows the direction, the owner tunes the
+# pixels by eye.
 set -eu
 
 url=$1
@@ -32,6 +33,7 @@ fi
 if [ -n "$selector" ]; then
   echo "One window needs Playwright (see screenshot.cjs); Firefox takes the whole window." >&2
 fi
+
 if [ "$height" = full ]; then
   echo "A full page needs Playwright (see screenshot.cjs); Firefox takes the window only." >&2
   height=2000
