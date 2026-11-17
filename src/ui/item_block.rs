@@ -181,7 +181,18 @@ impl BaseValue {
             Self::Dps(..) => Message::DpsTooltip,
             Self::Waystone(WaystoneProperty::Revives, _) => Message::WaystoneRevivesFull,
             Self::Waystone(WaystoneProperty::DropChance, _) => Message::WaystoneDropChanceFull,
-            _ => return None,
+            Self::Armour(_)
+            | Self::Evasion(_)
+            | Self::EnergyShield(_)
+            | Self::Block(_)
+            | Self::RunicWard(_)
+            | Self::Waystone(
+                WaystoneProperty::ItemRarity
+                | WaystoneProperty::PackSize
+                | WaystoneProperty::MonsterRarity
+                | WaystoneProperty::MonsterEffectiveness,
+                _,
+            ) => return None,
         };
         let tooltip = i18n.text(tooltip);
         (tooltip != i18n.text(self.label())).then_some(tooltip)

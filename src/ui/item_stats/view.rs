@@ -210,7 +210,7 @@ fn start_on_whole_pixel(ui: &mut Ui) {
 }
 
 /// A line the trade site can't search: the "not allowed" sign in place of its checkbox, its
-/// tooltip under the pointer, and the column of a range field kept empty.
+/// tooltip under the pointer, and its text over the column of a range field too, having none.
 fn unsearchable_row(ui: &mut Ui, stat: &Stat<'_>, i18n: &Translator) {
     let width = ui.available_width();
     let sign = widgets::not_allowed_sign(ui, vec2(CHECKBOX_COLUMN, line_height(ui)));
@@ -218,7 +218,7 @@ fn unsearchable_row(ui: &mut Ui, stat: &Stat<'_>, i18n: &Translator) {
         unsearchable_tooltip(ui, stat.key, sign.rect, i18n);
     }
     ui.add_space(COLUMN_GAP);
-    text_column(ui, text_width(width, Some(RANGE_COLUMN)), |ui| {
+    text_column(ui, text_width(width, None), |ui| {
         stat_text(ui, stat, i18n);
     });
 }
@@ -252,8 +252,7 @@ fn filter_row(ui: &mut Ui, stat: &Stat<'_>, filters: &mut Filters, i18n: &Transl
         } if !choice.checked => Some(i18n.filter_item_class(class)),
         _ => None,
     };
-    // Without range field, the text runs over its column too, so that it wraps less.
-    let column_width = text_width(width, filter.limit.map(|limit| range_widths(limit).0));
+    let column_width = filter_text_width(width, filter.limit);
     text_column(ui, column_width, |ui| {
         stat_text(ui, stat, i18n);
         if let Some(note) = &note {
@@ -287,6 +286,12 @@ fn line_height(ui: &Ui) -> f32 {
 fn text_width(width: f32, column: Option<f32>) -> f32 {
     let column = column.map_or(0.0, |column| COLUMN_GAP + column);
     (width - CHECKBOX_COLUMN - COLUMN_GAP - column).max(0.0)
+}
+
+/// The width of the text of a filter in a row `width` across: without range field, its
+/// column too, so that the text wraps less.
+fn filter_text_width(width: f32, limit: Option<Limit>) -> f32 {
+    text_width(width, limit.map(|limit| range_widths(limit).0))
 }
 
 /// The column of the range field of `limit` and the width of each of its halves: wider for

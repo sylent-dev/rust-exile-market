@@ -255,6 +255,29 @@ fn a_rare_weapon_shows_its_tags_in_order_its_dps_and_requirements() {
 }
 
 #[test]
+fn a_french_weapon_says_in_a_tooltip_what_its_dps_holds() {
+    let mace = texts(
+        include_str!("../../item/test-items/fr-rare-two-hand-mace-fractured.txt"),
+        Language::French,
+    );
+
+    assert!(
+        mace.base_values
+            .first()
+            .is_some_and(|value| value.starts_with("DPS physique ")),
+        "{:?}",
+        mace.base_values
+    );
+    for value in &mace.base_values {
+        assert!(value.starts_with("DPS "), "{value}");
+        assert!(
+            value.ends_with(" (Avec sa qualité, ses modificateurs et ses runes)"),
+            "{value}"
+        );
+    }
+}
+
+#[test]
 fn an_armour_piece_or_a_shield_shows_its_defences() {
     let focus = english(include_str!("../../item/test-items/en-unique-focus.txt"));
     let shield = texts(
