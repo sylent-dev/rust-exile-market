@@ -231,3 +231,6 @@
 .app-tier-bar-mid .bar i { background: var(--warn); }
 .app-tier-bar-high .bar i { background: var(--tier-1); }
 .app-tier-bar-top .bar i { background: var(--corrupted); }
+/* 20b, lead C: the link that folds the Pseudo group, faint, the text color under the pointer. */
+.app-group-toggle { font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--weak); cursor: pointer; }
+.app-group-toggle:hover { color: var(--text); }
