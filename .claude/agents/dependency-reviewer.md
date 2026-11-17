@@ -24,6 +24,7 @@ Before reviewing, read:
    - the package, its current and proposed versions, and the kind of update: patch, minor or major (semantic versioning: `x.y.z`, a major changes `x`; for a `0.y.z` version, a change of `y` counts as a major);
    - where it runs: a crate of `[dependencies]` (in the executable, on which systems), of `[dev-dependencies]` or `[build-dependencies]` (tests and build only), of a tool of `tools/`, only `Cargo.lock` (a crate pulled by another one), or a GitHub Action (CI and release);
    - the result of the CI (`statusCheckRollup`): passed, failed (read the failing step with `gh run view <run-id> --log-failed` when it helps), or not run. The CI tests on Linux only and lints Windows and macOS from Linux; the Release workflow, which runs on a pull request that changes `Cargo.toml` or `Cargo.lock`, builds the four archives and checks the licenses: read its result too for a crate of one system;
+   - the whole diff of `Cargo.lock` (`gh pr diff <number> -- Cargo.lock`): an update can move other crates than the one named, back to older versions among them, or leave two versions of one crate; say what it moves beyond the title;
    - what changes, from the release notes, changelog and commits that Dependabot copies into the description: breaking changes, new requirements (a newer Rust than `rust-version`, a feature renamed or added to the defaults), security fixes (RustSec advisories), a change of license;
    - how the project uses it: `grep` the crate in `src/`, `build.rs`, `tools/` and `Cargo.toml` (its features); an Action must match the workflows (the release workflow builds every system).
 3. Versions that must move together: `egui`, `eframe` and `egui_extras` share one version, and `winit` follows the one of `eframe`; `image` follows the one of `egui_extras`; `fluent-syntax` follows the one of `fluent-bundle`; `x11rb` follows the one of `arboard`, `global-hotkey` and `winit`. An update of one alone that leaves two versions of the same crate in `Cargo.lock` (`cargo tree -d`) or breaks the build is ignored until the others move: say which. An update that only changes `Cargo.lock` while every crate that pulls it stays on the old version adds nothing: ignore it.
@@ -70,11 +71,12 @@ Use this structure:
 - **Lien** : <url of the pull request>
 - **Type** : patch | mineure | majeure ; crate de l'exécutable (systèmes) | crate de test ou de build | outil de `tools/` | `Cargo.lock` seul | GitHub Action
 - **CI** : <result of the CI, and of the Release workflow if it ran; the failing step if any>
+- **`Cargo.lock`** : <what the update moves beyond the crate of its title, or « rien d'autre »>
 - **Ce qui change** : <one to three sentences from the release notes>
 - **Usage dans le projet** : <where and how the project uses it>
-- **Test à la main** : <the guide of docs/tests/ or the check to run before the next release, or « aucun »>
 - **Recommandation** : <Fusionner | Ignorer cette version | Ignorer la version majeure | Ignorer la dépendance | Attendre>
 - **Pourquoi** : <the reason, and the risk>
+- **Test à la main** : <the guide of docs/tests/ or the check to run before the next release, or « aucun »>
 - **Pour agir** :
   - <for Fusionner> ouvrir <url> et cliquer **Squash and merge** (le titre de Dependabot est gardé) ;
   - <for Ignorer cette version> ouvrir <url> et cliquer **Close pull request** : Dependabot proposera la version suivante ;
