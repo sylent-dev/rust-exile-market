@@ -9,6 +9,7 @@
 // 3. The text of a filter without range field (the base, a rune, an enchantment, a fixed implicit, a line without
 //    number) over the column of the range field too, so that it wraps less, the French above all (owner, 13k1); the
 //    texts of the other rows stay aligned on their field.
+// The owner followed the recommendations on 2026-11-17: the tooltip of the DPS, C, the text over the range column.
 
 const ST_TEXT = {
   en: { dps: "With its quality, modifiers and runes", rare: "No market price for rare items.",
@@ -72,13 +73,13 @@ const stBow = (rows, dpsTip = false) => {
 };
 
 SECTIONS.unshift(["Small texts of the item block (22a): the DPS, the note of the price block, the filters without range field", [
-  ["1 · The DPS: its tooltip under the pointer, on each DPS", win(topBar(), stDps(item(BOW), false), price(RARE_ESTIMATE_BEFORE), foot())],
-  ["1 · The DPS · en français", stBow(bowTradeStatsFr, true)],
+  ["1 · Chosen · The DPS: its tooltip under the pointer, on each DPS", win(topBar(), stDps(item(BOW), false), price(RARE_ESTIMATE_BEFORE), foot())],
+  ["1 · Chosen · The DPS · en français", stBow(bowTradeStatsFr, true)],
   ["2 · The note · Today: the implicit checked, still \"Check a modifier\"", stRing(ST_TEXT.en.today)],
-  ["2 · The note · A · names what compares (not the DPS of a weapon)", stRing(ST_TEXT.en.a)],
-  ["2 · The note · B · today's text, a tooltip saying what doesn't compare", stRing(ST_TEXT.en.today, { tip: ST_TEXT.en.bTip })],
-  ["2 · The note · C (recommended) · what the stat must do", stRing(ST_TEXT.en.c)],
-  ["2 · The note · C · en français", stRing(ST_TEXT.fr.c, { fr: true })],
+  ["2 · The note · Rejected · A · names what compares (not the DPS of a weapon)", stRing(ST_TEXT.en.a)],
+  ["2 · The note · Rejected · B · today's text, a tooltip saying what doesn't compare", stRing(ST_TEXT.en.today, { tip: ST_TEXT.en.bTip })],
+  ["2 · The note · Chosen · C · what the stat must do", stRing(ST_TEXT.en.c)],
+  ["2 · The note · Chosen · C · en français", stRing(ST_TEXT.fr.c, { fr: true })],
   ["3 · Filters without range field · Today: the range column kept, the runes wrap", stBow(bowTradeStatsFr)],
-  ["3 · Filters without range field · Lead: over the range column", stBow(stOverColumn(bowTradeStatsFr))],
+  ["3 · Filters without range field · Chosen: over the range column", stBow(stOverColumn(bowTradeStatsFr))],
 ]]);
