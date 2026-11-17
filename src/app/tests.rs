@@ -48,3 +48,23 @@ fn the_state_of_the_clipboard_keeps_the_view() {
         assert_eq!(View::Item.after(&event), View::Item);
     }
 }
+
+#[test]
+fn the_application_quits_when_the_game_closes_once_close_with_the_game_is_checked() {
+    use game_window::Change;
+    let mut settings = Settings::default();
+
+    assert!(!quits_with_the_game(&[Change::Closed], &settings));
+    settings.apply(SettingChange::CloseWithGame(true));
+    assert!(quits_with_the_game(&[Change::Closed], &settings));
+    assert!(quits_with_the_game(
+        &[Change::Opened, Change::Closed],
+        &settings
+    ));
+    assert!(!quits_with_the_game(&[Change::Opened], &settings));
+    assert!(!quits_with_the_game(
+        &[Change::Closed, Change::Opened],
+        &settings
+    ));
+    assert!(!quits_with_the_game(&[], &settings));
+}

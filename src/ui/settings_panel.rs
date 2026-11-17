@@ -1,8 +1,8 @@
-//! The settings, in place of the content of the window: the language, always on top, the
-//! price-check hotkey, and at the bottom the link to the donation page and the disclaimer.
+//! The settings, in place of the content of the window: the language, always on top, close with
+//! the game, the price-check hotkey, and at the bottom the link to the donation page and the disclaimer.
 
-use egui::text::TextFormat;
-use egui::{Align, CentralPanel, Frame, Label, Layout, RichText, Ui, Vec2, vec2};
+use egui::text::{LayoutJob, TextFormat};
+use egui::{Align, CentralPanel, Frame, Label, Layout, RichText, Ui, UiBuilder, Vec2, vec2};
 
 use super::hotkey_list::{self, HotkeyList, HotkeyListAction, KeysButton};
 use super::keys::{self, Emphasis};
@@ -18,10 +18,32 @@ const PADDING_Y: f32 = 12.0;
 const GROUP_GAP: f32 = 16.0;
 /// The space between the choices of a group, and under its label.
 const CHOICE_GAP: f32 = 6.0;
+/// The space above a row of a checkbox outside a group, closer than the groups (mock-up section
+/// "Close with the game (20a1)").
+const CHECK_ROW_GAP: f32 = 12.0;
+/// The space between the title of a checkbox and its line under it (the same mock-up section).
+const LINE_GAP: f32 = 1.0;
 /// The space above the line of the donation page, at the bottom of the settings.
 const DONATION_GAP: f32 = 22.0;
 /// The space between the line of the donation page and the disclaimer under it.
 const DISCLAIMER_GAP: f32 = 6.0;
+
+/// The texts of a row of a checkbox outside a group: its title, and the line under it that says
+/// what it does.
+struct CheckRow {
+    title: Message,
+    line: Message,
+}
+
+const ALWAYS_ON_TOP: CheckRow = CheckRow {
+    title: Message::SettingsAlwaysOnTop,
+    line: Message::SettingsAlwaysOnTopHelp,
+};
+
+const CLOSE_WITH_GAME: CheckRow = CheckRow {
+    title: Message::SettingsCloseWithGame,
+    line: Message::SettingsCloseWithGameHelp,
+};
 
 /// What the player did in the settings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -45,8 +67,8 @@ pub struct SettingsPanel<'a> {
 }
 
 impl<'a> SettingsPanel<'a> {
-    /// The settings, with what the price-check `hotkey` does now: `Unavailable` on a system
-    /// without it, whose group isn't drawn.
+    /// The settings, with what the price-check `hotkey` does now; its group, and Close with the
+    /// game, are drawn only on a system where the game runs.
     #[must_use]
     pub fn new(settings: &'a Settings, i18n: &'a Translator, hotkey: HotkeyState) -> Self {
         Self {
@@ -95,17 +117,17 @@ impl<'a> SettingsPanel<'a> {
                 );
                 let language = self.language(ui);
                 let always_on_top = self.always_on_top(ui);
-                // macOS has no hotkey: Path of Exile 2 has no client there.
-                let hotkey = if cfg!(any(target_os = "linux", target_os = "windows")) {
-                    self.hotkey(ui)
+                let (close_with_game, hotkey) = if crate::HAS_THE_GAME {
+                    (self.close_with_game(ui), self.hotkey(ui))
                 } else {
-                    None
+                    (None, None)
                 };
                 self.donation(ui);
                 self.disclaimer(ui);
                 // A change wins over the click outside the list of the keys, which it closes too.
                 language
                     .or(always_on_top)
+                    .or(close_with_game)
                     .map(SettingsAction::Change)
                     .or(hotkey)
             })
@@ -140,16 +162,29 @@ impl<'a> SettingsPanel<'a> {
     }
 
     fn always_on_top(&self, ui: &mut Ui) -> Option<SettingChange> {
-        ui.add_space(GROUP_GAP);
         let checked = self.settings.always_on_top();
-        let label = self.i18n.text(Message::SettingsAlwaysOnTop);
-        widgets::choice(ui, Mark::Check { checked }, &label)
-            .clicked()
+        self.check_row(ui, checked, &ALWAYS_ON_TOP)
             .then_some(SettingChange::AlwaysOnTop(!checked))
     }
 
+    fn close_with_game(&self, ui: &mut Ui) -> Option<SettingChange> {
+        let checked = self.settings.close_with_game();
+        self.check_row(ui, checked, &CLOSE_WITH_GAME)
+            .then_some(SettingChange::CloseWithGame(!checked))
+    }
+
+    /// A row of a checkbox outside a group: the checkbox and the title of `row`, then its line
+    /// under the title; whether it was clicked.
+    fn check_row(&self, ui: &mut Ui, checked: bool, row: &CheckRow) -> bool {
+        ui.add_space(CHECK_ROW_GAP);
+        let title = self.i18n.text(row.title);
+        let clicked = widgets::choice(ui, Mark::Check { checked }, &title).clicked();
+        line_under_title(ui, faint_line(self.i18n.text(row.line)));
+        clicked
+    }
+
     /// The price-check hotkey: its checkbox, the button of its keys on the right of the row and
-    /// their list under it, then a line under the row, what it does, or in the color of the
+    /// their list under it, then a line under its title, what it does, or in the color of the
     /// warnings that its key is taken.
     fn hotkey(&self, ui: &mut Ui) -> Option<SettingsAction> {
         self.group_label(ui, Message::SettingsHotkey);
@@ -177,8 +212,7 @@ impl<'a> SettingsPanel<'a> {
             })
             .inner;
         let list = HotkeyList::new(shortcut, self.i18n).show(ui.ctx(), &button, self.keys_open);
-        ui.add_space(CHOICE_GAP);
-        let note = if self.hotkey == HotkeyState::Taken {
+        let line = if self.hotkey == HotkeyState::Taken {
             let held = keys::joined(&keys::named(&self.held.keys(), self.i18n));
             let copy = keys::joined(&keys::COPY);
             keys::two_lines(
@@ -191,12 +225,9 @@ impl<'a> SettingsPanel<'a> {
                 },
             )
         } else {
-            egui::text::LayoutJob::simple_format(
-                self.i18n.text(Message::SettingsHotkeyHelp),
-                TextFormat::simple(text::small(), color::FAINT),
-            )
+            faint_line(self.i18n.text(Message::SettingsHotkeyHelp))
         };
-        ui.add(Label::new(note).wrap());
+        line_under_title(ui, line);
         hotkey_action(checked.then_some(!on), button.clicked(), list)
     }
 
@@ -230,6 +261,22 @@ impl<'a> SettingsPanel<'a> {
             .wrap(),
         );
     }
+}
+
+/// The line under the title of a checkbox, from the start of the title to the right edge of the
+/// settings, under the keys of the hotkey too.
+fn line_under_title(ui: &mut Ui, line: LayoutJob) {
+    ui.add_space(LINE_GAP);
+    let mut rect = ui.available_rect_before_wrap();
+    rect.min.x += widgets::CHOICE_TEXT_LEFT;
+    ui.scope_builder(UiBuilder::new().max_rect(rect), |ui| {
+        ui.add(Label::new(line).wrap());
+    });
+}
+
+/// What a checkbox does, in faint text.
+fn faint_line(text: String) -> LayoutJob {
+    LayoutJob::simple_format(text, TextFormat::simple(text::small(), color::FAINT))
 }
 
 /// What the player did with the hotkey in a frame: the checkbox `turned` on or off, the button of
@@ -371,6 +418,32 @@ mod tests {
         for language in crate::language::Language::ALL {
             let line = donation_width(language, width);
             assert!(line <= width + 0.5, "{line} of {width} in {language:?}");
+        }
+    }
+
+    #[test]
+    fn the_lines_of_the_checkboxes_hold_on_one_line_in_the_narrow_window() {
+        let ctx = egui::Context::default();
+        crate::ui::install(&ctx);
+        // The narrowest window, less the padding of the settings and the checkbox before the line.
+        let width =
+            crate::MIN_WINDOW_SIZE[0] - 2.0 * size::BAND_PADDING - widgets::CHOICE_TEXT_LEFT;
+        for language in crate::language::Language::ALL {
+            let i18n = Translator::new(language);
+            for message in [ALWAYS_ON_TOP.line, CLOSE_WITH_GAME.line] {
+                let mut line = 0.0;
+                crate::ui::fixtures::run_frame(&ctx, egui::RawInput::default(), |ui| {
+                    line = ui
+                        .painter()
+                        .layout_no_wrap(i18n.text(message), text::small(), color::FAINT)
+                        .size()
+                        .x;
+                });
+                assert!(
+                    line <= width,
+                    "{line} of {width}: {message:?} in {language:?}"
+                );
+            }
         }
     }
 

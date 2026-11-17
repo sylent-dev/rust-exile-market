@@ -57,8 +57,15 @@ pub struct Facts<'a> {
     /// None before the leagues arrive at the first session.
     pub league: Option<&'a League>,
     pub always_on_top: bool,
-    /// None on a system without the hotkey (macOS).
-    pub hotkey: Option<HotkeySetting>,
+    /// None on a system without the game (macOS).
+    pub game: Option<GameOnlySettings>,
+}
+
+/// The settings that only a system where the game runs has.
+#[derive(Debug, Clone, Copy)]
+pub struct GameOnlySettings {
+    pub close_with_game: bool,
+    pub hotkey: HotkeySetting,
 }
 
 /// The item the window shows, which the report may join.
@@ -383,10 +390,15 @@ fn summary(facts: &Facts<'_>, system: &str) -> String {
     };
     let on_off = |on| if on { "on" } else { "off" };
     let mut settings = format!("Always on top: {}", on_off(facts.always_on_top));
-    if let Some(hotkey) = facts.hotkey {
+    if let Some(GameOnlySettings {
+        close_with_game,
+        hotkey,
+    }) = facts.game
+    {
         let _ = write!(
             settings,
-            " · Hotkey: {}, {}",
+            " · Close with the game: {} · Hotkey: {}, {}",
+            on_off(close_with_game),
             on_off(hotkey.on),
             hotkey.keys
         );

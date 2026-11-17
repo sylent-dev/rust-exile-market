@@ -7,9 +7,12 @@ fn facts(league: Option<&League>) -> Facts<'_> {
         items: Some(Language::French),
         league,
         always_on_top: false,
-        hotkey: Some(HotkeySetting {
-            on: true,
-            keys: "F4".parse::<Shortcut>().expect("keys"),
+        game: Some(GameOnlySettings {
+            close_with_game: true,
+            hotkey: HotkeySetting {
+                on: true,
+                keys: "F4".parse::<Shortcut>().expect("keys"),
+            },
         }),
     }
 }
@@ -70,7 +73,7 @@ fn the_summary_tells_the_version_the_system_the_languages_the_league_and_the_set
         summary(&facts(Some(&league)), "Linux · KDE Plasma · X11"),
         format!(
             "Exile Market {}\nLinux · KDE Plasma · X11\nInterface: French · Items: French\n\
-             League: Forbidden Rites (softcore)\nAlways on top: off · Hotkey: on, F4",
+             League: Forbidden Rites (softcore)\nAlways on top: off · Close with the game: on · Hotkey: on, F4",
             crate::VERSION
         )
     );
@@ -80,7 +83,7 @@ fn the_summary_tells_the_version_the_system_the_languages_the_league_and_the_set
 fn the_summary_before_the_first_item_and_the_leagues() {
     let facts = Facts {
         items: None,
-        hotkey: None,
+        game: None,
         always_on_top: true,
         ..facts(None)
     };

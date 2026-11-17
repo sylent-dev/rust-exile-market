@@ -154,6 +154,7 @@ macro_rules! or_default {
 
 or_default!(language_or_default, "language");
 or_default!(always_on_top_or_default, "always_on_top");
+or_default!(close_with_game_or_default, "close_with_game");
 or_default!(hotkey_or_default, "hotkey");
 or_default!(league_or_default, "league");
 or_default!(closed_new_leagues_or_default, "closed_new_leagues");
@@ -169,6 +170,7 @@ fn or_on<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<bool, D::E
 pub enum SettingChange {
     Language(LanguageSetting),
     AlwaysOnTop(bool),
+    CloseWithGame(bool),
     /// The price-check hotkey turned on or off.
     HotkeyOn(bool),
     /// The keys of the price-check hotkey chosen.
@@ -186,6 +188,8 @@ pub struct Settings {
     language: LanguageSetting,
     #[serde(deserialize_with = "always_on_top_or_default")]
     always_on_top: bool,
+    #[serde(deserialize_with = "close_with_game_or_default")]
+    close_with_game: bool,
     #[serde(deserialize_with = "hotkey_or_default")]
     hotkey: HotkeySetting,
     /// The chosen league; none until the player or the default chooses one.
@@ -210,6 +214,12 @@ impl Settings {
     #[must_use]
     pub fn always_on_top(&self) -> bool {
         self.always_on_top
+    }
+
+    /// Whether the application quits when Path of Exile 2, seen running, closes.
+    #[must_use]
+    pub fn close_with_game(&self) -> bool {
+        self.close_with_game
     }
 
     /// The price-check hotkey: on or off, and its keys.
@@ -291,6 +301,9 @@ impl Settings {
             }
             SettingChange::AlwaysOnTop(always_on_top) => {
                 mem::replace(&mut self.always_on_top, always_on_top) != always_on_top
+            }
+            SettingChange::CloseWithGame(close) => {
+                mem::replace(&mut self.close_with_game, close) != close
             }
             SettingChange::HotkeyOn(on) => mem::replace(&mut self.hotkey.on, on) != on,
             SettingChange::HotkeyKeys(keys) => mem::replace(&mut self.hotkey.keys, keys) != keys,

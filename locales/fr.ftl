@@ -471,6 +471,11 @@ language-system = Système
 language-english = English
 language-french = Français
 settings-always-on-top = Toujours au premier plan
+# La ligne sous Toujours au premier plan, ce qu'elle fait.
+settings-always-on-top-help = Garde la fenêtre au-dessus du jeu.
+settings-close-with-game = Fermer avec le jeu
+# La ligne sous Fermer avec le jeu, ce qu'elle fait.
+settings-close-with-game-help = Exile Market se ferme quand Path of Exile 2 se ferme.
 # Libellé au-dessus du raccourci d'estimation du prix.
 settings-hotkey = Raccourci
 # Le raccourci activé ou non, ses touches après lui, dans un bouton qui ouvre la liste des touches.

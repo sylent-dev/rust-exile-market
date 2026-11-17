@@ -16,10 +16,10 @@ use egui::{Context, Key, OpenUrl, Ui, ViewportCommand};
 use self::desk::{Desk, DeskRequest, DrawnItem, EMPTY_HEIGHT, Surroundings};
 use self::open_lists::{OpenList, OpenLists};
 use self::overlay_window::OverlayWindow;
-use crate::bug_report::{Facts, JoinedItem, LogSession, Report};
+use crate::bug_report::{Facts, GameOnlySettings, JoinedItem, LogSession, Report};
 use crate::clipboard::{self, ClipboardEvent, ClipboardWatch};
 use crate::filters::Window;
-use crate::game_window::GameWindowWatch;
+use crate::game_window::{self, GameWindowWatch};
 use crate::hotkey::PriceCheckHotkey;
 use crate::i18n::{DOWNLOAD_QUOTE_COUNT, Message, Translator};
 use crate::item::CopiedItem;
@@ -198,8 +198,10 @@ impl ExileMarketApp {
             items: copied.map(CopiedItem::language),
             league: session.league(),
             always_on_top: self.settings.always_on_top(),
-            hotkey: cfg!(any(target_os = "linux", target_os = "windows"))
-                .then(|| self.settings.hotkey()),
+            game: crate::HAS_THE_GAME.then(|| GameOnlySettings {
+                close_with_game: self.settings.close_with_game(),
+                hotkey: self.settings.hotkey(),
+            }),
         };
         let item = copied.map(|copied| JoinedItem {
             text: copied.text().to_owned(),
@@ -255,6 +257,8 @@ impl ExileMarketApp {
             SettingChange::AlwaysOnTop(_) => {
                 ctx.send_viewport_cmd(ViewportCommand::WindowLevel(self.settings.window_level()));
             }
+            // Read when the game closes.
+            SettingChange::CloseWithGame(_) => {}
             SettingChange::HotkeyOn(on) => self.hotkey.turn(on),
             SettingChange::HotkeyKeys(keys) => self.hotkey.change_keys(keys),
         }
@@ -333,7 +337,11 @@ impl App for ExileMarketApp {
         self.overlay_window.follow(ctx, &self.hotkey, now);
         let main_focused = ctx.input(|input| input.viewport().focused.unwrap_or(false));
         self.hotkey.follow_game(main_focused);
-        self.game_window.follow(now);
+        if quits_with_the_game(&self.game_window.follow(now), &self.settings) {
+            log::info!("Closing with the game");
+            // As the Close of the title bar: eframe saves the window on the way out.
+            ctx.send_viewport_cmd(ViewportCommand::Close);
+        }
         if let Some(wait) = self.game_window.next_check(now) {
             ctx.request_repaint_after(wait);
         }
@@ -542,6 +550,12 @@ fn random_quote() -> usize {
     // Each `RandomState` has its own keys: enough to draw a sentence.
     let [byte, ..] = RandomState::new().hash_one(()).to_le_bytes();
     usize::from(byte) % DOWNLOAD_QUOTE_COUNT
+}
+
+/// Whether the application quits after the `changes` of the game: when the last one is its
+/// closing, and the player checked Close with the game.
+fn quits_with_the_game(changes: &[game_window::Change], settings: &Settings) -> bool {
+    settings.close_with_game() && changes.last() == Some(&game_window::Change::Closed)
 }
 
 #[cfg(test)]
