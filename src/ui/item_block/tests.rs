@@ -37,7 +37,7 @@ fn texts(text: &str, language: Language) -> Texts {
         base_values: block
             .base_values()
             .into_iter()
-            .map(|value| format!("{} {}", i18n.text(value.label()), value.number()))
+            .map(|value| value_text(value, &i18n))
             .collect(),
         skills: block.skills(),
         requirements: block
@@ -46,13 +46,23 @@ fn texts(text: &str, language: Language) -> Texts {
     }
 }
 
+/// A base value as the item block writes it, its label and its number, then its tooltip
+/// between parentheses.
+fn value_text(value: BaseValue, i18n: &Translator) -> String {
+    let tooltip = value
+        .tooltip(i18n)
+        .map(|tooltip| format!(" ({tooltip})"))
+        .unwrap_or_default();
+    format!("{} {}{tooltip}", i18n.text(value.label()), value.number())
+}
+
 fn english(text: &str) -> Texts {
     texts(text, Language::English)
 }
 
 /// The name, the line under it and the base values of the waystone copied as `text`, of the
 /// base type `base_type`, with the interface in `language`; the tooltips of the base values
-/// written short after them, between parentheses.
+/// after them, between parentheses.
 fn waystone(text: &str, base_type: &str, language: Language) -> (String, String, Vec<String>) {
     let item = Item::parse(&CopiedItem::from_text(text).expect("an item")).expect("read");
     let i18n = Translator::new(language);
@@ -74,16 +84,7 @@ fn waystone(text: &str, base_type: &str, language: Language) -> (String, String,
     let values = block
         .base_values()
         .into_iter()
-        .map(|value| {
-            let label = i18n.text(value.label());
-            let full = value
-                .full_label()
-                .map(|full| i18n.text(full))
-                .filter(|full| *full != label)
-                .map(|full| format!(" ({full})"))
-                .unwrap_or_default();
-            format!("{label} {}{full}", value.number())
-        })
+        .map(|value| value_text(value, &i18n))
         .collect();
     (
         block.title().into_owned(),
@@ -242,7 +243,10 @@ fn a_rare_weapon_shows_its_tags_in_order_its_dps_and_requirements() {
     );
     assert_eq!(
         crossbow.base_values,
-        ["Physical DPS 288", "Elemental DPS 267"]
+        [
+            "Physical DPS 288 (With its quality, modifiers and runes)",
+            "Elemental DPS 267 (With its quality, modifiers and runes)",
+        ]
     );
     assert_eq!(
         crossbow.requirements.as_deref(),

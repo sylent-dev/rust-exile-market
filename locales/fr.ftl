@@ -137,6 +137,8 @@ gem-level = Niveau { $value }
 dps-physical = DPS physique
 dps-elemental = DPS élémentaire
 dps-chaos = DPS de chaos
+# L'infobulle de chaque DPS : la valeur du jeu, pas le DPS de la base.
+dps-tooltip = Avec sa qualité, ses modificateurs et ses runes
 defence-armour = Armure
 defence-evasion = Évasion
 defence-energy-shield = Bouclier d'énergie
