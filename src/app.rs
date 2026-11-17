@@ -202,6 +202,7 @@ impl ExileMarketApp {
                 close_with_game: self.settings.close_with_game(),
                 hotkey: self.settings.hotkey(),
             }),
+            pseudo_totals: self.settings.pseudo_totals(),
         };
         let item = copied.map(|copied| JoinedItem {
             text: copied.text().to_owned(),
