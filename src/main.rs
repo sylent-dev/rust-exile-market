@@ -62,6 +62,10 @@ const FOLDER_NAME: &str = APP_ID;
 /// Windows executable has its own, linked by `build.rs`.
 const ICON: &[u8] = include_bytes!("../assets/logo/icon.png");
 
+/// Whether Path of Exile 2 runs on this system: on Linux and Windows, the game having no client
+/// on macOS. The hotkey, the window over the game and Close with the game exist only there.
+const HAS_THE_GAME: bool = cfg!(any(target_os = "linux", target_os = "windows"));
+
 /// The narrow layout of version 1.
 const WINDOW_SIZE: [f32; 2] = [420.0, 720.0];
 /// The smallest window the narrow layout still fits in.

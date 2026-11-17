@@ -16,7 +16,7 @@ use egui::{Context, Key, OpenUrl, Ui, ViewportCommand};
 use self::desk::{Desk, DeskRequest, DrawnItem, EMPTY_HEIGHT, Surroundings};
 use self::open_lists::{OpenList, OpenLists};
 use self::overlay_window::OverlayWindow;
-use crate::bug_report::{Facts, JoinedItem, LogSession, Report};
+use crate::bug_report::{Facts, GameSettings, JoinedItem, LogSession, Report};
 use crate::clipboard::{self, ClipboardEvent, ClipboardWatch};
 use crate::filters::Window;
 use crate::game_window::GameWindowWatch;
@@ -198,8 +198,10 @@ impl ExileMarketApp {
             items: copied.map(CopiedItem::language),
             league: session.league(),
             always_on_top: self.settings.always_on_top(),
-            hotkey: cfg!(any(target_os = "linux", target_os = "windows"))
-                .then(|| self.settings.hotkey()),
+            game: crate::HAS_THE_GAME.then(|| GameSettings {
+                close_with_game: self.settings.close_with_game(),
+                hotkey: self.settings.hotkey(),
+            }),
         };
         let item = copied.map(|copied| JoinedItem {
             text: copied.text().to_owned(),
@@ -255,6 +257,8 @@ impl ExileMarketApp {
             SettingChange::AlwaysOnTop(_) => {
                 ctx.send_viewport_cmd(ViewportCommand::WindowLevel(self.settings.window_level()));
             }
+            // Read when the game closes.
+            SettingChange::CloseWithGame(_) => {}
             SettingChange::HotkeyOn(on) => self.hotkey.turn(on),
             SettingChange::HotkeyKeys(keys) => self.hotkey.change_keys(keys),
         }

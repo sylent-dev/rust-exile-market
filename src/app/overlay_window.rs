@@ -138,8 +138,7 @@ impl OverlayWindow {
         desk: &mut Desk,
         mut content: impl FnMut(&mut Ui, &mut Desk, Keys) -> DrawnItem,
     ) -> Option<DeskRequest> {
-        // No window over the game on macOS, where Path of Exile 2 has no client.
-        if !cfg!(any(target_os = "linux", target_os = "windows")) {
+        if !crate::HAS_THE_GAME {
             return None;
         }
         let target = self.overlay.shown();

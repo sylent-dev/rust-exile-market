@@ -82,6 +82,8 @@ messages! {
     LanguageFrench => "language-french",
     SettingsAlwaysOnTop => "settings-always-on-top",
     SettingsAlwaysOnTopHelp => "settings-always-on-top-help",
+    SettingsCloseWithGame => "settings-close-with-game",
+    SettingsCloseWithGameHelp => "settings-close-with-game-help",
     SettingsHotkey => "settings-hotkey",
     SettingsHotkeyPriceCheck => "settings-hotkey-price-check",
     SettingsHotkeyHelp => "settings-hotkey-help",

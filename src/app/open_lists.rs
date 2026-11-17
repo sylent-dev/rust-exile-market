@@ -137,6 +137,7 @@ mod tests {
         for change in [
             SettingChange::Language(LanguageSetting::French),
             SettingChange::AlwaysOnTop(true),
+            SettingChange::CloseWithGame(true),
             SettingChange::HotkeyOn(false),
         ] {
             let mut lists = open(OpenList::Keys);

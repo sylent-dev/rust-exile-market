@@ -1,5 +1,5 @@
-//! The settings, in place of the content of the window: the language, always on top, the
-//! price-check hotkey, and at the bottom the link to the donation page and the disclaimer.
+//! The settings, in place of the content of the window: the language, always on top, close with
+//! the game, the price-check hotkey, and at the bottom the link to the donation page and the disclaimer.
 
 use egui::text::{LayoutJob, TextFormat};
 use egui::{Align, CentralPanel, Frame, Label, Layout, RichText, Ui, UiBuilder, Vec2, vec2};
@@ -27,6 +27,23 @@ const LINE_GAP: f32 = 1.0;
 const DONATION_GAP: f32 = 22.0;
 /// The space between the line of the donation page and the disclaimer under it.
 const DISCLAIMER_GAP: f32 = 6.0;
+
+/// The texts of a row of a checkbox outside a group: its title, and the line under it that says
+/// what it does.
+struct CheckRow {
+    title: Message,
+    line: Message,
+}
+
+const ALWAYS_ON_TOP: CheckRow = CheckRow {
+    title: Message::SettingsAlwaysOnTop,
+    line: Message::SettingsAlwaysOnTopHelp,
+};
+
+const CLOSE_WITH_GAME: CheckRow = CheckRow {
+    title: Message::SettingsCloseWithGame,
+    line: Message::SettingsCloseWithGameHelp,
+};
 
 /// What the player did in the settings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -100,17 +117,17 @@ impl<'a> SettingsPanel<'a> {
                 );
                 let language = self.language(ui);
                 let always_on_top = self.always_on_top(ui);
-                // macOS has no hotkey: Path of Exile 2 has no client there.
-                let hotkey = if cfg!(any(target_os = "linux", target_os = "windows")) {
-                    self.hotkey(ui)
+                let (close_with_game, hotkey) = if crate::HAS_THE_GAME {
+                    (self.close_with_game(ui), self.hotkey(ui))
                 } else {
-                    None
+                    (None, None)
                 };
                 self.donation(ui);
                 self.disclaimer(ui);
                 // A change wins over the click outside the list of the keys, which it closes too.
                 language
                     .or(always_on_top)
+                    .or(close_with_game)
                     .map(SettingsAction::Change)
                     .or(hotkey)
             })
@@ -145,15 +162,25 @@ impl<'a> SettingsPanel<'a> {
     }
 
     fn always_on_top(&self, ui: &mut Ui) -> Option<SettingChange> {
-        ui.add_space(CHECK_ROW_GAP);
         let checked = self.settings.always_on_top();
-        let title = self.i18n.text(Message::SettingsAlwaysOnTop);
+        self.check_row(ui, checked, &ALWAYS_ON_TOP)
+            .then_some(SettingChange::AlwaysOnTop(!checked))
+    }
+
+    fn close_with_game(&self, ui: &mut Ui) -> Option<SettingChange> {
+        let checked = self.settings.close_with_game();
+        self.check_row(ui, checked, &CLOSE_WITH_GAME)
+            .then_some(SettingChange::CloseWithGame(!checked))
+    }
+
+    /// A row of a checkbox outside a group: the checkbox and the title of `row`, then its line
+    /// under the title; whether it was clicked.
+    fn check_row(&self, ui: &mut Ui, checked: bool, row: &CheckRow) -> bool {
+        ui.add_space(CHECK_ROW_GAP);
+        let title = self.i18n.text(row.title);
         let clicked = widgets::choice(ui, Mark::Check { checked }, &title).clicked();
-        line_under_title(
-            ui,
-            faint_line(self.i18n.text(Message::SettingsAlwaysOnTopHelp)),
-        );
-        clicked.then_some(SettingChange::AlwaysOnTop(!checked))
+        line_under_title(ui, faint_line(self.i18n.text(row.line)));
+        clicked
     }
 
     /// The price-check hotkey: its checkbox, the button of its keys on the right of the row and
@@ -391,6 +418,32 @@ mod tests {
         for language in crate::language::Language::ALL {
             let line = donation_width(language, width);
             assert!(line <= width + 0.5, "{line} of {width} in {language:?}");
+        }
+    }
+
+    #[test]
+    fn the_lines_of_the_checkboxes_hold_on_one_line_in_the_narrow_window() {
+        let ctx = egui::Context::default();
+        crate::ui::install(&ctx);
+        // The narrowest window, less the padding of the settings and the checkbox before the line.
+        let width =
+            crate::MIN_WINDOW_SIZE[0] - 2.0 * size::BAND_PADDING - widgets::CHOICE_TEXT_LEFT;
+        for language in crate::language::Language::ALL {
+            let i18n = Translator::new(language);
+            for message in [ALWAYS_ON_TOP.line, CLOSE_WITH_GAME.line] {
+                let mut line = 0.0;
+                crate::ui::fixtures::run_frame(&ctx, egui::RawInput::default(), |ui| {
+                    line = ui
+                        .painter()
+                        .layout_no_wrap(i18n.text(message), text::small(), color::FAINT)
+                        .size()
+                        .x;
+                });
+                assert!(
+                    line <= width,
+                    "{line} of {width}: {message:?} in {language:?}"
+                );
+            }
         }
     }
 

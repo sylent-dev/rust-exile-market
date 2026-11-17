@@ -32,6 +32,19 @@ fn the_default_settings_follow_the_system_below_the_other_windows() {
 }
 
 #[test]
+fn close_with_the_game_is_off_by_default_and_saved_once_checked() {
+    let directory = TestDirectory::new("close-with-game");
+    let mut settings = Settings::default();
+    assert!(!settings.close_with_game());
+
+    assert!(settings.apply(SettingChange::CloseWithGame(true)));
+    assert!(!settings.apply(SettingChange::CloseWithGame(true)));
+    directory.file().save(&settings);
+
+    assert!(directory.file().load().close_with_game());
+}
+
+#[test]
 fn the_hotkey_is_on_by_default_and_can_be_turned_off() {
     let mut settings = Settings::default();
     assert!(settings.hotkey().on);
@@ -310,7 +323,7 @@ fn without_a_configuration_directory_nothing_is_written() {
 }
 
 /// Every setting of the version 0.1.0, away from its default.
-fn every_setting() -> Settings {
+fn every_setting_of_0_1_0() -> Settings {
     let mut settings = changed();
     settings.apply(SettingChange::HotkeyKeys(Shortcut::CHOICES[2]));
     settings.set_league(&League::new("HC Forbidden Rites"));
@@ -336,7 +349,8 @@ fn the_file_of_the_version_0_1_0_is_read_with_every_setting() {
 
     let settings = directory.file().load();
 
-    assert_eq!(settings, every_setting());
+    assert_eq!(settings, every_setting_of_0_1_0());
+    assert!(!settings.close_with_game());
     assert_eq!(settings.language(), LanguageSetting::French);
     assert!(settings.always_on_top());
     assert!(!settings.hotkey().on);
@@ -351,15 +365,38 @@ fn the_file_of_the_version_0_1_0_is_read_with_every_setting() {
     assert!(directory.0.join(FILE_NAME).exists(), "not set aside");
 }
 
+/// Every setting changed, as the version 0.2.0 writes them: those of 0.1.0, and Close with the
+/// game.
+fn every_setting() -> Settings {
+    let mut settings = every_setting_of_0_1_0();
+    settings.apply(SettingChange::CloseWithGame(true));
+    settings
+}
+
+/// The file the version 0.2.0 writes, every setting changed: the file of 0.1.0 with Close with
+/// the game. It no longer changes once that version is out, as the file of 0.1.0.
+const VERSION_0_2_0: &str = include_str!("settings-v0.2.0.toml");
+
+#[test]
+fn the_file_of_the_version_0_2_0_is_read_with_every_setting() {
+    let directory = TestDirectory::new("version-0-2-0");
+    directory.write(VERSION_0_2_0);
+
+    let settings = directory.file().load();
+
+    assert_eq!(settings, every_setting());
+    assert!(settings.close_with_game());
+}
+
 /// Until a version changes the format on purpose, with its own file next to this one.
 #[test]
-fn this_version_writes_the_file_of_the_version_0_1_0() {
-    let directory = TestDirectory::new("version-0-1-0-written");
+fn this_version_writes_the_file_of_the_version_0_2_0() {
+    let directory = TestDirectory::new("version-0-2-0-written");
 
     directory.file().save(&every_setting());
 
     let written = fs::read_to_string(directory.0.join(FILE_NAME)).unwrap();
-    assert_eq!(written, VERSION_0_1_0);
+    assert_eq!(written, VERSION_0_2_0);
 }
 
 /// The file of a later version, read by this one after a downgrade: what it doesn't
@@ -368,7 +405,7 @@ fn this_version_writes_the_file_of_the_version_0_1_0() {
 #[test]
 fn the_settings_of_a_later_version_are_ignored_and_the_others_are_read() {
     let directory = TestDirectory::new("later-version");
-    let later = VERSION_0_1_0
+    let later = VERSION_0_2_0
         .replacen("language", "future_setting = 1\nlanguage", 1)
         .replacen("[hotkey]", "[hotkey]\nsound = true", 1)
         .replacen("[closed_update]", "[closed_update]\nnotes = [1, 2]", 1);
