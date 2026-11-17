@@ -11,7 +11,7 @@ use x11rb::protocol::xproto::{
     Window,
 };
 
-use super::{ReadingSender, Seen, is_game_class, is_game_title};
+use super::{Reading, ReadingSender, is_game_class, is_game_title};
 use crate::x11::{Result, Session};
 
 /// Reads the windows of the desktop on a thread of its own, and sends whether one of them is the
@@ -63,12 +63,12 @@ fn follow_windows(
         let is_open = windows(session, client_list)?
             .into_iter()
             .any(|window| is_game(session, window));
-        if readings.send(Seen { is_open, at }).is_err() {
+        if readings.send(Reading { is_open, at }).is_err() {
             return Ok(());
         }
         loop {
             if let Event::PropertyNotify(event) = session.connection().wait_for_event()?
-                && lists_again(&event, session.root(), lists)
+                && is_list_change(&event, session.root(), lists)
             {
                 break;
             }
@@ -107,7 +107,7 @@ fn is_game(session: &Session, window: Window) -> bool {
 
 /// Whether `event` may change whether the game is open: a change of `lists`, the window list or
 /// the active window, on `root`.
-fn lists_again(event: &PropertyNotifyEvent, root: Window, lists: [Atom; 2]) -> bool {
+fn is_list_change(event: &PropertyNotifyEvent, root: Window, lists: [Atom; 2]) -> bool {
     event.window == root && lists.contains(&event.atom)
 }
 
@@ -135,12 +135,12 @@ mod tests {
     #[test]
     fn the_windows_are_read_again_when_the_list_or_the_active_window_changes() {
         let lists = [CLIENT_LIST, ACTIVE_WINDOW];
-        assert!(lists_again(&changed(ROOT, CLIENT_LIST), ROOT, lists));
-        assert!(lists_again(&changed(ROOT, ACTIVE_WINDOW), ROOT, lists));
+        assert!(is_list_change(&changed(ROOT, CLIENT_LIST), ROOT, lists));
+        assert!(is_list_change(&changed(ROOT, ACTIVE_WINDOW), ROOT, lists));
         // `_NET_CLIENT_LIST_STACKING`, changed at each window raised, and the same atom on
         // another window.
-        assert!(!lists_again(&changed(ROOT, 311), ROOT, lists));
-        assert!(!lists_again(
+        assert!(!is_list_change(&changed(ROOT, 311), ROOT, lists));
+        assert!(!is_list_change(
             &changed(0x0060_0001, CLIENT_LIST),
             ROOT,
             lists

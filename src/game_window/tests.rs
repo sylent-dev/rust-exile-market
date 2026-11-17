@@ -41,8 +41,8 @@ fn tells_another_window_by_its_class() {
 }
 
 /// What the windows told, `seconds` after `start`.
-fn seen(start: Instant, seconds: f32, is_open: bool) -> Seen {
-    Seen {
+fn reading(start: Instant, seconds: f32, is_open: bool) -> Reading {
+    Reading {
         is_open,
         at: start + Duration::from_secs_f32(seconds),
     }
@@ -55,11 +55,11 @@ fn changes(start: Instant, readings: &[(f32, bool)], now_seconds: f32) -> Vec<Ch
         .iter()
         .flat_map(|&(seconds, is_open)| {
             presence
-                .take(seen(start, seconds, is_open))
+                .observe(reading(start, seconds, is_open))
                 .collect::<Vec<_>>()
         })
         .collect();
-    changes.extend(presence.check(start + Duration::from_secs_f32(now_seconds)));
+    changes.extend(presence.close_if_due(start + Duration::from_secs_f32(now_seconds)));
     changes
 }
 
@@ -112,14 +112,14 @@ fn the_window_wakes_when_the_closing_is_due_only_while_the_game_is_gone() {
     let start = Instant::now();
     let (sender, receiver) = mpsc::channel();
     let mut watch = GameWindowWatch {
-        seen: Some(receiver),
+        readings: Some(receiver),
         presence: Presence::default(),
     };
     let at = |seconds| start + Duration::from_secs(seconds);
-    sender.send(seen(start, 0.0, true)).unwrap();
+    sender.send(reading(start, 0.0, true)).unwrap();
     assert_eq!(watch.follow(at(1)), [Change::Opened]);
     assert_eq!(watch.next_check(at(1)), None);
-    sender.send(seen(start, 10.0, false)).unwrap();
+    sender.send(reading(start, 10.0, false)).unwrap();
     assert_eq!(watch.follow(at(11)), []);
     assert_eq!(watch.next_check(at(11)), Some(Duration::from_secs(4)));
     assert_eq!(watch.follow(at(15)), [Change::Closed]);
@@ -131,11 +131,11 @@ fn the_game_is_never_told_closed_once_its_windows_can_no_longer_be_read() {
     let start = Instant::now();
     let (sender, receiver) = mpsc::channel();
     let mut watch = GameWindowWatch {
-        seen: Some(receiver),
+        readings: Some(receiver),
         presence: Presence::default(),
     };
-    sender.send(seen(start, 0.0, true)).unwrap();
-    sender.send(seen(start, 10.0, false)).unwrap();
+    sender.send(reading(start, 0.0, true)).unwrap();
+    sender.send(reading(start, 10.0, false)).unwrap();
     // The thread of the system stopped: the X server lost.
     drop(sender);
     assert_eq!(
@@ -160,14 +160,14 @@ fn a_reading_is_sent_only_when_it_changes_whether_the_game_is_open() {
         (3.0, true),
         (4.0, false),
     ] {
-        readings.send(seen(start, seconds, is_open)).unwrap();
+        readings.send(reading(start, seconds, is_open)).unwrap();
     }
     assert_eq!(
         receiver.try_iter().collect::<Vec<_>>(),
         [
-            seen(start, 0.0, false),
-            seen(start, 2.0, true),
-            seen(start, 4.0, false)
+            reading(start, 0.0, false),
+            reading(start, 2.0, true),
+            reading(start, 4.0, false)
         ]
     );
     assert_eq!(wakes.get(), 3);
@@ -179,5 +179,5 @@ fn the_thread_of_the_system_is_told_when_the_window_no_longer_listens() {
     let (sender, receiver) = mpsc::channel();
     let mut readings = ReadingSender::new(sender, || {});
     drop(receiver);
-    assert!(readings.send(seen(Instant::now(), 0.0, true)).is_err());
+    assert!(readings.send(reading(Instant::now(), 0.0, true)).is_err());
 }

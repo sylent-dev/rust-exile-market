@@ -68,21 +68,21 @@ pub fn is_game_class(property: &[u8]) -> bool {
 /// game makes again (a change of its display mode, maybe) isn't taken for its end (owner,
 /// 2026-11-17): the application closes up to this long after the game, a second more on Windows,
 /// whose windows are read once a second.
-pub const CLOSED_AFTER: Duration = Duration::from_secs(5);
+const CLOSED_AFTER: Duration = Duration::from_secs(5);
 
 /// Whether a window of the game was open, as the thread of the system read the windows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Seen {
-    pub is_open: bool,
+struct Reading {
+    is_open: bool,
     /// When the windows were read.
-    pub at: Instant,
+    at: Instant,
 }
 
 /// Sends a reading of the windows to the window when it changes whether the game is open, and
 /// wakes it then, for the thread of each system: the readings in between are the same.
 #[cfg(any(target_os = "linux", target_os = "windows"))]
 struct ReadingSender<W> {
-    readings: Sender<Seen>,
+    readings: Sender<Reading>,
     wake: W,
     /// What the last reading sent said, none before the first.
     was_open: Option<bool>,
@@ -90,7 +90,7 @@ struct ReadingSender<W> {
 
 #[cfg(any(target_os = "linux", target_os = "windows"))]
 impl<W: Fn()> ReadingSender<W> {
-    fn new(readings: Sender<Seen>, wake: W) -> Self {
+    fn new(readings: Sender<Reading>, wake: W) -> Self {
         Self {
             readings,
             wake,
@@ -103,7 +103,7 @@ impl<W: Fn()> ReadingSender<W> {
     /// # Errors
     ///
     /// When the window no longer listens: the thread then ends.
-    fn send(&mut self, reading: Seen) -> Result<(), SendError<Seen>> {
+    fn send(&mut self, reading: Reading) -> Result<(), SendError<Reading>> {
         if self.was_open == Some(reading.is_open) {
             return Ok(());
         }
@@ -139,13 +139,13 @@ enum Presence {
 impl Presence {
     /// Takes in what the windows told: first the closing its instant reached, then what it
     /// changes, so that the changes come in the order they happened.
-    fn take(&mut self, seen: Seen) -> impl Iterator<Item = Change> {
-        let due = self.check(seen.at);
-        due.into_iter().chain(self.apply(seen))
+    fn observe(&mut self, reading: Reading) -> impl Iterator<Item = Change> {
+        let due = self.close_if_due(reading.at);
+        due.into_iter().chain(self.apply(reading))
     }
 
-    fn apply(&mut self, seen: Seen) -> Option<Change> {
-        match (*self, seen.is_open) {
+    fn apply(&mut self, reading: Reading) -> Option<Change> {
+        match (*self, reading.is_open) {
             (Self::Closed, true) => {
                 *self = Self::Open;
                 Some(Change::Opened)
@@ -156,7 +156,7 @@ impl Presence {
                 None
             }
             (Self::Open, false) => {
-                *self = Self::Gone { since: seen.at };
+                *self = Self::Gone { since: reading.at };
                 None
             }
             (Self::Open, true) | (Self::Closed | Self::Gone { .. }, false) => None,
@@ -164,7 +164,7 @@ impl Presence {
     }
 
     /// The closing, once the windows of the game have been gone for [`CLOSED_AFTER`] at `now`.
-    fn check(&mut self, now: Instant) -> Option<Change> {
+    fn close_if_due(&mut self, now: Instant) -> Option<Change> {
         let deadline = self.deadline()?;
         (now >= deadline).then(|| {
             *self = Self::Closed;
@@ -183,8 +183,9 @@ impl Presence {
 
 /// Whether the game is open, followed for as long as this value lives.
 pub struct GameWindowWatch {
-    /// What the thread of the system read; none once it stopped, or on a system without it.
-    seen: Option<Receiver<Seen>>,
+    /// What the thread of the system read; none once it stopped, or, on macOS, at the first
+    /// [`Self::follow`].
+    readings: Option<Receiver<Reading>>,
     presence: Presence,
 }
 
@@ -200,7 +201,7 @@ impl GameWindowWatch {
         #[cfg(not(any(target_os = "linux", target_os = "windows")))]
         drop((sender, wake));
         Self {
-            seen: Some(receiver),
+            readings: Some(receiver),
             presence: Presence::default(),
         }
     }
@@ -211,10 +212,10 @@ impl GameWindowWatch {
     pub fn follow(&mut self, now: Instant) -> Vec<Change> {
         let mut changes = Vec::new();
         let mut is_lost = false;
-        if let Some(seen) = &self.seen {
+        if let Some(readings) = &self.readings {
             loop {
-                match seen.try_recv() {
-                    Ok(seen) => changes.extend(self.presence.take(seen)),
+                match readings.try_recv() {
+                    Ok(reading) => changes.extend(self.presence.observe(reading)),
                     Err(TryRecvError::Empty) => break,
                     Err(TryRecvError::Disconnected) => {
                         is_lost = true;
@@ -224,10 +225,10 @@ impl GameWindowWatch {
             }
         }
         if is_lost {
-            self.seen = None;
+            self.readings = None;
             self.presence = Presence::Closed;
         }
-        changes.extend(self.presence.check(now));
+        changes.extend(self.presence.close_if_due(now));
         for change in &changes {
             match change {
                 Change::Opened => log::info!("Path of Exile 2 opened"),

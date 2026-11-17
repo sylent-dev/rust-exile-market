@@ -7,13 +7,13 @@ use std::time::{Duration, Instant};
 
 use winsafe::HWND;
 
-use super::{ReadingSender, Seen, is_game_window};
+use super::{Reading, ReadingSender, is_game_window};
 
 /// How often the windows are read. Windows tells their changes only to a hook
 /// (`SetWinEventHook`), whose callback can't be written without `unsafe`: read once a second
 /// instead, the closing waiting [`super::CLOSED_AFTER`] anyway, so that the application closes
 /// up to a second later than under X11.
-const WINDOWS_POLL: Duration = Duration::from_secs(1);
+const POLL_INTERVAL: Duration = Duration::from_secs(1);
 
 /// Reads the windows of the desktop on a thread of its own, and sends whether one of them is the
 /// game: at the start, then at each change, until the receiver is dropped. When they can't be
@@ -35,10 +35,10 @@ pub(super) fn follow(mut readings: ReadingSender<impl Fn() + Send + 'static>) ->
                         return;
                     }
                 };
-                if readings.send(Seen { is_open, at }).is_err() {
+                if readings.send(Reading { is_open, at }).is_err() {
                     return;
                 }
-                thread::sleep(WINDOWS_POLL);
+                thread::sleep(POLL_INTERVAL);
             }
         })?;
     Ok(())
