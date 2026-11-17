@@ -64,7 +64,8 @@ pub fn is_game_class(property: &[u8]) -> bool {
 
 /// How long the windows of the game must stay gone before it is told closed, so that a window the
 /// game makes again (a change of its display mode, maybe) isn't taken for its end (owner,
-/// 2026-11-17): the application closes up to this long after the game.
+/// 2026-11-17): the application closes up to this long after the game, a second more on Windows,
+/// whose windows are read once a second.
 pub const CLOSED_AFTER: Duration = Duration::from_secs(5);
 
 /// Whether a window of the game was open, as the thread of the system read the windows.

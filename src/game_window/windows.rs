@@ -1,5 +1,5 @@
-//! The game seen open under Windows: one of its top-level windows, shown or minimized, read once
-//! a second.
+//! The game seen open under Windows: one of its top-level windows, shown or minimized (never a
+//! hidden one), read once a second.
 
 use std::io;
 use std::sync::mpsc::Sender;
@@ -12,8 +12,8 @@ use super::{Seen, is_game_window};
 
 /// How often the windows are read. Windows tells their changes only to a hook
 /// (`SetWinEventHook`), whose callback can't be written without `unsafe`: read once a second
-/// instead, a few hundred windows in a millisecond or so, the closing waiting
-/// [`super::CLOSED_AFTER`] anyway.
+/// instead, the closing waiting [`super::CLOSED_AFTER`] anyway, so that the application closes
+/// up to a second later than under X11.
 const WINDOWS_POLL: Duration = Duration::from_secs(1);
 
 /// Reads the windows of the desktop on a thread of its own, and sends whether one of them is the
@@ -50,14 +50,15 @@ pub fn follow(seen: Sender<Seen>, wake: impl Fn() + Send + 'static) -> io::Resul
     Ok(())
 }
 
-/// Whether one of the top-level windows is the game ([`is_game_window`]), read for the windows of
-/// the other applications only (the title of a window of this process is read through a message
-/// to the thread of the window, which this one would wait for).
+/// Whether one of the visible top-level windows is the game ([`is_game_window`]), read for the
+/// windows of the other applications only (the title of a window of this process is read through
+/// a message to the thread of the window, which this one would wait for). A minimized window is
+/// visible; a hidden one, which a program may keep titled after the game, isn't the game open.
 fn is_game_open() -> winsafe::SysResult<bool> {
     let mut is_open = false;
     // Every window, never stopped early: a callback that stops it makes `EnumWindows` fail.
     winsafe::EnumWindows(|window: HWND| {
-        if !is_open && !crate::overlay::is_ours(&window) {
+        if !is_open && window.IsWindowVisible() && !crate::overlay::is_ours(&window) {
             let title = window.GetWindowText().unwrap_or_default();
             let class = window.GetClassName().unwrap_or_default();
             is_open = is_game_window(&title, &class);
