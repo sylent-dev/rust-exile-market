@@ -7,16 +7,17 @@ description: Draw editable Excalidraw wireframes of a user interface (grayscale,
 
 Goal: agree with the owner on the **layout** of the interface, without colors or code, in a file they can edit themselves. A coded mock-up made too early is generic and never exactly what the owner wants; a wireframe they draw on becomes their own.
 
-Only the layout is decided here: the style (colors, fonts) comes after, in the HTML mock-up (`html-mockups` skill). The agreed layout ends up in `specs.md`.
+The structure (which windows, panels and groups of settings) is sorted before, with the `excalidraw-structures` skill. Only the layout is decided here: the style (colors, fonts) comes after, in the HTML mock-up (`html-mockups` skill). The agreed layout ends up in `specs.md`.
 
 ## 1. Before drawing
 
-- Read `specs.md` (what the interface shows) and ask the owner what is unclear, a few questions at a time: the screens or windows, the sizes (window width, phone, desktop), what matters most at a glance, the panels that open over the content.
-- For a responsive interface, start with the **narrowest layout** (mobile first): it forces to choose the essential, and the wider layouts only rearrange the same blocks.
+- Read `specs.md` (what the interface shows) and ask the owner what is unclear, a few questions at a time: the windows and their panels, their sizes in logical pixels (the smallest, the default, the owner's), whether a window can be resized, what matters most at a glance, the panels that open over the content.
+- **Decide the title bar in the first wireframes**: the one of the system, drawn as a plain band, or one of the application's own, with its buttons (close, minimize, move) drawn from the start.
+- For a resizable window, start with the **smallest size**: it forces to choose the essential, and the larger sizes only rearrange the same blocks.
 
 ## 2. Generate the file
 
-Write a Python generator in the scratchpad that uses `scripts/excalidraw.py` (read its docstring), and save to `docs/wireframes/<name>.excalidraw`:
+Write a Python generator in the scratchpad that uses `../excalidraw-structures/scripts/excalidraw.py` (read its docstring; the helpers are shared with the `excalidraw-structures` skill), and save to `docs/wireframes/<name>.excalidraw`:
 
 - **Grayscale only** (`INK`, `WEAK`, `FILL`), the hand-drawn font: it reads as a draft, so the discussion stays on the layout.
 - **One frame per screen, window size or state**, named after it ("Narrow · 420 px", "Settings open", "Error · offline").
@@ -27,7 +28,7 @@ Write a Python generator in the scratchpad that uses `scripts/excalidraw.py` (re
 
 ## 3. Check before handing over
 
-Render a preview with `scripts/preview.py` (SVG, then a PNG to look at it) and check overlaps, texts that overflow their block, alignment, and that every block is grouped. The preview checks positions, not the look.
+Render a preview with `../excalidraw-structures/scripts/preview.py` (SVG, then a PNG to look at it) and check overlaps, texts that overflow their block, alignment, and that every block is grouped. The preview checks positions, not the look.
 
 ## 4. Hand it over
 

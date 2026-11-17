@@ -10,6 +10,7 @@ The name comes first: a reader who sees only the name should know what the thing
 
 - A name says what a thing is or does, in the words of the domain (the game, the trade site, poe2scout), not how it is computed: `affix_limits`, not `counts`; `copied_lines`, not `list`.
 - A module or a type is named by what it gives, not by its place next to another one: no module `other_…`, `misc`, `utils` nor `common` (the module that tells the lines in doubt is `doubts`, not `other_readings`). `other` stays the word for the second of a pair (`other_fit`, `other_room`).
+- A name that needs its doc comment to be understood is renamed.
 - Whole words. No abbreviation but those of the domain and of Rust: `id`, `dps`, `ui`, `ctx`, `i18n`. A single letter only for an index or a closure parameter of a line or two.
 - One notion, one word, across the whole code: a tier is always a `tier`. Two notions never share a word: when one word means two things (`currency` names four), one of them is renamed.
 - Types are nouns (`ModifierTiers`). A function that computes a value is named by what it returns (`trade_tiers`, `possible`); a function that acts, by a verb (`save`, `send_copy`).
@@ -35,6 +36,7 @@ The name comes first: a reader who sees only the name should know what the thing
 - `match` on the enums of the project are exhaustive: no `_ =>` that would swallow a new variant. Adding a variant must point to every place to update.
 - A newtype when two values of one type can be mixed up (the index of a line and the index of a candidate; pixels and points), or when a value carries an invariant checked once, where it is built.
 - `Option` and `Result`, never a sentinel (`-1`, `""`, `NaN`).
+- A rule on the meaning of a value is decided where its domain type is still known, with an exhaustive `match` that names each variant, never on the strings or the ids it was flattened into: a predicate that reads strings a type knew lets through the very case it was meant to catch.
 - The smallest visibility: private, then `pub(super)`, then `pub`. In a binary crate, as here, `pub` reaches the crate only, as `pub(crate)` would: one spelling, `pub`. A `pub` field only on a plain data type.
 
 ## Ownership and borrowing
@@ -44,10 +46,20 @@ The name comes first: a reader who sees only the name should know what the thing
 - `Cow` when a value is mostly borrowed and sometimes built.
 - Data between threads: owned by one thread, sent through a channel. `Arc<Mutex<…>>` only where a channel can't do, with the reason in a comment.
 
+## Threads
+
+- Before coding concurrent code (the threads of a hotkey, of the clipboard and of the interface), design who decides what: one judge per decision, and the instant of an event carried with it. Timings patched after the fact make the reviews find the races one by one.
+- When two threads watch the same outside state (the active window, the focus), the one that acts publishes its intent first (a counter, read after the state), and a test replays the events in their real order.
+
+## Systems
+
+- A stand-in type for the other systems (`#[cfg(not(target_os = "linux"))]`) is built the same way on every system (`new()`), never with `default()`: Clippy refuses `default()` on a unit struct, an error only the lint of that system shows.
+- An item compiled for one system and for the tests (`#[cfg(any(target_os = "windows", test))]`) also compiles for the tests of every other system, where what it uses may not exist: bound it to the systems whose tests use it (`all(test, target_os = "linux")`). `scripts/clippy-windows.sh` and `scripts/clippy-macos.sh` catch it before the push.
+
 ## Modules
 
 - One file, one responsibility, named by it. A file that holds two subjects that change for different reasons is split: the data kept by hand apart from the code that reads it, the rules apart from the drawing.
-- Past about 800 lines of code (tests aside), a file is looked at for its parts. The length is a sign; the responsibilities decide.
+- Past about 800 lines of code (tests aside), a file is looked at for its parts, and so is a struct that gathers unrelated state. The length is a sign; the responsibilities decide.
 - The tests of a module past a few hundred lines go to its `tests.rs` (`CLAUDE.md`).
 - The dependencies go one way: the domain (`item`, `game_data`, the prices, `trade`) knows neither egui nor `ui` nor `app`; the interface reads the domain.
 - Reviewing one rule takes reading its file and its tests, not a whole area.
@@ -57,6 +69,11 @@ The name comes first: a reader who sees only the name should know what the thing
 - One rule in one place: a rule of the game or of the trade site (a threshold, a bound, a list of words) is written once and called by every use. Each copy is a place where the application can drift.
 - The words of the game, in each language, live in `src/item/labels.rs`; the texts of the interface in `locales/`, never in the code.
 - A number of the rules gets a named constant, with a comment that says where it comes from (a measure, the game, the mock-up).
+- A rule that reads the data (a heuristic, a threshold) is measured before it is decided (`CLAUDE.md`, Code review).
+
+## Dependencies
+
+- Before turning off the default features of a crate (`default-features = false`), read what each one does, and keep the ones the application needs, with a check of the CI when nothing else would fail: on eframe, it silently dropped `clipboard`, so that "Copied" showed while nothing reached the system (`.github/scripts/system-clipboard.sh` checks it now). A copy is tested by pasting it into another application.
 
 ## Errors
 
@@ -83,18 +100,32 @@ The name comes first: a reader who sees only the name should know what the thing
   - a typestate where an order matters and a mistake would be costly.
 - Never a layer that adds without giving: no trait with one implementation and no test double, no generic used with one type.
 - SOLID, read for Rust: one responsibility per module and per type; a new case added by a new variant or a new `impl`, the exhaustive `match` naming every place to update; small traits; a trait at a seam, not everywhere.
+- When a second fix lands on the same case, look for the rule that makes the case impossible rather than a third condition.
 
 ## Tests
 
 - A test reads as an example of its rule: its name says the behavior, its body the case, built by a small helper rather than fifty lines of set-up.
 - Each rule is tested on data written by hand, in the `tests.rs` of its file. The tests on the real data of the game are kept for what a patch of the game changes, in a `game_tests.rs` next to it: the ones to look at, and to record again, when the game data are generated again, while the `tests.rs` must still pass as they are. What the tests of several files share (the builders of their data, the readers of a result) lives in the `fixtures.rs` of their module.
-- An assertion compares the whole value (a list, a section, a struct); a part (`contains`, `starts_with`) only when the rest doesn't matter. An expected exception is a named list, compared whole.
+- The reading of an outside format (the answer of the trade site or of poe2scout, a markup in its texts, the text the game copies) is tested on cases copied from real answers, with their source and date in a comment, never on a text written in the shape the author expects: a shape guessed from a cut screenshot or a document misses what the real format holds. Before fixing such a reading, read the format in a real answer.
+- The expected value of a test is written from what the function says it does (its doc comment, `specs.md`), then the test is run: a difference is a finding, the comment or the code is wrong, and the owner decides which.
+- An assertion compares the whole value (a list, a section, a struct); a part (`contains`, `starts_with`) only when the rest doesn't matter. An expected exception is a named list, compared whole, never a condition that lets a case through.
 - Several cases of one behavior may share a test; two behaviors are two tests.
-- Mutations are no part of the usual flow, which the code review and the CI guard. A series is run only on the owner's go, asked beforehand with what it would bring on this code, how many mutations and about how long: it takes time and slows the step. A mutation is one small wrong change of the code, the nearest wrong neighbour of a rule (the best tier for the tier found, a `>=` for a `==`), which a test of the file must catch. One that survives is a question, not yet a missing test: a case to write, or code that does nothing; it is handed to the code review without the author's opinion. A series runs in a worktree apart, never in the project folder, so that no mutation can be left in the code, and each run of the tests is bounded in time and in memory, since a mutation can make a loop endless.
+- A rule that orders or chooses gets a case where the rule and its nearest wrong neighbour disagree: for a `find` over one of two lists, the other list; for two sort keys, each alone and both swapped. Data that give the same answer to both (values already sorted, which a stable sort hides) pin nothing.
+- A rule read through a bound or a set taken from the data (the longest entry, the origins a value can have) is tested with the size of the real data and with more than two values of the set.
+- What stays on the far side of a test seam is kept as small as possible and tested through a real local server (HTTP) rather than a fake that hands over values already read. A rule kept by the absence of a feature (no cookie sent back) gets a test of the behavior and a check of the feature tree (`cargo tree -e features`).
+- A measure quoted in a comment or a document is committed with the code that produces it, as an ignored test with its recorded numbers. Before turning a property a review proposes into an assertion, read the notes of the feature: the property may be false on purpose.
+- An egui test whose frames step past an animation (a few tenths of a second) finds a state written only while the widget is drawn, lost when a slow frame skips it: test such widgets with such frames on purpose.
+- At the end of a series of test steps, read the written rules (`specs.md`, the notes of `docs/`) one sentence at a time, and ask which test fails if that sentence stops being true: a rule is pinned by one test that fails without it, not by two that surround it.
+- Mutations are no part of the usual flow, which the code review and the CI guard. A series is run only on the owner's go, asked beforehand with what it would bring on this code, how many mutations and about how long: it takes time and slows the step. A mutation is one small wrong change of the code, the nearest wrong neighbour of a rule (the best tier for the tier found, a `>=` for a `==`), which a test of the file must catch. One that survives is a question, not yet a missing test: first ask which result it changes that anything reads (the code it touches may do nothing, and is then removed), run it on the real data (a probe in a worktree apart), then hand it to the code review without the author's opinion. A series runs in a worktree apart, never in the project folder, so that no mutation can be left in the code, and each run of the tests is bounded in time and in memory, since a mutation can make a loop endless.
 
 ## Refactoring
 
+- At the start of a refactoring step, read the whole code of its area and propose a numbered plan of improvements, one commit each, beyond what the line of the step names (a word shared by two notions, a boolean parameter, a long function, a clone that only quiets the borrow checker): the line says the least to do; the owner accepts the plan.
 - No change of behavior, but the small fixes of the last rule, each in its commit: the tests, the counts of the draw (`RECORDED`) and the generated game data stay the same, checked after each commit, not only at the end, so that a difference names its commit. Where a commit changes the generator (`tools/game-data`), run it after that commit at the commits the `NOTICE.md` of `main` names (without arguments, it reads `master`, which moves), and compare its files and what it prints, byte for byte. A tool that reads the trade site (`tools/exchange-icons`) isn't run for a refactoring: the next rule applies to it. A test whose assertion changes is named in the pull request, with the reason.
+- Where the code has a hot path (a loop run millions of times), time it before and after each commit, not only compare what it gives: a call the compiler no longer inlines slows it unseen. A proposal of a review on a hot path is measured like any other change, and the measure of what was tried and left is written next to the code (a doc comment), so that nobody tries again.
+- When a refactoring hands functions a wider value (parameters grouped into one struct), list what each one now receives, and pin by a test what it must not read: the compiler only tells a field that is missing.
 - Before moving code, check it is tested; a path without a test gets one first, or, where only the network or the game reaches it, it is changed only by steps the compiler checks, and the pull request says so.
+- A move of more than a few items is done by a script, not by hand: it cuts each file into its top-level items and copies each one, as it is, to the file a plan names, and can be run again from the commit before, so that a change of the plan costs a minute; a second script checks that every line of the old files is in the new ones. Then `cargo doc --document-private-items` finds the doc links the move left without target.
+- Before splitting or moving a file, search the tests for an `include_str!` of its path.
 - The moves first, in commits of their own: `git diff --color-moved=dimmed-zebra --color-moved-ws=allow-indentation-change` shows them unchanged, but for paths, `use` lines, visibility and the line breaks `rustfmt` puts again, the same tokens. Then one commit per improvement.
-- Each small refactoring seen on the way is done in the same pull request. A small fix of the behavior seen on the way, with its test, goes in a commit of its own, named in the pull request as its change of behavior and checked by its review; one that needs a decision or a mock-up goes to `backlog.md`.
+- Each small refactoring seen on the way, in the files the commit already touches, is done in the same pull request. Work that needs a commit of its own and that the line of the step doesn't name is extra work: finish the commit under way, then tell the owner what it is and its cost, and the owner decides (`CLAUDE.md`, Specifications and roadmap). A small fix of the behavior seen on the way, with its test, goes in a commit of its own, named in the pull request as its change of behavior and checked by its review; one that needs a decision or a mock-up goes to `backlog.md`.

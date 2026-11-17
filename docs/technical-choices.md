@@ -224,6 +224,12 @@ The technical choices of the [roadmap](../roadmap.md), with their reasons: one s
 
 **Reason.** Builds every system on its own runner and publishes the archives with `gh release`, without extra tooling. A portable executable is enough for version 1. The tag must be on `main`, each action is pinned to a commit and the version of Rust is pinned in `rust-toolchain.toml`, raised by Dependabot; the advisories on the dependencies are checked every day and before a release (`cargo deny`; security audit of 2026-11-10). The Linux executable targets glibc rather than musl: a statically linked musl executable can't load the system's graphics libraries (OpenGL, X11).
 
+## Mock-up server
+
+**Choice.** `python3 docs/mockups/serve.py 8771`, from the repository root (`mockup-screenshots` skill)
+
+**Reason.** It serves the mock-ups without cache, so that a reload never mixes old and new files, on a port of this project alone: two projects on the same port took each other's server over. The mock-ups were served on 8765 until 2026-11-17, when another project of the owner was found serving its own there; 8771 was free.
+
 ## License and notices
 
 **Choice.** `GPL-3.0-or-later`; `cargo-deny` checks the licenses of the dependencies, `cargo-about` writes `THIRD-PARTY-LICENSES` at each release (step 17d2)
