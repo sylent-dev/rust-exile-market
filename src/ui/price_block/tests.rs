@@ -299,3 +299,77 @@ fn a_fixed_price_on_too_little_has_a_low_reliability_and_says_on_what() {
     );
     assert_eq!(low(FixedPrice::Unique(&unique(5))), None);
 }
+
+#[test]
+fn the_tooltip_of_an_orb_names_it_in_the_language_of_the_interface() {
+    assert_eq!(orb_name(Orb::Divine, Language::English), "Divine Orb");
+    assert_eq!(orb_name(Orb::Chaos, Language::French), "Orbe du chaos");
+    assert_eq!(orb_name(Orb::Exalted, Language::French), "Orbe exalté");
+}
+
+#[test]
+fn the_tooltip_of_an_orb_writes_what_one_is_worth_in_the_others() {
+    let rates = Rates {
+        chaos: 70.4,
+        divine: 712.4,
+    };
+    let english = Translator::new(Language::English);
+    let rate = |currency| orb_rate(currency, rates, &english);
+
+    assert_eq!(
+        [rate(Orb::Divine), rate(Orb::Chaos), rate(Orb::Exalted)],
+        [
+            "1 = 712 Exalted Orbs",
+            "1 = 70 Exalted Orbs",
+            "712 = 1 Divine Orb"
+        ]
+    );
+    let french = Translator::new(Language::French);
+    assert_eq!(orb_rate(Orb::Exalted, rates, &french), "712 = 1 Orbe divin");
+}
+
+#[test]
+fn the_plural_of_a_rate_follows_the_amount_written() {
+    let chaos = |chaos: f64, language| {
+        let rates = Rates {
+            chaos,
+            divine: 712.0,
+        };
+        orb_rate(Orb::Chaos, rates, &Translator::new(language))
+    };
+
+    assert_eq!(chaos(1.0, Language::English), "1 = 1 Exalted Orb");
+    // 0.996 is written 1, in the singular.
+    assert_eq!(chaos(0.996, Language::English), "1 = 1 Exalted Orb");
+    assert_eq!(chaos(1.5, Language::English), "1 = 1.5 Exalted Orbs");
+    // French puts a number under 2 in the singular; 1.996 is written 2, in the plural.
+    assert_eq!(chaos(1.5, Language::French), "1 = 1.5 Orbe exalté");
+    assert_eq!(chaos(1.996, Language::French), "1 = 2 Orbes exaltés");
+}
+
+#[test]
+fn the_price_of_a_possible_unique_takes_the_right_of_its_row_its_whole_height() {
+    let row = Rect::from_min_max(pos2(10.0, 20.0), pos2(400.0, 46.0));
+
+    assert_eq!(
+        price_part(row, 60.0),
+        Rect::from_min_max(pos2(340.0, 20.0), pos2(400.0, 46.0))
+    );
+}
+
+#[test]
+fn a_rate_is_written_whole_never_cut_short_with_k() {
+    let rates = Rates {
+        chaos: 70.0,
+        divine: 1049.4,
+    };
+    let english = Translator::new(Language::English);
+
+    assert_eq!(
+        [
+            orb_rate(Orb::Divine, rates, &english),
+            orb_rate(Orb::Exalted, rates, &english)
+        ],
+        ["1 = 1049 Exalted Orbs", "1049 = 1 Divine Orb"]
+    );
+}

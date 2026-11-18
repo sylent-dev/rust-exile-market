@@ -6,16 +6,19 @@
 //! What the block shows is decided apart from the drawing ([`view`]), and tested.
 
 use egui::{
-    Align, Frame, Image, ImageSource, Label, Layout, Rect, RichText, Sense, Ui, Vec2, pos2, vec2,
+    Align, Frame, Image, ImageSource, Label, Layout, Rect, Response, RichText, Sense, Ui, Vec2,
+    pos2, vec2,
 };
 
 use super::images;
 use super::theme::{color, size, text};
 use super::widgets;
+use crate::exchange_currencies;
 use crate::filters::{Filter, FilterKey};
 use crate::format;
 use crate::i18n::{Message, Translator, WrittenRange};
 use crate::item::{Item, Rarity};
+use crate::language::Language;
 use crate::market::Failure;
 use crate::price::Orb;
 use crate::price::estimate::{COUNTED, Estimate, NoEstimate};
@@ -46,8 +49,6 @@ const ROW_PADDING_Y: f32 = 4.0;
 const ROW_HEIGHT: f32 = LIST_ORB_SIZE + 2.0 * ROW_PADDING_Y;
 /// The least space between the name of a possible unique and its price.
 const NAME_GAP: f32 = 12.0;
-/// The currencies of the amounts, in their order.
-const CURRENCIES: [Orb; 3] = [Orb::Divine, Orb::Chaos, Orb::Exalted];
 /// Under this many Divine or Chaos Orbs, an amount is too small to matter and isn't shown.
 const SMALL_AMOUNT: f64 = 0.1;
 
@@ -366,7 +367,12 @@ impl PriceBlock<'_> {
     fn priced(&self, ui: &mut Ui, market_price: MarketPrice) {
         let MarketPrice { price, rates, .. } = market_price;
         let stack = self.stack_size();
-        amounts(ui, price.exalted * f64::from(stack.unwrap_or(1)), rates);
+        amounts(
+            ui,
+            price.exalted * f64::from(stack.unwrap_or(1)),
+            rates,
+            self.i18n,
+        );
         if stack.is_some() {
             ui.add_space(LINE_GAP);
             line(
@@ -393,7 +399,12 @@ impl PriceBlock<'_> {
     /// The estimated price in the three currencies, then how it is made, with the range of its
     /// offers.
     fn estimated(&self, ui: &mut Ui, estimate: Estimate) {
-        amounts(ui, estimate.exalted, estimate.reference.worth.rates);
+        amounts(
+            ui,
+            estimate.exalted,
+            estimate.reference.worth.rates,
+            self.i18n,
+        );
         let counted = estimate.counted;
         let range = written_range(&estimate);
         let note = if counted == COUNTED {
@@ -407,8 +418,9 @@ impl PriceBlock<'_> {
         line(ui, &note, color::WEAK);
     }
 
-    /// The uniques an unidentified item can be, each with its price in its own currency; a
-    /// name too long is cut with "…", and shown whole under the pointer.
+    /// The uniques an unidentified item can be, each with its price in its own currency and the
+    /// tooltip of its orb ([`orb_tooltip`]); a name too long is cut with "…", and shown whole
+    /// under the pointer.
     fn candidates(&self, ui: &mut Ui, candidates: &[Candidate], rates: Rates) {
         message(ui, &self.i18n.text(Message::IdentifyToPrice), color::TEXT);
         ui.add_space(LINE_GAP);
@@ -426,23 +438,35 @@ impl PriceBlock<'_> {
             let listed = candidate
                 .price
                 .map(|unique| list_price(unique.price.exalted, rates));
-            let price_width = self.candidate_price(ui, rect, listed);
+            let currency = listed.as_ref().map(|&(_, currency)| currency);
+            let price = self.candidate_price(ui, rect, listed);
+            let is_price_hovered = currency.is_some_and(|currency| {
+                let id = response.id.with("price");
+                orb_tooltip(
+                    ui.interact(price, id, Sense::hover()),
+                    currency,
+                    rates,
+                    self.i18n,
+                )
+                .hovered()
+            });
             let name = &candidate.names.of(language).name;
-            let name_width = (rect.width() - price_width - NAME_GAP).max(0.0);
+            let name_width = (rect.width() - price.width() - NAME_GAP).max(0.0);
             let galley = widgets::truncated_line(ui, name.as_str(), text::body(), name_width);
             let cut = galley.elided;
             let top = rect.center().y - galley.size().y / 2.0;
             ui.painter()
                 .galley(pos2(rect.left(), top), galley, color::UNIQUE);
-            if cut {
+            // Not over the price, which has a tooltip of its own.
+            if cut && !is_price_hovered {
                 response.on_hover_text(name.as_str());
             }
         }
     }
 
-    /// Draws the price of a possible unique at the right of its row, as [`list_price`] writes
-    /// it, or that it has no offers; its width.
-    fn candidate_price(&self, ui: &Ui, row: Rect, listed: Option<(String, Orb)>) -> f32 {
+    /// Draws the price of a possible unique at the right of its `row`, as [`list_price`] writes
+    /// it, or that it has no offers; the part of the row it takes, the whole height of the row.
+    fn candidate_price(&self, ui: &Ui, row: Rect, listed: Option<(String, Orb)>) -> Rect {
         let painter = ui.painter();
         let Some((amount, currency)) = listed else {
             let label = self.i18n.text(Message::NoOffers);
@@ -453,7 +477,7 @@ impl PriceBlock<'_> {
                 galley,
                 color::WEAK,
             );
-            return size.x;
+            return price_part(row, size.x);
         };
         let orb_rect = Rect::from_center_size(
             pos2(row.right() - LIST_ORB_SIZE / 2.0, row.center().y),
@@ -468,7 +492,7 @@ impl PriceBlock<'_> {
             galley,
             color::TEXT,
         );
-        row.right() - left
+        price_part(row, row.right() - left)
     }
 
     /// Why the item has no price.
@@ -500,34 +524,72 @@ impl PriceBlock<'_> {
 }
 
 /// The amounts in the three currencies, side by side, each with its orb, a third of the width
-/// each. An amount too small to matter is left out, and the currencies after it move to the
-/// left.
-fn amounts(ui: &mut Ui, exalted: f64, rates: Rates) {
+/// each, and its tooltip ([`orb_tooltip`]). An amount too small to matter is left out, and the
+/// currencies after it move to the left.
+fn amounts(ui: &mut Ui, exalted: f64, rates: Rates, i18n: &Translator) {
     let width = ui.available_width() / 3.0;
     ui.horizontal(|ui| {
-        for currency in CURRENCIES {
+        for currency in Orb::ALL {
             let Some((amount, _)) = shown_amount(exalted, currency, rates) else {
                 continue;
             };
-            ui.allocate_ui_with_layout(
+            let shown = ui.allocate_ui_with_layout(
                 vec2(width, ORB_SIZE),
                 Layout::left_to_right(Align::Center),
                 |ui| {
                     // A third of the width each, whatever the length of the amount.
                     ui.set_min_width(width);
                     ui.spacing_mut().item_spacing.x = ORB_GAP;
-                    ui.add(orb(currency, ORB_SIZE));
-                    ui.label(RichText::new(amount).font(text::price()).color(color::TEXT));
+                    let icon = ui.add(orb(currency, ORB_SIZE));
+                    let amount =
+                        ui.label(RichText::new(amount).font(text::price()).color(color::TEXT));
+                    icon.union(amount)
                 },
             );
+            orb_tooltip(shown.inner, currency, rates, i18n);
         }
     });
+}
+
+/// Under the pointer over an orb or its amount, the name of the orb in the language of the
+/// interface, then in gray what one is worth in the others ([`orb_rate`]).
+fn orb_tooltip(response: Response, currency: Orb, rates: Rates, i18n: &Translator) -> Response {
+    response.on_hover_ui(|ui| {
+        ui.label(RichText::new(orb_name(currency, i18n.language())).color(color::TEXT));
+        ui.label(RichText::new(orb_rate(currency, rates, i18n)).color(color::WEAK));
+    })
+}
+
+/// The name of `currency` in `language`, as the trade site writes it: "Divine Orb", "Orbe
+/// divin".
+fn orb_name(currency: Orb, language: Language) -> &'static str {
+    exchange_currencies::shown(currency.id())
+        .expect("the three orbs are among the currencies of the exchange")
+        .name(language)
+}
+
+/// What one orb of `currency` is worth in the others, by the `rates` every price of the block
+/// is converted with: a Divine or a Chaos Orb in Exalted Orbs, an Exalted Orb by how many make
+/// a Divine Orb; each amount as [`written_rate`] writes it.
+fn orb_rate(currency: Orb, rates: Rates, i18n: &Translator) -> String {
+    match currency {
+        Orb::Divine => i18n.orb_rate_in_exalted(&written_rate(rates.divine)),
+        Orb::Chaos => i18n.orb_rate_in_exalted(&written_rate(rates.chaos)),
+        Orb::Exalted => i18n.orb_rate_for_divine(&written_rate(rates.divine)),
+    }
+}
+
+/// A rate in Exalted Orbs, whole from 10 and with two decimals at most under it, never cut
+/// short with `K` as the prices are: a rate is read for its precision ("1049", not "1K").
+fn written_rate(exalted: f64) -> String {
+    let decimals = if exalted >= 10.0 { 0 } else { 2 };
+    format::number(format::rounded(exalted, decimals))
 }
 
 /// The unit price of a stack on one line, e.g. `0.27 c · 20 ex`, without the amounts too
 /// small to matter.
 fn unit_amounts(exalted: f64, rates: Rates) -> String {
-    CURRENCIES
+    Orb::ALL
         .into_iter()
         .filter_map(|currency| shown_amount(exalted, currency, rates))
         .map(|(amount, abbreviation)| format!("{amount} {abbreviation}"))
@@ -565,6 +627,11 @@ fn value_in(exalted: f64, currency: Orb, rates: Rates) -> f64 {
         Orb::Chaos => exalted / rates.chaos,
         Orb::Exalted => exalted,
     }
+}
+
+/// The part of a `row` of a list its price takes, `width` across on its right.
+fn price_part(row: Rect, width: f32) -> Rect {
+    Rect::from_min_max(pos2(row.right() - width, row.top()), row.max)
 }
 
 /// The price of a row of a list, in one currency ([`list_currency`]).

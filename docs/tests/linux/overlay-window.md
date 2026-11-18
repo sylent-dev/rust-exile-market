@@ -113,7 +113,10 @@ Débranche ou désactive ton deuxième écran (ou fais ces tests sur une machine
 30. **Ctrl+D frappé vite** (revue de qualité du 2026-11-10) : dix fois de suite, sur des objets différents, frappe **Ctrl+D** en relâchant les deux touches aussitôt ; puis cinq fois en gardant **Ctrl** enfoncé une seconde après le D. Regarde ensuite la première ligne du journal qui commence par « Window manager ».
    ✅ Chaque frappe copie l'objet et ouvre la fenêtre ; aucune touche du jeu ne part (pas de flasque, pas de panneau ouvert par C), aucune touche ne reste enfoncée ensuite. Le journal dit « Window manager: KWin ».
 
-31. **Test libre** : utilise la fenêtre comme en jeu pendant quelques minutes, sur un seul écran.
+31. **L'infobulle d'une orbe** (22f) : **Ctrl+D** sur un **Orbe divin**, puis survole l'icône de l'Orbe divin du bloc prix, puis son montant, puis l'Orbe exalté. Appuie ensuite sur `1`. Puis **Ctrl+D** sur un unique non identifié dont la base a plusieurs uniques, et survole le prix d'un unique possible, puis son nom s'il est coupé par « … ».
+   ✅ Une infobulle donne le nom de l'orbe, puis en gris ce qu'elle vaut (« 1 = 712 Orbes exaltés », ou « 712 = 1 Orbe divin » sur l'Orbe exalté), dans la langue de l'interface. Le jeu garde le focus : `1` utilise la flasque, comme sans infobulle. Sur le prix d'un unique possible, la même infobulle, seule ; sur son nom coupé, le nom entier.
+
+32. **Test libre** : utilise la fenêtre comme en jeu pendant quelques minutes, sur un seul écran.
    ✅ Rien d'étrange : pas de point noir à l'écran, pas de touche perdue, pas de clic qui traverse.
 
 ## Tes résultats
@@ -150,4 +153,5 @@ Débranche ou désactive ton deuxième écran (ou fais ces tests sur une machine
 | 28. L'application tuée la fenêtre ouverte |  |  |
 | 29. Alt+Tab, dix secondes ailleurs |  |  |
 | 30. Ctrl+D frappé vite |  |  |
-| 31. Test libre |  |  |
+| 31. L'infobulle d'une orbe |  |  |
+| 32. Test libre |  |  |

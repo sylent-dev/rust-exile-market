@@ -411,6 +411,26 @@ impl Translator {
         self.format(UNIT_PRICE, Some(&args))
     }
 
+    /// What one Divine or Chaos Orb is worth in Exalted Orbs, under its name in its tooltip:
+    /// "1 = 712 Exalted Orbs"; `amount` as the price block writes it, its plural chosen by the
+    /// number written.
+    #[must_use]
+    pub fn orb_rate_in_exalted(&self, amount: &str) -> String {
+        let mut args = FluentArgs::new();
+        args.set("amount", amount);
+        args.set("count", FluentValue::try_number(amount));
+        self.format(ORB_RATE_IN_EXALTED, Some(&args))
+    }
+
+    /// How many Exalted Orbs make a Divine Orb, under the name of the Exalted Orb in its
+    /// tooltip: "712 = 1 Divine Orb".
+    #[must_use]
+    pub fn orb_rate_for_divine(&self, amount: &str) -> String {
+        let mut args = FluentArgs::new();
+        args.set("amount", amount);
+        self.format(ORB_RATE_FOR_DIVINE, Some(&args))
+    }
+
     /// The trend of a price: its change in percent, rounded, over `days` days.
     #[must_use]
     pub fn trend(&self, direction: Direction, percent: u32, days: u32) -> String {
