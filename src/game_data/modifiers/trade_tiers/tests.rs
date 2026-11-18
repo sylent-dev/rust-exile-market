@@ -29,19 +29,35 @@ fn read_modifiers(
     tables: &[Table],
     item_level: u32,
     modifiers: &[Modifier],
-    (prefixes, suffixes): (u32, u32),
+    limits: (u32, u32),
 ) -> (ReadIn, Effort) {
+    let (tiers, effort) = searched(tables, item_level, modifiers, limits);
+    let TradeTiers { found, .. } = &tiers;
+    ((summary(modifiers, found), added(modifiers, found)), effort)
+}
+
+/// What the search tells of `modifiers`, among `tables` on a helmet of `item_level` with at
+/// most `limits` prefixes and suffixes, and what it took.
+fn searched(
+    tables: &[Table],
+    item_level: u32,
+    modifiers: &[Modifier],
+    (prefixes, suffixes): (u32, u32),
+) -> (TradeTiers, Effort) {
     let tables = ItemTables {
         all: tables,
         base: &equipment(&["helmet"]),
         item_level: Some(item_level),
     };
     let limits = AffixLimits::new(prefixes, suffixes);
-    let (found, effort) = trade_tiers_in(&tables, Language::English, modifiers, limits);
-    (
-        (summary(modifiers, &found), added(modifiers, &found)),
-        effort,
-    )
+    trade_tiers_in(&tables, Language::English, modifiers, limits)
+}
+
+/// The lines `texts` of an item of level 60 left without tier among `tables`, each with why,
+/// on a helmet with at most `limits` prefixes and suffixes.
+fn left_without_tier(tables: &[Table], texts: &[&str], limits: (u32, u32)) -> Vec<(usize, NoTier)> {
+    let modifiers: Vec<Modifier> = texts.iter().map(|text| modifier(None, &[text])).collect();
+    searched(tables, 60, &modifiers, limits).0.without_tier
 }
 
 #[test]
@@ -171,14 +187,21 @@ fn a_line_read_alone_is_in_doubt_when_its_hybrid_reads_a_line_left_without_tier(
     // in doubt, since the hybrid reads both.
     let (read, _) = read_in(&tables, 60, &[shield, rarity, life], (3, 3));
     assert_eq!(read, [(1, vec![(Suffix, 1)])]);
-    // A life the hybrid doesn't hold: the energy shield is the pure prefix.
-    let (read, _) = read_in(
-        &tables,
-        60,
-        &[shield, rarity, "+25 to maximum Life"],
-        (3, 3),
+    // Both are told in doubt: the energy shield a candidate holds, and the life, which only
+    // that other reading reads.
+    assert_eq!(
+        left_without_tier(&tables, &[shield, rarity, life], (3, 3)),
+        [(0, NoTier::InDoubt), (2, NoTier::InDoubt)]
     );
+    // A life the hybrid doesn't hold: the energy shield is the pure prefix, and no modifier
+    // holds the life.
+    let unheld = [shield, rarity, "+25 to maximum Life"];
+    let (read, _) = read_in(&tables, 60, &unheld, (3, 3));
     assert_eq!(read, [(1, vec![(Prefix, 1)]), (1, vec![(Suffix, 1)])]);
+    assert_eq!(
+        left_without_tier(&tables, &unheld, (3, 3)),
+        [(2, NoTier::NoModifier)]
+    );
 }
 
 #[test]
@@ -338,6 +361,65 @@ fn a_modifier_whose_header_tells_its_affix_isnt_read_and_takes_its_room() {
     // Nor does a line no tier holds take the room of one.
     let unheld = modifier(None, &["+35 to maximum Life"]);
     assert_eq!(read_with(unheld), either);
+}
+
+#[test]
+fn a_line_left_without_tier_is_in_doubt_or_held_by_no_modifier() {
+    use NoTier::{InDoubt, NoModifier};
+    let tables = pure_and_hybrid_tables();
+    let lines = [
+        "25% increased Energy Shield",
+        "+25 to maximum Life",
+        "+34 to maximum Mana",
+        "+41 to the Rating of no Stat",
+    ];
+
+    // Two pure prefixes or their hybrid: in doubt. The mana, a stat no table has, and a line
+    // no stat of the game data writes: held by no modifier.
+    assert_eq!(
+        left_without_tier(&tables, &lines, (2, 0)),
+        [(0, InDoubt), (1, InDoubt), (2, NoModifier), (3, NoModifier)]
+    );
+    // One prefix only: the hybrid, found, isn't told without tier.
+    assert_eq!(
+        left_without_tier(&tables, &lines, (1, 0)),
+        [(2, NoModifier), (3, NoModifier)]
+    );
+    // A value between two tiers, then one in a tier above the level of the item.
+    let life = read_tables(&[table_json(
+        "Life",
+        "prefix",
+        &[LIFE],
+        &[(1, &[(21, 30)]), (70, &[(40, 50)])],
+    )]);
+    let unheld = ["+35 to maximum Life", "+45 to maximum Life"];
+    assert_eq!(
+        left_without_tier(&life, &unheld, (3, 3)),
+        [(0, NoModifier), (1, NoModifier)]
+    );
+}
+
+#[test]
+fn a_modifier_that_isnt_searched_isnt_told_without_tier() {
+    let tables = pure_and_hybrid_tables();
+    let life = "+35 to maximum Life";
+    let unsearched = [
+        // Its header tells its affix.
+        modifier(Some(Affix::Prefix), &[life]),
+        Modifier {
+            kind: ModifierKind::Implicit,
+            ..modifier(None, &[life])
+        },
+        // Not revealed yet, it has no line.
+        Modifier {
+            is_unrevealed: true,
+            ..modifier(Some(Affix::Suffix), &[])
+        },
+    ];
+
+    let (tiers, _) = searched(&tables, 60, &unsearched, (3, 3));
+
+    assert_eq!(tiers, TradeTiers::default());
 }
 
 /// Two pure prefixes of one tier, `21–30`, and their hybrid of two tiers, `10–19` and
@@ -563,6 +645,11 @@ fn a_line_split_in_two_ways_as_good_has_no_tier_and_keeps_its_room() {
     let (read, split) = read_in(&tables, 60, &lines, (2, 1));
     assert_eq!(read, [(2, vec![(Prefix, 1)])]);
     assert_eq!(split, []);
+    // The rarity is told in doubt, two readings as good splitting it otherwise.
+    assert_eq!(
+        left_without_tier(&tables, &lines, (2, 1)),
+        [(0, NoTier::InDoubt)]
+    );
     // A third prefix: two pure prefixes fit too, and nothing tells which rolled.
     let (read, _) = read_in(&tables, 60, &lines, (3, 1));
     assert_eq!(read, []);
@@ -737,9 +824,14 @@ fn a_best_reading_the_other_readings_dont_meet_leaves_every_line_without_tier() 
         "+26 to maximum Life",
     ]
     .map(|text| modifier(None, &[text]));
-    let ((read, _), effort) = read_modifiers(&pure_and_hybrid_tables(), 60, &lines, (3, 3));
-    assert_eq!(read, []);
+    let (tiers, effort) = searched(&pure_and_hybrid_tables(), 60, &lines, (3, 3));
     assert_eq!(effort.ending, Ending::OtherReadings(Outcome::BestNotMet));
+    // Every line in doubt: the search can't vouch for the reading it would show.
+    let every_line_in_doubt = TradeTiers {
+        found: Vec::new(),
+        without_tier: (0..3).map(|line| (line, NoTier::InDoubt)).collect(),
+    };
+    assert_eq!(tiers, every_line_in_doubt);
 }
 
 #[test]
@@ -762,9 +854,19 @@ fn a_search_whose_readings_stop_at_their_bound_reads_no_line() {
     // Each line a hybrid with the one before or after: more readings than the bound, and no
     // line read, the best of those looked at being maybe not the best of all (twelve hybrids
     // fit twelve prefixes).
-    let ((read, split), effort) = read_modifiers(&tables, 60, &lines(24), (12, 0));
+    let mut cut = lines(24);
+    cut.push(modifier(None, &["+41 to the Rating of no Stat"]));
+    let (tiers, effort) = searched(&tables, 60, &cut, (12, 0));
     assert_eq!(effort.readings, MAX_READINGS);
     assert_eq!(effort.ending, Ending::ReadingsCut);
-    assert_eq!(read, []);
-    assert_eq!(split, []);
+    // Every line to read in doubt; the last one, which no stat of the game data writes, held
+    // by no modifier, as in any search.
+    let mut without_tier: Vec<(usize, NoTier)> =
+        (0..24).map(|line| (line, NoTier::InDoubt)).collect();
+    without_tier.push((24, NoTier::NoModifier));
+    let no_line_read = TradeTiers {
+        found: Vec::new(),
+        without_tier,
+    };
+    assert_eq!(tiers, no_line_read);
 }

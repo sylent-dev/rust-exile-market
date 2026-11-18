@@ -9,7 +9,15 @@ use crate::item::{Currency, Lord, ModifierOrigin};
 
 /// `modifiers`, their lines written in English, written again with the tiers `found`.
 fn written_again(modifiers: &[Modifier], found: &[FoundTiers]) -> Vec<Modifier> {
-    with_found_tiers(Language::English, "Test Base", modifiers, found)
+    with_found_tiers(Language::English, "Test Base", modifiers, &all_found(found))
+}
+
+/// The tiers `found` by a search that told no line without tier.
+fn all_found(found: &[FoundTiers]) -> TradeTiers {
+    TradeTiers {
+        found: found.to_vec(),
+        without_tier: Vec::new(),
+    }
 }
 
 /// The modifiers `modifiers` of an item read as one modifier of `affix`, in `tiers`.
@@ -82,10 +90,29 @@ fn modifier_of_lines(lines: &[&str]) -> Modifier {
     advanced(None, None, lines)
 }
 
-/// Checks that `lines` written again with the tiers `found` stay as they were.
-fn assert_left_as_they_were(lines: &[Modifier], found: FoundTiers) {
+/// `line` left without tier, in doubt.
+fn in_doubt(line: &Modifier) -> Modifier {
+    Modifier {
+        doubt: Some(TierDoubt::NoTier(NoTier::InDoubt)),
+        ..line.clone()
+    }
+}
+
+/// Checks that `lines` written again with the tiers `found`, which can't be written, are left
+/// without tier: those `found` reads in doubt, the others as they were.
+fn assert_left_in_doubt(lines: &[Modifier], found: FoundTiers) {
+    let left: Vec<Modifier> = (0..)
+        .zip(lines)
+        .map(|(index, line)| {
+            if found.modifiers.contains(&index) {
+                in_doubt(line)
+            } else {
+                line.clone()
+            }
+        })
+        .collect();
     let found = [found];
-    assert_eq!(written_again(lines, &found), lines, "{found:?}");
+    assert_eq!(written_again(lines, &found), left, "{found:?}");
 }
 
 #[test]
@@ -369,7 +396,7 @@ fn a_line_whose_values_arent_as_many_as_their_ranges_keeps_them_without_range() 
 }
 
 #[test]
-fn modifiers_whose_tiers_cant_be_written_stay_as_they_were() {
+fn modifiers_whose_tiers_cant_be_written_are_left_in_doubt() {
     let lines = trade_lines(&["+50 to Armour", "+41 to Evasion Rating"]);
     let hybrid = || tiers(&[1, 1], 0, &[&[(42.0, 52.0), (40.0, 50.0)]]);
 
@@ -381,21 +408,21 @@ fn modifiers_whose_tiers_cant_be_written_stay_as_they_were() {
         found: 1,
         ..hybrid()
     };
-    assert_left_as_they_were(&lines, found(0..2, Affix::Prefix, beyond));
+    assert_left_in_doubt(&lines, found(0..2, Affix::Prefix, beyond));
     // No affix.
     let no_affix = FoundTiers {
         affixes: Vec::new(),
         ..found(0..2, Affix::Prefix, hybrid())
     };
-    assert_left_as_they_were(&lines, no_affix);
+    assert_left_in_doubt(&lines, no_affix);
     // The values of the first line only are counted.
     let one_line = tiers(&[1], 0, &[&[(42.0, 52.0)]]);
-    assert_left_as_they_were(&lines, found(0..2, Affix::Prefix, one_line));
+    assert_left_in_doubt(&lines, found(0..2, Affix::Prefix, one_line));
     // More modifiers than the item has.
-    assert_left_as_they_were(&lines, found(0..3, Affix::Prefix, hybrid()));
+    assert_left_in_doubt(&lines, found(0..3, Affix::Prefix, hybrid()));
     // A line no stat of the game data writes.
     let unknown = trade_lines(&["+50 to Armour", "+41 to the Rating of no Stat"]);
-    assert_left_as_they_were(&unknown, found(0..2, Affix::Prefix, hybrid()));
+    assert_left_in_doubt(&unknown, found(0..2, Affix::Prefix, hybrid()));
 }
 
 #[test]
@@ -414,8 +441,8 @@ fn the_modifiers_after_some_that_cant_be_written_are_written_again() {
     assert_eq!(
         written_again(&lines, &found),
         [
-            lines[0].clone(),
-            lines[1].clone(),
+            in_doubt(&lines[0]),
+            in_doubt(&lines[1]),
             advanced(
                 Some(Affix::Prefix),
                 Some(1),
@@ -429,7 +456,7 @@ fn the_modifiers_after_some_that_cant_be_written_are_written_again() {
 fn the_lines_find_their_stat_in_the_language_of_the_item() {
     let mana = trade_lines(&["+34 de Mana maximal"]);
     let found = [found(0..1, Affix::Prefix, line_tiers(0, &[(30.0, 39.0)]))];
-    let written = |language| with_found_tiers(language, "Test Base", &mana, &found);
+    let written = |language| with_found_tiers(language, "Test Base", &mana, &all_found(&found));
 
     assert_eq!(
         written(Language::French),
@@ -439,8 +466,35 @@ fn the_lines_find_their_stat_in_the_language_of_the_item() {
             &["+34(30-39) de Mana maximal"]
         )]
     );
-    // No English stat writes the line: as it was.
-    assert_eq!(written(Language::English), mana);
+    // No English stat writes the line: found, it can't be written.
+    assert_eq!(written(Language::English), [in_doubt(&mana[0])]);
+}
+
+#[test]
+fn a_line_searched_and_left_without_tier_says_why() {
+    let lines = trade_lines(&[
+        "25% increased Energy Shield",
+        "+16 to maximum Life",
+        "+34 to maximum Mana",
+    ]);
+    let tiers = TradeTiers {
+        found: Vec::new(),
+        without_tier: vec![(0, NoTier::InDoubt), (1, NoTier::NoModifier)],
+    };
+    let no_tier = |line: &Modifier, why| Modifier {
+        doubt: Some(TierDoubt::NoTier(why)),
+        ..line.clone()
+    };
+
+    assert_eq!(
+        with_found_tiers(Language::English, "Test Base", &lines, &tiers),
+        [
+            no_tier(&lines[0], NoTier::InDoubt),
+            no_tier(&lines[1], NoTier::NoModifier),
+            // Not searched: as it was.
+            lines[2].clone(),
+        ]
+    );
 }
 
 #[test]
@@ -595,7 +649,7 @@ fn the_tier_of_an_affix_hides_its_number_and_names_its_lord_as_its_tiers_tell() 
 }
 
 #[test]
-fn modifiers_whose_two_affixes_cant_be_written_stay_as_they_were() {
+fn modifiers_whose_two_affixes_cant_be_written_are_left_in_doubt() {
     let lines = trade_lines(&["+50 to Armour", "+41 to Evasion Rating"]);
     let hybrid = || tiers(&[1, 1], 0, &[&[(42.0, 52.0), (40.0, 50.0)]]);
     let beyond = || ModifierTiers {
@@ -608,7 +662,7 @@ fn modifiers_whose_two_affixes_cant_be_written_stay_as_they_were() {
             affixes,
             added: None,
         };
-        assert_left_as_they_were(&lines, found);
+        assert_left_in_doubt(&lines, found);
     };
 
     // Written again as they are, but for what each case changes.
@@ -977,7 +1031,7 @@ fn a_part_hides_the_number_of_its_tiers_and_names_its_currency_as_its_tiers_tell
 }
 
 #[test]
-fn a_split_that_cant_be_written_leaves_its_lines_as_they_were() {
+fn a_split_that_cant_be_written_leaves_its_lines_in_doubt() {
     let lines = trade_lines(&[
         "+85 to maximum Life",
         "18% increased Rarity of Items found",
@@ -995,7 +1049,7 @@ fn a_split_that_cant_be_written_leaves_its_lines_as_they_were() {
         )
     };
     let rarity = || line_tiers(1, &[(5.0, 6.0), (3.0, 4.0)]);
-    let assert_left = |found: FoundTiers| assert_left_as_they_were(&lines, found);
+    let assert_left = |found: FoundTiers| assert_left_in_doubt(&lines, found);
     let whole = |tiers: ModifierTiers| found(1..3, Affix::Prefix, tiers);
     // The rarity, the second modifier of the item, adds up `added`.
     let split_rarity =

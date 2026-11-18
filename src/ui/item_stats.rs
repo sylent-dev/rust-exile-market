@@ -49,7 +49,7 @@ use uniques::unique_rows;
 
 use crate::filters::{Filter, FilterKey, Filters, Property};
 use crate::format;
-use crate::item::{Item, ModifierKind, Rarity};
+use crate::item::{Item, ModifierKind, Rarity, TierDoubt};
 use crate::roll_difference::CopiedLines;
 use crate::settings::PseudoTotals;
 use crate::tier_rolls::TierRolls;
@@ -278,8 +278,10 @@ fn has_tier_found(item: &Item) -> bool {
             .any(|roll| roll.range.is_some());
         let read = matches!(modifier.kind, ModifierKind::Explicit(Some(_)))
             && (modifier.tier.is_some() || ranged);
-        let in_doubt = modifier.doubt.is_some();
-        read || in_doubt
+        match &modifier.doubt {
+            Some(TierDoubt::EitherAffix { .. } | TierDoubt::Split { .. }) => true,
+            Some(TierDoubt::NoTier(_)) | None => read,
+        }
     })
 }
 

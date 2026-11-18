@@ -140,6 +140,22 @@ pub enum TierDoubt {
         /// The pure modifier of that line only, of another type.
         added: PartTier,
     },
+    /// No tier, for the reason told: the modifier stays explicit, without affix nor range.
+    NoTier(NoTier),
+}
+
+/// Why a modifier of an item copied from the in-game trade, searched in the modifier tables
+/// by its values, has no tier.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NoTier {
+    /// Modifiers of the tables hold its values, and nothing tells which rolled: several
+    /// readings of the item read its line otherwise (`30% increased Energy Shield` and `+30 to
+    /// maximum Life` of a helmet, two pure modifiers or their hybrid), or the search can't
+    /// vouch for the one it would show.
+    InDoubt,
+    /// No modifier of the tables holds its values on the base of the item: an item copied
+    /// before a patch, a line whose stat the tables don't know.
+    NoModifier,
 }
 
 /// The tiers of a part of a line that adds up two modifiers of its stat, found from the value
