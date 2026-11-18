@@ -21,6 +21,7 @@ They may be written in French, the language of the testers (an exception to the 
 - [Bug report](linux/bug-report.md) (16b)
 - [Executable: its name, its icon, a window that can't open](linux/executable.md) (17a)
 - [Close with the game](linux/close-with-game.md) (20a2b)
+- [Tier of a waystone between a minimum and a maximum](linux/waystone-tier.md) (22g)
 - [Another desktop than KDE: the keyboard and the pointer, only checked on KWin](linux/other-desktops.md) (17e3b2; for a tester on another desktop, not run before the first release)
 
 ## Windows
