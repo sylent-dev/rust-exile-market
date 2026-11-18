@@ -376,12 +376,17 @@ fn stat_text(ui: &mut Ui, stat: &Stat, i18n: &Translator) {
     }
 }
 
-/// A `note` in faint text under the text of a stat, on one line `width` across.
+/// A `note` in faint text under the text of a stat, on one line `width` across, cut with "…"
+/// past it and then whole under the pointer, as the other lines cut.
 fn faint_note(ui: &mut Ui, note: &str, width: f32) {
     ui.add_space(ROLL_GAP);
     let galley = widgets::truncated_line(ui, note, text::roll(), width);
-    let (rect, _) = ui.allocate_exact_size(galley.size(), Sense::hover());
+    let is_cut = galley.elided;
+    let (rect, response) = ui.allocate_exact_size(galley.size(), Sense::hover());
     ui.painter().galley(rect.min, galley, color::FAINT);
+    if is_cut {
+        response.on_hover_text(note);
+    }
 }
 
 /// The range field of a filter, in its column: its minimum, a dash, its maximum, each half a
