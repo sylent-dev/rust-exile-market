@@ -7,11 +7,13 @@
 //    reliability right of the title, low, medium or high (PoE Overlay II shows "a reliability rating", computed by a
 //    closed model). The owner chose on 2026-11-17 a mark of low reliability only, nothing when the price is reliable,
 //    so that it promises nothing; on 2026-11-18, "Low reliability" in yellow on a small line under the title, as
-//    "searched 2min ago" under the title of the offers. Drawn in place of the warning line, the warning in its
-//    tooltip, with the range of B, for the three kinds of price.
+//    "searched 2min ago" under the title of the offers, in place of the warning line, for the three kinds of price;
+//    then the reason written in that line rather than in a tooltip, which hid the amounts ("Low reliability: 3
+//    similar offers"), with the range of B in the note.
 // 2. An offer paid in a currency the estimate doesn't count (priced on fewer than 10 trades, or without price: a
 //    Wombgift) is shown today as any other. A, faint, why in the tooltip of its icon; B, faint, "not counted" after
 //    its name, as the kind of an offer of another quality (13k4b). Recommended: B, seen without the pointer.
+// The owner followed the recommendations of 2, 3 and 4 on 2026-11-18.
 // 3. After a search whose offers none is counted, the price block still says "Search similar offers to estimate it.".
 //    Its own words; after a search without any offer, no second line (the offers block says what to do).
 // 4. The price of a unique on fewer than 5 offers, told uncertain, still tells the suspicious offers: an honest offer
@@ -122,31 +124,30 @@ const upUnique = (suspicious, mark = false) => win(topBar(), item(UP_UNIQUE),
     { v: "90", k: "ex", when: "1d ago", away: true }, { v: "140", k: "ex", when: "3d ago" }] }), foot());
 
 SECTIONS.unshift(["Uncertain prices (22b): how sure an estimate is, the offers not counted, the suspicious offers of an uncertain price", [
-  ["1 · How sure · Recommended · one line · the reason in the line, no tooltip", lowLine(upRing({ note: UP_TEXT.en.median3Range }), "Low reliability: 3 similar offers")],
-  ["1 · How sure · Recommended · one line · 6 found, 2 suspicious: the line counts the 4 of the median", lowLine(upBow({ values: ["2.3", "23", "1.6K"], offers: "6 similar",
+  ["1 · How sure · Chosen · one line · the reason in the line, no tooltip", lowLine(upRing({ note: UP_TEXT.en.median3Range }), "Low reliability: 3 similar offers")],
+  ["1 · How sure · Chosen · one line · 6 found, 2 suspicious: the line counts the 4 of the median", lowLine(upBow({ values: ["2.3", "23", "1.6K"], offers: "6 similar",
     note: "Median of the 4 similar offers, 2 to 2.5 div." }, UP_BOW_FOUR).replace("10 of 18 online", "6 of 6 online"), "Low reliability: 4 similar offers")],
-  ["1 · How sure · Recommended · one line · en français", lowLine(upRing({ note: UP_TEXT.fr.median3Range }, { fr: true }), "Fiabilité faible : 3 offres similaires")],
-  ["1 · How sure · Recommended · one line · a unique on 3 offers", lowLine(upUnique(false, false).replace(/<div class="line warn">[^<]*<\/div>/, ""), "Low reliability: 3 offers")],
-  ["1 · How sure · Recommended · one line · a currency on 1 trade", thinWin(RUNE, lowLine(price(RUNE_PRICE), "Low reliability: 1 trade"), offers(RUNE_OFFERS()))],
-  ["1 · How sure · Recommended · one line · a currency without trade lately", thinWin(RUNE, lowLine(price(RUNE_PRICE), "Low reliability: no trade lately"), offers(RUNE_OFFERS()))],
+  ["1 · How sure · Chosen · one line · en français", lowLine(upRing({ note: UP_TEXT.fr.median3Range }, { fr: true }), "Fiabilité faible : 3 offres similaires")],
+  ["1 · How sure · Chosen · one line · a unique on 3 offers", lowLine(upUnique(false, false).replace(/<div class="line warn">[^<]*<\/div>/, ""), "Low reliability: 3 offers")],
+  ["1 · How sure · Chosen · one line · a currency on 1 trade", thinWin(RUNE, lowLine(price(RUNE_PRICE), "Low reliability: 1 trade"), offers(RUNE_OFFERS()))],
+  ["1 · How sure · Chosen · one line · a currency without trade lately", thinWin(RUNE, lowLine(price(RUNE_PRICE), "Low reliability: no trade lately"), offers(RUNE_OFFERS()))],
   ["1 · How sure · A · Today: the warning under 5 offers", upRing({ warning: UP_TEXT.en.uncertain3, note: UP_TEXT.en.median3 })],
   ["1 · How sure · A · Today: 5 offers, no warning", upBow({ note: UP_TEXT.en.median5 })],
-  ["1 · How sure · B · the range of the offers counted, 3 offers far apart", upRing({ warning: UP_TEXT.en.uncertain3, note: UP_TEXT.en.median3Range })],
-  ["1 · How sure · B · 5 offers close: a narrow range", upBow({ note: UP_TEXT.en.median5Range })],
-  ["1 · How sure · Tooltip lead · the mark of low reliability, the range of B, the warning in its tooltip", lowMark(upRing({ note: UP_TEXT.en.median3Range }), UP_TEXT.en.low, UP_TEXT.en.uncertain3, true)],
-  ["1 · How sure · Tooltip lead · 5 offers close: no mark", upBow({ note: UP_TEXT.en.median5Range })],
-  ["1 · How sure · Tooltip lead · en français", lowMark(upRing({ note: UP_TEXT.fr.median3Range }, { fr: true }), UP_TEXT.fr.low, UP_TEXT.fr.uncertain3)],
-  ["1 · How sure · Tooltip lead · a unique on 3 offers", upUnique(false, true)],
-  ["1 · How sure · Tooltip lead · a currency on 1 trade", thinWin(RUNE, lowMark(price(RUNE_PRICE), UP_TEXT.en.low, UP_TEXT.en.thin), offers(RUNE_OFFERS()))],
+  ["1 · How sure · B as drawn first, with the warning of today · the range, 3 offers far apart", upRing({ warning: UP_TEXT.en.uncertain3, note: UP_TEXT.en.median3Range })],
+  ["1 · How sure · Chosen · 5 offers close: a narrow range, no line", upBow({ note: UP_TEXT.en.median5Range })],
+  ["1 · How sure · Not chosen · tooltip lead · the mark of low reliability, the range of B, the warning in its tooltip", lowMark(upRing({ note: UP_TEXT.en.median3Range }), UP_TEXT.en.low, UP_TEXT.en.uncertain3, true)],
+  ["1 · How sure · Not chosen · tooltip lead · en français", lowMark(upRing({ note: UP_TEXT.fr.median3Range }, { fr: true }), UP_TEXT.fr.low, UP_TEXT.fr.uncertain3)],
+  ["1 · How sure · Not chosen · tooltip lead · a unique on 3 offers", upUnique(false, true)],
+  ["1 · How sure · Not chosen · tooltip lead · a currency on 1 trade", thinWin(RUNE, lowMark(price(RUNE_PRICE), UP_TEXT.en.low, UP_TEXT.en.thin), offers(RUNE_OFFERS()))],
   ["2 · Offers not counted · Today: shown as any other", upNotCounted("today")],
-  ["2 · Offers not counted · A · faint, why in the tooltip of the icon", upNotCounted("A", { hovered: 1 })],
-  ["2 · Offers not counted · Recommended · B · faint, \"not counted\" after the name", upNotCounted("B")],
-  ["2 · Offers not counted · Recommended · B · en français", upNotCounted("B", { fr: true })],
+  ["2 · Offers not counted · Not chosen · A · faint, why in the tooltip of the icon", upNotCounted("A", { hovered: 1 })],
+  ["2 · Offers not counted · Chosen · B · faint, \"not counted\" after the name", upNotCounted("B")],
+  ["2 · Offers not counted · Chosen · B · en français", upNotCounted("B", { fr: true })],
   ["3 · No offer counted · Today: \"Search similar offers\" after the search", upNoneCounted("Search similar offers to estimate it.")],
-  ["3 · No offer counted · Recommended: its own words", upNoneCounted(UP_TEXT.en.noneCounted)],
-  ["3 · No offer counted · Recommended · en français", upNoneCounted(UP_TEXT.fr.noneCounted, true)],
+  ["3 · No offer counted · Chosen: its own words", upNoneCounted(UP_TEXT.en.noneCounted)],
+  ["3 · No offer counted · Chosen · en français", upNoneCounted(UP_TEXT.fr.noneCounted, true)],
   ["3 · No offer at all · Today: \"Search similar offers\" after the search", upNoOffer("Search similar offers to estimate it.")],
-  ["3 · No offer at all · Recommended: no second line, the offers block says what to do", upNoOffer()],
-  ["4 · An uncertain unique · Today: its honest offers struck through", upUnique(true)],
-  ["4 · An uncertain unique · Recommended: none suspicious, as a thin currency", upUnique(false, true)],
+  ["3 · No offer at all · Chosen: no second line, the offers block says what to do", upNoOffer()],
+  ["4 · An uncertain unique · Today: its honest offers struck through", upUnique(true, false)],
+  ["4 · An uncertain unique · Chosen: none suspicious, as a thin currency", lowLine(upUnique(false, false).replace(/<div class="line warn">[^<]*<\/div>/, ""), "Low reliability: 3 offers")],
 ]]);
