@@ -44,6 +44,13 @@ impl<'a> Worth<'a> {
         }
     }
 
+    /// Whether an offer of `amount` of the currency `id` of the trade site is counted in an
+    /// estimate: not in a currency without price, or whose price stands on too few trades.
+    #[must_use]
+    pub fn counts(self, amount: f64, id: &str) -> bool {
+        self.in_exalted(amount, id).is_some()
+    }
+
     /// `amount` of the currency `id` of the trade site, in Exalted Orbs; `None` for a
     /// currency without price, or whose price stands on too few trades.
     fn in_exalted(self, amount: f64, id: &str) -> Option<f64> {

@@ -233,6 +233,7 @@ messages! {
     OffersSuspicious => "offers-suspicious",
     /// Under the name of an offer of another kind of quality, while the quality is searched.
     OffersOtherQuality => "offers-other-quality",
+    OfferNotCounted => "offer-not-counted",
     SellerOnline => "seller-online",
     SellerAway => "seller-away",
     SellerOffline => "seller-offline",

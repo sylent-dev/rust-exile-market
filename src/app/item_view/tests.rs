@@ -169,6 +169,20 @@ fn answer(
     }
 }
 
+/// The estimate of `item` from its `offers`, as the window reads it.
+fn estimate_of<'a>(
+    offers: &Offers,
+    item: &Item,
+    fixed_price: &Result<(FixedPrice, Rates), NoFixedPrice>,
+    worth: Option<Worth<'a>>,
+) -> Option<Estimate<'a>> {
+    shown_estimate(
+        offers,
+        item,
+        estimate_worth(offers, item, fixed_price, worth),
+    )
+}
+
 #[test]
 fn the_estimate_counts_the_answer_to_the_search_of_an_item_without_a_fixed_price() {
     use crate::trade::search::{Answer, NextSearch, Outcome};
@@ -188,7 +202,7 @@ fn the_estimate_counts_the_answer_to_the_search_of_an_item_without_a_fixed_price
         ),
         SystemTime::now(),
     );
-    let first = shown_estimate(&offers, &amulet, &rare, Some(WORTH)).unwrap();
+    let first = estimate_of(&offers, &amulet, &rare, Some(WORTH)).unwrap();
     let _ = offers.more();
     // Counted, the first of them would lower the estimate to 1.1 div.
     offers.apply(
@@ -206,24 +220,24 @@ fn the_estimate_counts_the_answer_to_the_search_of_an_item_without_a_fixed_price
     );
 
     assert_eq!(
-        shown_estimate(&offers, &amulet, &rare, Some(WORTH)),
+        estimate_of(&offers, &amulet, &rare, Some(WORTH)),
         Some(first)
     );
     assert!((first.exalted - 1.2 * 700.0).abs() < 1e-9);
     assert_eq!(first.total, 30);
     assert_eq!(
-        shown_estimate(&offers, &amulet, &rare, None),
+        estimate_of(&offers, &amulet, &rare, None),
         None,
         "no rates yet"
     );
     assert_eq!(
-        shown_estimate(&offers, &amulet, &Err(NoFixedPrice::NotPriced), Some(WORTH)),
+        estimate_of(&offers, &amulet, &Err(NoFixedPrice::NotPriced), Some(WORTH)),
         None,
         "a fixed-name item isn't estimated"
     );
     let _ = offers.search(searched(Vec::new()), now);
     assert_eq!(
-        shown_estimate(&offers, &amulet, &rare, Some(WORTH)),
+        estimate_of(&offers, &amulet, &rare, Some(WORTH)),
         None,
         "while searching"
     );
@@ -311,7 +325,7 @@ fn a_rare_or_magic_item_searched_without_its_stats_has_no_estimate() {
             answer(divines(&[1.0, 1.1, 1.2]), 3, false, now),
             SystemTime::now(),
         );
-        shown_estimate(&offers, item, &Err(NoFixedPrice::NotFixedName), Some(WORTH))
+        estimate_of(&offers, item, &Err(NoFixedPrice::NotFixedName), Some(WORTH))
     };
 
     // The offers of any item of its base say nothing of its price.
@@ -365,7 +379,7 @@ fn the_estimate_leaves_out_another_kind_of_quality_only_when_the_quality_is_sear
         let now = Instant::now();
         let _ = offers.search(searched(properties), now);
         offers.apply(answer(first_page.clone(), 3, false, now), SystemTime::now());
-        let estimate = shown_estimate(
+        let estimate = estimate_of(
             &offers,
             &amulet,
             &Err(NoFixedPrice::NotFixedName),

@@ -442,6 +442,8 @@ offers-more-tooltip = Afficher plus d'offres
 offers-suspicious = Attention : très en dessous du prix du marché.
 # Sous le nom d'une offre dont la qualité d'un catalyseur est d'un autre type que celle de l'objet, quand sa qualité est cherchée.
 offers-other-quality = Qualité d'un autre type : cette offre ne compte pas dans l'estimation.
+# Après le nom de la devise d'une offre que l'estimation ne compte pas, dans la liste : une devise sans prix, ou cotée sur moins de 10 échanges.
+offer-not-counted = non comptée
 # Après le prix d'une telle offre, dans la liste : son type de qualité, écrit comme le filtre, pour qu'il se lise comme une qualité et non comme un nom.
 offer-quality-kind = { $kind ->
         [life] Qualité de vie

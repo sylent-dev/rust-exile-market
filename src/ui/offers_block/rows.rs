@@ -18,7 +18,7 @@ use crate::i18n::{Message, Translator};
 use crate::item::Catalyst;
 use crate::language::Language;
 use crate::price::Orb;
-use crate::price::estimate::Reference;
+use crate::price::estimate::{Reference, Worth};
 use crate::trade::offers::{ExchangeOffer, ItemOffer, Price, SellerStatus};
 use crate::trade::query::SearchKind;
 use crate::ui::item_block::rarity_color;
@@ -45,8 +45,8 @@ const DOT_GAP: f32 = 6.0;
 /// The "?" after a suspicious price.
 const SUSPICIOUS_GAP: f32 = 2.0;
 
-/// The icon of an offer of another kind of quality, faint.
-const OTHER_QUALITY_ORB: u8 = 115;
+/// The icon of an offer the estimate doesn't count, faint.
+const NOT_COUNTED_ORB: u8 = 115;
 
 /// The price of a row, in its currency.
 #[derive(Debug, Clone, PartialEq)]
@@ -77,9 +77,8 @@ pub(super) struct Row {
     price: Option<RowPrice>,
     /// Far below the reference price: usually bait or a mistake.
     is_suspicious: bool,
-    /// The kind of the quality of a catalyst of an offer, when it isn't the kind searched:
-    /// it isn't counted in the estimate.
-    other_quality: Option<Catalyst>,
+    /// Why the estimate doesn't count the offer, if it doesn't.
+    not_counted: Option<NotCounted>,
     /// The stock of an offer of the currency exchange.
     stock: Option<u64>,
     is_away: bool,
@@ -87,10 +86,30 @@ pub(super) struct Row {
 }
 
 impl Row {
-    /// Whether its price is drawn faint: a suspicious offer, or one of another quality.
+    /// Whether its price is drawn faint: a suspicious offer, or one the estimate doesn't count.
     fn is_faint(&self) -> bool {
-        self.is_suspicious || self.other_quality.is_some()
+        self.is_suspicious || self.not_counted.is_some()
     }
+}
+
+/// Why the estimate doesn't count an offer, written after the name of its currency.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum NotCounted {
+    /// The kind of the quality of a catalyst of the offer, when it isn't the kind searched.
+    OtherQuality(Catalyst),
+    /// Its currency has no price, or one on too few trades.
+    Currency,
+}
+
+/// How the offers of a search of items count.
+#[derive(Debug, Clone, Copy)]
+pub(super) struct Counting<'a> {
+    /// The price that tells the suspicious offers.
+    pub reference: Option<Reference<'a>>,
+    /// What the currencies are worth to the estimate, for an item priced by its offers.
+    pub estimate_worth: Option<Worth<'a>>,
+    /// The kind of the quality of a catalyst searched.
+    pub searched_catalyst: Option<Catalyst>,
 }
 
 /// `amount` of the currency `id`, as a row writes it: the other currencies than the three
@@ -116,20 +135,28 @@ fn listed_since(listed: Option<SystemTime>, now: SystemTime) -> Option<Duration>
     listed.map(|listed| now.duration_since(listed).unwrap_or_default())
 }
 
-/// The rows of the offers of a search of items, at `now`; with the `searched_catalyst`, the
-/// kind of the quality of a catalyst searched, the offers of another kind are marked, and
-/// never suspicious: their market isn't the item's.
-pub(super) fn item_rows(
-    offers: &[ItemOffer],
-    reference: Option<Reference>,
-    searched_catalyst: Option<Catalyst>,
-    now: SystemTime,
-) -> Vec<Row> {
+/// The rows of the offers of a search of items, at `now`, as they count: the offers of
+/// another kind of quality than the one searched are marked, and never suspicious, their
+/// market isn't the item's; so are the offers of an item priced by its offers in a currency
+/// the estimate doesn't count.
+pub(super) fn item_rows(offers: &[ItemOffer], counting: Counting, now: SystemTime) -> Vec<Row> {
     offers
         .iter()
         .map(|offer| {
-            let other_quality =
-                searched_catalyst.and_then(|catalyst| offer.other_quality(catalyst));
+            let other_quality = counting
+                .searched_catalyst
+                .and_then(|catalyst| offer.other_quality(catalyst));
+            let uncounted_currency = || {
+                counting.estimate_worth.is_some_and(|worth| {
+                    offer
+                        .price
+                        .as_ref()
+                        .is_some_and(|price| !worth.counts(price.amount, &price.currency))
+                })
+            };
+            let not_counted = other_quality
+                .map(NotCounted::OtherQuality)
+                .or_else(|| uncounted_currency().then_some(NotCounted::Currency));
             Row {
                 price: offer
                     .price
@@ -140,9 +167,9 @@ pub(super) fn item_rows(
                         .price
                         .as_ref()
                         .is_some_and(|Price { amount, currency }| {
-                            is_suspicious(*amount, currency, reference)
+                            is_suspicious(*amount, currency, counting.reference)
                         }),
-                other_quality,
+                not_counted,
                 stock: None,
                 is_away: offer.seller == SellerStatus::Away,
                 listed: listed_since(offer.listed, now),
@@ -164,7 +191,7 @@ pub(super) fn exchange_rows(
             Row {
                 price: Some(row_price(unit, &offer.pay.currency)),
                 is_suspicious: is_suspicious(unit, &offer.pay.currency, reference),
-                other_quality: None,
+                not_counted: None,
                 stock: Some(offer.stock),
                 is_away: offer.seller == SellerStatus::Away,
                 listed: listed_since(offer.listed, now),
@@ -490,8 +517,8 @@ impl OffersBlock<'_> {
                 Vec2::splat(ROW_ORB),
             );
             let icon = images::exchange_icon(currency);
-            if row.other_quality.is_some() {
-                icon.tint(Color32::from_white_alpha(OTHER_QUALITY_ORB))
+            if row.not_counted.is_some() {
+                icon.tint(Color32::from_white_alpha(NOT_COUNTED_ORB))
             } else {
                 icon
             }
@@ -517,22 +544,23 @@ impl OffersBlock<'_> {
         cut
     }
 
-    /// What follows the name of the currency of `row`: the kind of another quality, written
-    /// as its filter after a dot, "· Caster quality", so that it isn't read as a name; or else
-    /// the "?" of a suspicious offer.
+    /// What follows the name of the currency of `row`: why the estimate doesn't count it,
+    /// after a dot, the kind of another quality written as its filter, "· Caster quality", so
+    /// that it isn't read as a name, or "· not counted" for its currency; or else the "?" of a
+    /// suspicious offer.
     fn after_name(&self, ui: &Ui, row: &Row) -> Option<AfterName> {
-        if let Some(catalyst) = row.other_quality {
+        if let Some(not_counted) = row.not_counted {
+            let reason = match not_counted {
+                NotCounted::OtherQuality(catalyst) => self.i18n.offer_quality_kind(catalyst),
+                NotCounted::Currency => self.i18n.text(Message::OfferNotCounted),
+            };
             let mut job = LayoutJob::default();
             job.append(
                 text::SEPARATOR,
                 0.0,
                 TextFormat::simple(text::note(), color::FAINT),
             );
-            job.append(
-                &self.i18n.offer_quality_kind(catalyst),
-                0.0,
-                TextFormat::simple(text::note(), color::WEAK),
-            );
+            job.append(&reason, 0.0, TextFormat::simple(text::note(), color::WEAK));
             Some(AfterName {
                 galley: ui.painter().layout_job(job),
                 gap: 0.0,

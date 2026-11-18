@@ -101,7 +101,8 @@ impl ItemView<'_> {
         let trade = session.trade(item);
         let fixed_price = session.fixed_price(item);
         let worth = session.worth();
-        let estimate = shown_estimate(offers, item, &fixed_price, worth);
+        let estimate_worth = estimate_worth(offers, item, &fixed_price, worth);
+        let estimate = shown_estimate(offers, item, estimate_worth);
         // Without a fixed price, the estimate tells the suspicious offers.
         let reference =
             reference(&fixed_price, worth).or(estimate.map(|estimate| estimate.reference));
@@ -135,6 +136,7 @@ impl ItemView<'_> {
                 offers,
                 kind,
                 reference,
+                estimate_worth,
                 item,
                 lines: shown.lines(),
                 has_bug_report,
@@ -171,22 +173,33 @@ fn reference<'a>(
     })
 }
 
-/// The estimated price of `item`, the item shown, without a fixed price, from the `offers` of
-/// its search and the `worth` of the currencies with the prices of the league; none for a rare
-/// or magic item whose search compared none of its stats, whose offers are any items of its
-/// base: their price says nothing of its own.
-fn shown_estimate<'a>(
+/// The `worth` of the currencies with the prices of the league, when `item`, the item shown, is
+/// priced by its `offers`: without a fixed price, and for a rare or magic item, once a search
+/// compared some of its stats; none otherwise, the offers of any item of its base saying
+/// nothing of its own price.
+fn estimate_worth<'a>(
     offers: &Offers,
     item: &Item,
     fixed_price: &Result<(FixedPrice, Rates), NoFixedPrice>,
     worth: Option<Worth<'a>>,
-) -> Option<Estimate<'a>> {
+) -> Option<Worth<'a>> {
     let Err(NoFixedPrice::NotFixedName) = fixed_price else {
         return None;
     };
     if item.is_priced_by_stats() && !offers.compared_stats() {
         return None;
     }
+    worth
+}
+
+/// The estimated price of `item`, the item shown, from the `offers` of its search, with the
+/// `estimate_worth` of the currencies when it is priced by its offers.
+fn shown_estimate<'a>(
+    offers: &Offers,
+    item: &Item,
+    estimate_worth: Option<Worth<'a>>,
+) -> Option<Estimate<'a>> {
+    let worth = estimate_worth?;
     let searched_catalyst = offers.searched_catalyst(item);
     let OffersState::Items(items) = offers.state() else {
         return None;
@@ -195,7 +208,7 @@ fn shown_estimate<'a>(
     Estimate::of(
         items.offers.get(..items.first_page)?,
         items.total,
-        worth?,
+        worth,
         searched_catalyst,
     )
 }

@@ -433,6 +433,8 @@ offers-more-tooltip = Show more offers
 offers-suspicious = Be careful: far below the market price.
 # Under the name of an offer whose quality of a catalyst is of another kind than the item's, while its quality is searched.
 offers-other-quality = Another kind of quality: not counted in the estimate.
+# After the name of the currency of an offer the estimate doesn't count, in the list: a currency without price, or priced on fewer than 10 trades.
+offer-not-counted = not counted
 # After the price of such an offer, in the list: its kind of quality, written as the filter, so that it reads as a quality and not as a name.
 offer-quality-kind = { $kind ->
         [life] Life quality
