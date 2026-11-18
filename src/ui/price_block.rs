@@ -16,9 +16,8 @@ use crate::filters::{Filter, FilterKey};
 use crate::format;
 use crate::i18n::{Message, Translator, WrittenRange};
 use crate::item::{Item, Rarity};
-use crate::offers_state::{Offers, OffersState};
 use crate::price::Orb;
-use crate::price::estimate::{COUNTED, Estimate, Worth};
+use crate::price::estimate::{COUNTED, Estimate, NoEstimate};
 use crate::price::fixed::{Candidate, FixedPrice, NoFixedPrice};
 use crate::price::{Direction, Price, Rates};
 use crate::session::PricesState;
@@ -29,9 +28,6 @@ use crate::trade::stat_filters::LineStats;
 const PADDING_Y: f32 = 12.0;
 /// The space under the title row.
 const TITLE_GAP: f32 = 8.0;
-/// The space between the title and the line of low reliability under it, as between the title
-/// of the offers and its line.
-const RELIABILITY_GAP: f32 = 4.0;
 /// The space above the lines under the amounts.
 const LINE_GAP: f32 = 9.0;
 /// The space between two messages.
@@ -81,11 +77,11 @@ struct MarketPrice<'a> {
 /// What a fixed price is the price of, and whether it stands on too little to be sure.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Fixed {
-    /// A unique, on fewer than [`crate::price::MIN_OFFERS`] offers when `uncertain`.
-    Unique { uncertain: bool },
+    /// A unique, on fewer than [`crate::price::MIN_OFFERS`] offers when `is_thin`.
+    Unique { is_thin: bool },
     /// An item of the currency exchange, on fewer than [`crate::price::MIN_TRADES`] trades
-    /// when `thin`.
-    Exchange { thin: bool },
+    /// when `is_thin`.
+    Exchange { is_thin: bool },
 }
 
 /// Why a price stands on too little to be sure of it, with the count it stands on; nothing is
@@ -104,9 +100,9 @@ enum LowReliability {
 fn low_reliability(view: &PriceView) -> Option<LowReliability> {
     match *view {
         PriceView::Priced(MarketPrice { price, of, .. }) => match of {
-            Fixed::Unique { uncertain: true } => Some(LowReliability::Offers(price.quantity)),
-            Fixed::Exchange { thin: true } => Some(LowReliability::Trades(price.quantity)),
-            Fixed::Unique { uncertain: false } | Fixed::Exchange { thin: false } => None,
+            Fixed::Unique { is_thin: true } => Some(LowReliability::Offers(price.quantity)),
+            Fixed::Exchange { is_thin: true } => Some(LowReliability::Trades(price.quantity)),
+            Fixed::Unique { is_thin: false } | Fixed::Exchange { is_thin: false } => None,
         },
         PriceView::Estimated(estimate) => {
             (estimate.counted < COUNTED).then_some(LowReliability::SimilarOffers(estimate.counted))
@@ -170,51 +166,15 @@ impl StatChecks {
     }
 }
 
-/// Where the search of an item without estimate stands.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum EstimateSearch {
-    /// Not searched yet, searching, failed or refused; or the prices of the league, which
-    /// count the offers, not known yet.
-    Pending,
-    /// Searched, its offers, if any, not counted for another reason than their currency: none,
-    /// all of another kind of quality, or listed without a price; the offers block says it.
-    NothingCounted,
-    /// Searched, some of its offers paid in a currency the estimate doesn't count.
-    CurrenciesNotCounted,
-}
-
-impl EstimateSearch {
-    /// Where the search of `item`, priced by its `offers`, stands without estimate, with the
-    /// `estimate_worth` of the currencies, none until it is priced by them.
-    #[must_use]
-    pub fn of(offers: &Offers, item: &Item, estimate_worth: Option<Worth>) -> Self {
-        let (Some(worth), OffersState::Items(items)) = (estimate_worth, offers.state()) else {
-            return Self::Pending;
-        };
-        let searched_catalyst = offers.searched_catalyst(item);
-        // The first page, which the estimate counts.
-        let page = items.offers.get(..items.first_page).unwrap_or_default();
-        let in_uncounted_currency = page.iter().any(|offer| {
-            searched_catalyst.is_none_or(|catalyst| !offer.has_other_quality(catalyst))
-                && worth.leaves_out_price_of(offer)
-        });
-        if in_uncounted_currency {
-            Self::CurrenciesNotCounted
-        } else {
-            Self::NothingCounted
-        }
-    }
-}
-
 /// The line under "No market price…" of an item without estimate, given the `checks` of its
-/// filters and its `search`: an item priced by its stats ([`Item::is_priced_by_stats`]) is
+/// filters and why it has `no_estimate`: an item priced by its stats ([`Item::is_priced_by_stats`]) is
 /// estimated only from a search that compares some, so that it asks for one to be checked, and
 /// says nothing when none can be (the offers of any item of its base would say nothing of its
 /// price); once searched, why no offer is counted, or nothing when the offers block says it.
 fn estimate_hint(
     is_priced_by_stats: bool,
     checks: StatChecks,
-    search: EstimateSearch,
+    no_estimate: NoEstimate,
 ) -> Option<Message> {
     if is_priced_by_stats {
         match checks {
@@ -223,10 +183,10 @@ fn estimate_hint(
             StatChecks::NoneToCheck => return None,
         }
     }
-    match search {
-        EstimateSearch::Pending => Some(Message::SearchToEstimate),
-        EstimateSearch::NothingCounted => None,
-        EstimateSearch::CurrenciesNotCounted => Some(Message::NoOfferCountedToEstimate),
+    match no_estimate {
+        NoEstimate::NotSearched => Some(Message::SearchToEstimate),
+        NoEstimate::NothingCounted => None,
+        NoEstimate::CurrenciesNotCounted => Some(Message::NoOfferCountedToEstimate),
     }
 }
 
@@ -270,14 +230,14 @@ fn view<'a>(
             price: &currency.price,
             rates: *rates,
             of: Fixed::Exchange {
-                thin: currency.is_thin(),
+                is_thin: currency.is_thin(),
             },
         }),
         Ok((FixedPrice::Unique(unique), rates)) => PriceView::Priced(MarketPrice {
             price: &unique.price,
             rates: *rates,
             of: Fixed::Unique {
-                uncertain: unique.is_thin(),
+                is_thin: unique.is_thin(),
             },
         }),
         Ok((FixedPrice::Uniques(candidates), rates)) => PriceView::Candidates {
@@ -305,12 +265,11 @@ pub struct PriceBlock<'a> {
     pub item: &'a Item,
     /// The fixed price of the item with the rates of its prices, or why it has none.
     pub price: Result<(FixedPrice<'a>, Rates), NoFixedPrice>,
-    /// The estimated price of an item without a fixed price, from its similar offers.
-    pub estimate: Option<Estimate<'a>>,
+    /// The estimated price of an item without a fixed price, from its similar offers, or why
+    /// it has none.
+    pub estimate: Result<Estimate<'a>, NoEstimate>,
     /// Whether the filters of the item, as the player left them, compare its stats.
     pub checks: StatChecks,
-    /// Where its search stands, when it gave no estimate.
-    pub search: EstimateSearch,
     pub league: ShownLeague<'a>,
     pub i18n: &'a Translator,
 }
@@ -318,7 +277,12 @@ pub struct PriceBlock<'a> {
 impl PriceBlock<'_> {
     /// Draws the block, the whole width of `ui`.
     pub fn show(self, ui: &mut Ui) {
-        let view = view(&self.price, self.estimate, self.item.rarity(), self.league);
+        let view = view(
+            &self.price,
+            self.estimate.ok(),
+            self.item.rarity(),
+            self.league,
+        );
         Frame::NONE
             .fill(color::BAND_A)
             .inner_margin(vec2(size::BAND_PADDING, PADDING_Y))
@@ -375,7 +339,7 @@ impl PriceBlock<'_> {
                 LowReliability::Trades(count) => i18n.low_reliability_trades(count),
                 LowReliability::SimilarOffers(counted) => i18n.low_reliability_similar(counted),
             };
-            ui.add_space(RELIABILITY_GAP);
+            ui.add_space(size::TITLE_LINE_GAP);
             ui.add(
                 Label::new(
                     RichText::new(reason)
@@ -523,8 +487,9 @@ impl PriceBlock<'_> {
         };
         message(ui, &first, color::TEXT);
         if let Notice::NoMarketPrice(_) = notice
+            && let Err(no_estimate) = self.estimate
             && let Some(second) =
-                estimate_hint(self.item.is_priced_by_stats(), self.checks, self.search)
+                estimate_hint(self.item.is_priced_by_stats(), self.checks, no_estimate)
         {
             ui.add_space(MESSAGE_GAP);
             message(ui, &i18n.text(second), color::WEAK);

@@ -181,6 +181,7 @@ fn estimate_of<'a>(
         item,
         estimate_worth(offers, item, fixed_price, worth),
     )
+    .ok()
 }
 
 #[test]
@@ -419,37 +420,39 @@ fn the_estimate_leaves_out_another_kind_of_quality_only_when_the_quality_is_sear
 }
 
 #[test]
-fn a_search_without_estimate_tells_whether_currencies_werent_counted() {
+fn without_estimate_the_view_says_whether_the_offers_were_searched() {
     use crate::trade::offers::fixtures::item_offer;
 
     let amulet = amulet();
     let now = Instant::now();
-    let search_of = |page: Vec<crate::trade::offers::ItemOffer>, worth| {
-        let mut offers = Offers::default();
-        let _ = offers.search(searched(Vec::new()), now);
-        let total = page.len() as u64;
-        offers.apply(answer(page, total, false, now), SystemTime::now());
-        EstimateSearch::of(&offers, &amulet, worth)
+    let rare = Err(NoFixedPrice::NotFixedName);
+    let mut offers = Offers::default();
+    let no_estimate = |offers: &Offers, worth| {
+        shown_estimate(
+            offers,
+            &amulet,
+            estimate_worth(offers, &amulet, &rare, worth),
+        )
+        .err()
     };
 
     assert_eq!(
-        EstimateSearch::of(&Offers::default(), &amulet, Some(WORTH)),
-        EstimateSearch::Pending,
-        "not searched yet"
+        no_estimate(&offers, Some(WORTH)),
+        Some(NoEstimate::NotSearched)
     );
+    let _ = offers.search(searched(Vec::new()), now);
     // A Wombgift has no price.
-    let wombgift = || vec![item_offer(3.0, "banded-wombgift")];
-    assert_eq!(
-        search_of(wombgift(), Some(WORTH)),
-        EstimateSearch::CurrenciesNotCounted
+    offers.apply(
+        answer(vec![item_offer(3.0, "banded-wombgift")], 1, false, now),
+        SystemTime::now(),
     );
     assert_eq!(
-        search_of(wombgift(), None),
-        EstimateSearch::Pending,
+        no_estimate(&offers, Some(WORTH)),
+        Some(NoEstimate::CurrenciesNotCounted)
+    );
+    assert_eq!(
+        no_estimate(&offers, None),
+        Some(NoEstimate::NotSearched),
         "the prices of the league not known yet"
-    );
-    assert_eq!(
-        search_of(Vec::new(), Some(WORTH)),
-        EstimateSearch::NothingCounted
     );
 }

@@ -402,3 +402,98 @@ fn an_amount_of_nothing_or_beyond_every_price_isnt_counted() {
     }
     assert_eq!(worth.in_exalted(2.0, "divine"), Some(1400.0));
 }
+
+/// `offer` with the quality of a catalyst of the kind `catalyst`.
+fn of_kind(mut offer: ItemOffer, catalyst: Catalyst) -> ItemOffer {
+    offer.item.quality = Some(OfferQuality {
+        value: 40,
+        kind: Some(QualityKind {
+            catalyst: Some(catalyst),
+            words: String::new(),
+        }),
+    });
+    offer
+}
+
+/// An offer listed without a price.
+fn unpriced() -> ItemOffer {
+    ItemOffer {
+        price: None,
+        ..item_offer(1.0, "divine")
+    }
+}
+
+#[test]
+fn an_offer_is_counted_by_its_kind_of_quality_first_then_by_its_price() {
+    // A Lesser Charging Rune priced on one trade.
+    let thin = [CurrencyPrice {
+        price: price::Price {
+            quantity: 1,
+            ..priced("lesser-charging-rune", 40_156.0).price
+        },
+        ..priced("lesser-charging-rune", 40_156.0)
+    }];
+    let worth = Worth {
+        rates: RATES,
+        currencies: &thin,
+    };
+    let mana = Some(Catalyst::Mana);
+
+    assert_eq!(
+        worth.counted(&item_offer(2.0, "divine"), mana),
+        Counted::Exalted(1400.0)
+    );
+    assert_eq!(
+        worth.counted(
+            &of_kind(item_offer(3.0, "banded-wombgift"), Catalyst::Attack),
+            mana
+        ),
+        Counted::OtherQuality(Catalyst::Attack),
+        "its quality before its currency"
+    );
+    assert_eq!(
+        worth.counted(
+            &of_kind(item_offer(3.0, "banded-wombgift"), Catalyst::Attack),
+            None
+        ),
+        Counted::Currency,
+        "any quality, when none is searched"
+    );
+    assert_eq!(
+        worth.counted(&item_offer(1.0, "lesser-charging-rune"), None),
+        Counted::Currency
+    );
+    assert_eq!(worth.counted(&unpriced(), None), Counted::Unpriced);
+    assert_eq!(
+        worth.counted(&item_offer(0.0, "divine"), None),
+        Counted::Unpriced,
+        "an amount of nothing isn't a reason of its currency"
+    );
+}
+
+#[test]
+fn a_search_without_estimate_tells_whether_some_offers_were_paid_in_a_currency_not_counted() {
+    let wombgift = || item_offer(3.0, "banded-wombgift");
+    let reason =
+        |page: &[ItemOffer], searched_catalyst| no_estimate_reason(page, WORTH, searched_catalyst);
+
+    assert_eq!(reason(&[], None), NoEstimate::NothingCounted);
+    assert_eq!(reason(&[unpriced()], None), NoEstimate::NothingCounted);
+    // One of them is enough.
+    assert_eq!(
+        reason(&[unpriced(), wombgift()], None),
+        NoEstimate::CurrenciesNotCounted
+    );
+    // Of another kind of quality, the offers block says it.
+    assert_eq!(
+        reason(
+            &[of_kind(wombgift(), Catalyst::Attack)],
+            Some(Catalyst::Mana)
+        ),
+        NoEstimate::NothingCounted
+    );
+    assert_eq!(
+        reason(&[of_kind(wombgift(), Catalyst::Attack)], None),
+        NoEstimate::CurrenciesNotCounted
+    );
+}

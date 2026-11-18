@@ -35,7 +35,7 @@ pub(super) use rows::{RowPrice, offer_price};
 const PADDING_Y: f32 = 12.0;
 
 /// The space between the label and the line under it.
-const TITLE_GAP: f32 = 4.0;
+const TITLE_GAP: f32 = size::TITLE_LINE_GAP;
 
 /// The space between two messages.
 const MESSAGE_GAP: f32 = 2.0;

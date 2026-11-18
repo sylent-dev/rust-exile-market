@@ -153,8 +153,9 @@ fn the_quality_of_an_offer_is_read_with_its_kind_and_its_maximum() {
         })
     );
     assert_eq!(caster.item.max_catalyst_quality(), 40, "with its essence");
-    assert!(caster.has_other_quality(Catalyst::Mana));
-    assert!(!caster.has_other_quality(Catalyst::Caster));
+    assert!(caster.has_other_quality(Some(Catalyst::Mana)));
+    assert!(!caster.has_other_quality(Some(Catalyst::Caster)));
+    assert!(!caster.has_other_quality(None), "no kind searched");
     // Left at 50 % once its modifier was removed: beyond its maximum. The quality of the
     // skills isn't the maximum quality.
     let mana = &offers[1];
@@ -172,7 +173,7 @@ fn the_quality_of_an_offer_is_read_with_its_kind_and_its_maximum() {
         })
     );
     assert!(
-        !bow.has_other_quality(Catalyst::Mana),
+        !bow.has_other_quality(Some(Catalyst::Mana)),
         "the quality of the base"
     );
     // A kind the application doesn't know can't be told apart from any kind.
@@ -187,7 +188,7 @@ fn the_quality_of_an_offer_is_read_with_its_kind_and_its_maximum() {
         Some((None, "Strange Modifiers"))
     );
     for catalyst in Catalyst::ALL {
-        assert_eq!(strange.other_quality(catalyst), None, "{catalyst:?}");
+        assert_eq!(strange.other_quality(Some(catalyst)), None, "{catalyst:?}");
     }
 }
 
@@ -290,7 +291,10 @@ fn the_quality_of_an_offer_of_the_french_trade_site_is_read_with_its_kind() {
         Some(Catalyst::Caster)
     );
     assert_eq!(caster.item.max_catalyst_quality(), 40);
-    assert_eq!(caster.other_quality(Catalyst::Mana), Some(Catalyst::Caster));
+    assert_eq!(
+        caster.other_quality(Some(Catalyst::Mana)),
+        Some(Catalyst::Caster)
+    );
 }
 
 /// Two waystones of `/fetch` on 2026-10-31, shortened: an English one with the names seen

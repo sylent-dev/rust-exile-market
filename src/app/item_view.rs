@@ -9,14 +9,14 @@ use crate::item::Item;
 use crate::league::League;
 use crate::offers_state::{Offers, OffersState};
 use crate::price::Rates;
-use crate::price::estimate::{Estimate, Reference, Worth};
+use crate::price::estimate::{self, Estimate, NoEstimate, Reference, Worth};
 use crate::price::fixed::{FixedPrice, NoFixedPrice};
 use crate::session::{ItemTrade, PricesState, Session, ShownItem};
 use crate::settings::PseudoTotals;
 use crate::trade::query::{SearchFilters, SearchKind};
 use crate::ui::{
-    EstimateSearch, ItemBlock, ItemBlockAction, LineFacts, OffersAction, OffersBlock, PriceBlock,
-    ShownLeague, StatChecks, Stats,
+    ItemBlock, ItemBlockAction, LineFacts, OffersAction, OffersBlock, PriceBlock, ShownLeague,
+    StatChecks, Stats,
 };
 
 /// The filters of the search of the item of `trade`, the item `shown`: as the player set
@@ -105,7 +105,7 @@ impl ItemView<'_> {
         let estimate = shown_estimate(offers, item, estimate_worth);
         // Without a fixed price, the estimate tells the suspicious offers.
         let reference =
-            reference(&fixed_price, worth).or(estimate.map(|estimate| estimate.reference));
+            reference(&fixed_price, worth).or(estimate.ok().map(|estimate| estimate.reference));
         let action = ItemBlock::new(item, line_facts(shown), filters, i18n)
             // The pill shows only when its link can be opened: the league and the search known.
             .tradable(trade.is_tradable())
@@ -114,7 +114,6 @@ impl ItemView<'_> {
         // With the filters as the player just left them.
         let (all, searched) = every_filter(&trade, shown, filters, pseudo_totals);
         let checks = StatChecks::of(&searched, shown.stats(), &all);
-        let search = EstimateSearch::of(offers, item, estimate_worth);
         if action == Some(ItemBlockAction::CheckOnTrade)
             && let Some(url) = trade.url(searched)
         {
@@ -125,7 +124,6 @@ impl ItemView<'_> {
             price: fixed_price,
             estimate,
             checks,
-            search,
             league: ShownLeague {
                 name: session.league().map(League::name),
                 prices,
@@ -158,9 +156,8 @@ impl ItemView<'_> {
 /// The price of one item that tells a suspicious offer: the price of a fixed-name item, with
 /// the `worth` of the currencies of its prices; none for a price of low reliability, a unique
 /// on too few offers or an item of the currency exchange on too few trades, which would tell
-/// honest offers. Both come from the
-/// prices of the league shown: the rates beside the fixed price are those of `worth`, which
-/// also prices the other currencies.
+/// honest offers. Both come from the prices of the league shown: the rates beside the fixed
+/// price are those of `worth`, which also prices the other currencies.
 fn reference<'a>(
     fixed_price: &Result<(FixedPrice, Rates), NoFixedPrice>,
     worth: Option<Worth<'a>>,
@@ -195,25 +192,22 @@ fn estimate_worth<'a>(
     worth
 }
 
-/// The estimated price of `item`, the item shown, from the `offers` of its search, with the
-/// `estimate_worth` of the currencies when it is priced by its offers.
+/// The estimated price of `item`, the item shown, from the first page of the `offers` of its
+/// search, with the `estimate_worth` of the currencies when it is priced by its offers; or why
+/// it has none.
 fn shown_estimate<'a>(
     offers: &Offers,
     item: &Item,
     estimate_worth: Option<Worth<'a>>,
-) -> Option<Estimate<'a>> {
-    let worth = estimate_worth?;
-    let searched_catalyst = offers.searched_catalyst(item);
-    let OffersState::Items(items) = offers.state() else {
-        return None;
+) -> Result<Estimate<'a>, NoEstimate> {
+    let (Some(worth), OffersState::Items(items)) = (estimate_worth, offers.state()) else {
+        return Err(NoEstimate::NotSearched);
     };
+    let searched_catalyst = offers.searched_catalyst(item);
     // The next offers loaded don't move it.
-    Estimate::of(
-        items.offers.get(..items.first_page)?,
-        items.total,
-        worth,
-        searched_catalyst,
-    )
+    let first_page = items.offers.get(..items.first_page).unwrap_or_default();
+    Estimate::of(first_page, items.total, worth, searched_catalyst)
+        .ok_or_else(|| estimate::no_estimate_reason(first_page, worth, searched_catalyst))
 }
 
 #[cfg(test)]

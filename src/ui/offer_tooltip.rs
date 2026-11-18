@@ -231,10 +231,7 @@ fn quality_line(offer: &ItemOffer, item: &Item, i18n: &Translator) -> Option<Lin
         Some(kind) => i18n.filter_catalyst_quality(kind, &value),
         None => i18n.filter_property(Property::Quality, &value),
     };
-    if copied
-        .catalyst
-        .is_some_and(|catalyst| offer.has_other_quality(catalyst))
-    {
+    if offer.has_other_quality(copied.catalyst) {
         return Some(Line {
             text,
             tint: color::FALL,
@@ -485,10 +482,7 @@ impl OfferTooltip<'_> {
                 color::WARNING,
             );
         }
-        if self
-            .searched_catalyst
-            .is_some_and(|catalyst| self.offer.has_other_quality(catalyst))
-        {
+        if self.offer.has_other_quality(self.searched_catalyst) {
             ui.add_space(WARNING_GAP);
             widgets::wrapped_text(
                 ui,

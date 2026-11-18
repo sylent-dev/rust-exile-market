@@ -18,7 +18,7 @@ use crate::i18n::{Message, Translator};
 use crate::item::Catalyst;
 use crate::language::Language;
 use crate::price::Orb;
-use crate::price::estimate::{Reference, Worth};
+use crate::price::estimate::{Counted, Reference, Worth};
 use crate::trade::offers::{ExchangeOffer, ItemOffer, Price, SellerStatus};
 use crate::trade::query::SearchKind;
 use crate::ui::item_block::rarity_color;
@@ -135,31 +135,38 @@ fn listed_since(listed: Option<SystemTime>, now: SystemTime) -> Option<Duration>
     listed.map(|listed| now.duration_since(listed).unwrap_or_default())
 }
 
-/// The rows of the offers of a search of items, at `now`, as they count: the offers of
-/// another kind of quality than the one searched are marked, and never suspicious, their
-/// market isn't the item's; so are the offers of an item priced by its offers in a currency
-/// the estimate doesn't count.
+impl Counting<'_> {
+    /// Why the estimate doesn't count `offer`, as its row marks it: as the estimate counts it
+    /// ([`Worth::counted`]) for an item priced by its offers; otherwise, another kind of
+    /// quality only.
+    fn not_counted(self, offer: &ItemOffer) -> Option<NotCounted> {
+        let Some(worth) = self.estimate_worth else {
+            return offer
+                .other_quality(self.searched_catalyst)
+                .map(NotCounted::OtherQuality);
+        };
+        match worth.counted(offer, self.searched_catalyst) {
+            Counted::OtherQuality(kind) => Some(NotCounted::OtherQuality(kind)),
+            Counted::Currency => Some(NotCounted::Currency),
+            Counted::Exalted(_) | Counted::Unpriced => None,
+        }
+    }
+}
+
+/// The rows of the offers of a search of items, at `now`, as they count: an offer the
+/// estimate doesn't count is marked, and never suspicious, its market or its currency not the
+/// item's.
 pub(super) fn item_rows(offers: &[ItemOffer], counting: Counting, now: SystemTime) -> Vec<Row> {
     offers
         .iter()
         .map(|offer| {
-            let other_quality = counting
-                .searched_catalyst
-                .and_then(|catalyst| offer.other_quality(catalyst));
-            let uncounted_currency = || {
-                counting
-                    .estimate_worth
-                    .is_some_and(|worth| worth.leaves_out_price_of(offer))
-            };
-            let not_counted = other_quality
-                .map(NotCounted::OtherQuality)
-                .or_else(|| uncounted_currency().then_some(NotCounted::Currency));
+            let not_counted = counting.not_counted(offer);
             Row {
                 price: offer
                     .price
                     .as_ref()
                     .map(|price| row_price(price.amount, &price.currency)),
-                is_suspicious: other_quality.is_none()
+                is_suspicious: not_counted.is_none()
                     && offer
                         .price
                         .as_ref()

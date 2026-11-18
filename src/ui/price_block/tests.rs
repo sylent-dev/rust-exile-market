@@ -51,24 +51,24 @@ fn a_rare_item_has_no_market_price() {
 
 #[test]
 fn a_rare_or_magic_item_asks_for_a_stat_to_estimate_it_and_says_nothing_when_none_can_be() {
-    use EstimateSearch::Pending;
+    use NoEstimate::NotSearched;
     use StatChecks::{Checked, NoneToCheck, Unchecked};
 
     // A rare or magic item.
     assert_eq!(
-        estimate_hint(true, Checked, Pending),
+        estimate_hint(true, Checked, NotSearched),
         Some(Message::SearchToEstimate)
     );
     assert_eq!(
-        estimate_hint(true, Unchecked, Pending),
+        estimate_hint(true, Unchecked, NotSearched),
         Some(Message::CheckToEstimate)
     );
-    assert_eq!(estimate_hint(true, NoneToCheck, Pending), None);
+    assert_eq!(estimate_hint(true, NoneToCheck, NotSearched), None);
     // A normal item, a gem or a waystone: priced by its base, its quality, its level or
     // its tier, not by modifiers.
     for checks in [Checked, Unchecked, NoneToCheck] {
         assert_eq!(
-            estimate_hint(false, checks, Pending),
+            estimate_hint(false, checks, NotSearched),
             Some(Message::SearchToEstimate),
             "{checks:?}"
         );
@@ -77,7 +77,7 @@ fn a_rare_or_magic_item_asks_for_a_stat_to_estimate_it_and_says_nothing_when_non
 
 #[test]
 fn after_a_search_without_estimate_the_hint_says_why_or_leaves_it_to_the_offers() {
-    use EstimateSearch::{CurrenciesNotCounted, NothingCounted};
+    use NoEstimate::{CurrenciesNotCounted, NothingCounted};
     use StatChecks::{Checked, Unchecked};
 
     for is_priced_by_stats in [true, false] {
@@ -165,7 +165,7 @@ fn a_range_whose_ends_are_written_the_same_isnt_shown() {
 }
 
 #[test]
-fn a_price_on_too_little_has_a_low_reliability_and_says_on_what() {
+fn an_estimate_from_too_few_offers_has_a_low_reliability() {
     let low = |view: PriceView| low_reliability(&view);
     let estimated = |counted| PriceView::Estimated(estimate(1680.0, counted, (1500.0, 2250.0)));
 
@@ -263,7 +263,7 @@ fn a_change_is_rounded_to_a_whole_percent() {
 }
 
 #[test]
-fn a_fixed_price_on_too_little_is_told_uncertain() {
+fn a_fixed_price_on_too_little_has_a_low_reliability_and_says_on_what() {
     let price = |quantity| Price {
         exalted: 120.0,
         quantity,
@@ -280,10 +280,6 @@ fn a_fixed_price_on_too_little_is_told_uncertain() {
         price: price(quantity),
         modifiers: UniqueModifiers::default(),
     };
-    let of = |fixed: FixedPrice| match view(&Ok((fixed, RATES)), None, Rarity::Unique, STANDARD) {
-        PriceView::Priced(MarketPrice { of, .. }) => of,
-        other => panic!("{other:?}"),
-    };
     let low = |fixed: FixedPrice| {
         low_reliability(&view(&Ok((fixed, RATES)), None, Rarity::Unique, STANDARD))
     };
@@ -298,21 +294,4 @@ fn a_fixed_price_on_too_little_is_told_uncertain() {
         Some(LowReliability::Offers(4))
     );
     assert_eq!(low(FixedPrice::Unique(&unique(5))), None);
-
-    assert_eq!(
-        of(FixedPrice::Currency(&currency(9))),
-        Fixed::Exchange { thin: true }
-    );
-    assert_eq!(
-        of(FixedPrice::Currency(&currency(10))),
-        Fixed::Exchange { thin: false }
-    );
-    assert_eq!(
-        of(FixedPrice::Unique(&unique(4))),
-        Fixed::Unique { uncertain: true }
-    );
-    assert_eq!(
-        of(FixedPrice::Unique(&unique(5))),
-        Fixed::Unique { uncertain: false }
-    );
 }
