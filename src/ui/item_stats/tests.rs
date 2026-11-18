@@ -63,6 +63,79 @@ fn a_sanctified_item_copied_from_the_in_game_trade_shows_no_tier_nor_the_note() 
 }
 
 #[test]
+fn a_line_in_doubt_says_so_in_place_of_its_tier_and_the_note_says_when() {
+    // Two pure prefixes or their hybrid, the helmet having room for either: no tier is found
+    // on it, and the note of the tiers shows all the same, with when a tier is uncertain.
+    let helmet = read_again(rare_item(
+        "Ancestral Tiara",
+        "Helmets",
+        "",
+        "30% increased Energy Shield\n+30 to maximum Life",
+    ));
+
+    let texts = texts(&helmet);
+    assert_eq!(
+        texts[texts.len() - 5..],
+        [
+            "Explicit",
+            "□ 30% increased Energy Shield ≥27 [TierUncertain]",
+            "□ +30 to maximum Life ≥27 [TierUncertain]",
+            "Trade copy note",
+            "Uncertain tier note",
+        ]
+    );
+}
+
+#[test]
+fn a_value_no_modifier_holds_says_no_tier_found_with_its_tooltip() {
+    let helmet = |lines| read_again(rare_item("Ancestral Tiara", "Helmets", "", lines));
+
+    // A cold resistance above every tier, next to a tier found: the note of the tiers, without
+    // when a tier is uncertain, none being.
+    let texts_of = |lines| texts(&helmet(lines));
+    let found = texts_of("+38% to Fire Resistance\n+99% to Cold Resistance");
+    assert_eq!(
+        found[found.len() - 3..],
+        [
+            "Explicit",
+            "□ +99% to Cold Resistance ≥89 [TierNotFound TierNotFoundWhy]",
+            "Trade copy note",
+        ]
+    );
+    // Alone: no note, no tier being found from the values.
+    let alone = texts_of("+99% to Cold Resistance");
+    assert_eq!(
+        alone[alone.len() - 2..],
+        [
+            "Explicit",
+            "□ +99% to Cold Resistance ≥89 [TierNotFound TierNotFoundWhy]",
+        ]
+    );
+}
+
+#[test]
+fn a_line_whose_tier_isnt_searched_yet_says_nothing() {
+    // Copied from the in-game trade, not read again yet, as a magic item whose base the names
+    // of the trade site don't tell yet.
+    let helmet = rare_item(
+        "Ancestral Tiara",
+        "Helmets",
+        "",
+        "30% increased Energy Shield\n+30 to maximum Life",
+    );
+
+    let texts = texts(&helmet);
+    assert_eq!(
+        texts[texts.len() - 3..],
+        [
+            "Explicit",
+            "□ 30% increased Energy Shield ≥27",
+            "□ +30 to maximum Life ≥27",
+        ]
+    );
+}
+
+#[test]
 fn only_the_tiers_found_from_the_values_have_the_note() {
     // Copied from the in-game trade, not read again yet: no tier found.
     let tiara = parse(include_str!(

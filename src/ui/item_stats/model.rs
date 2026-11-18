@@ -8,8 +8,8 @@ use crate::filters::{self, Filter, FilterKey, Half, Property};
 use crate::format;
 use crate::i18n::{Message, Translator};
 use crate::item::{
-    self, Affix, AffixTier, Currency, Lord, Modifier, ModifierOrigin, PartTier, QualityKind,
-    RadiusSkills, Range, StatLine, TierDoubt,
+    self, Affix, AffixTier, Currency, Lord, Modifier, ModifierOrigin, NoTier, PartTier,
+    QualityKind, RadiusSkills, Range, StatLine, TierDoubt,
 };
 use crate::tier_rolls::TierSpan;
 use crate::trade::pseudo::Pseudo;
@@ -154,7 +154,8 @@ pub(super) struct TierRow<'a> {
     pub(super) tier: ModifierTier,
     /// The better of two neighbouring tiers the modifier may be: `T1/T2`.
     pub(super) better: Option<u32>,
-    /// In gray after the ranges: the affix of the tier ("Prefix"), or "Hybrid".
+    /// In gray after the ranges: the affix of the tier ("Prefix"), or "Hybrid"; alone, why a
+    /// line has no tier ("Uncertain tier").
     pub(super) word: Option<Message>,
     /// The lord of the Abyss named before the affix: "Amanamu Prefix".
     pub(super) lord: Option<Lord>,
@@ -194,6 +195,27 @@ impl<'a> TierRow<'a> {
             is_tier_in_word: false,
             tip: None,
             currency: None,
+        }
+    }
+
+    /// In place of the tier of a line copied from the in-game trade that has none, `why`:
+    /// "Uncertain tier" for a line in doubt, which the note under the stats explains, or "No
+    /// tier found" for a value no modifier holds, rarer, with its tooltip.
+    pub(super) fn no_tier(why: NoTier) -> Self {
+        let (word, tip) = match why {
+            NoTier::InDoubt => (Message::TierUncertain, None),
+            NoTier::NoModifier => (
+                Message::TierNotFound,
+                Some(WordTip::Text(Message::TierNotFoundWhy)),
+            ),
+        };
+        Self {
+            word: Some(word),
+            tip,
+            ..Self::plain(ModifierTier {
+                number: None,
+                ranges: Vec::new(),
+            })
         }
     }
 
@@ -510,6 +532,8 @@ pub(super) enum Row<'a> {
     /// Under the stats of a rare or magic item copied from the in-game trade, whose tiers are
     /// found from the values.
     TradeCopyNote,
+    /// Under that note, once a line of the item is in doubt: when a tier is uncertain.
+    UncertainTierNote,
     /// Under the stats of a unique copied from the in-game trade, whose rolls come from the
     /// price database.
     UniqueRollsNote,

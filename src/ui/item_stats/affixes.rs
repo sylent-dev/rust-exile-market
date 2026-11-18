@@ -205,19 +205,22 @@ fn unrevealed_stat<'a>(index: usize, affix: Affix) -> Stat<'a> {
 }
 
 /// The tier under the line of the prefix or suffix `index`, `modifier`, that holds it: the tier
-/// of the hybrid of a line that adds up two modifiers; else its tier and the ranges of that
-/// tier, or of a modifier of one tier only the ranges without its number, also when the copy
-/// writes no tier; nothing when its value is fixed.
+/// of the hybrid of a line that adds up two modifiers; why a line searched from its values has
+/// no tier; else its tier and the ranges of that tier, or of a modifier of one tier only the
+/// ranges without its number, also when the copy writes no tier; nothing when its value is
+/// fixed.
 fn modifier_tier_row<'a>(
     index: usize,
     modifier: &'a Modifier,
     context: &LineContext<'_>,
 ) -> Option<TierRow<'a>> {
-    if let Some(TierDoubt::Split {
-        line, whole, added, ..
-    }) = &modifier.doubt
-    {
-        return hybrid_tier_row(modifier, *line, whole, added);
+    match &modifier.doubt {
+        Some(TierDoubt::Split {
+            line, whole, added, ..
+        }) => return hybrid_tier_row(modifier, *line, whole, added),
+        Some(TierDoubt::NoTier(why)) => return Some(TierRow::no_tier(*why)),
+        // The tier of each affix is under its last line, in place of its roll.
+        Some(TierDoubt::EitherAffix { .. }) | None => {}
     }
     let hides_number = context.tier_rolls.hides_number(index);
     let number = modifier.tier.filter(|_| !hides_number);

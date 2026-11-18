@@ -104,6 +104,7 @@ pub(super) fn row_texts<'a>(rows: impl IntoIterator<Item = Row<'a>>) -> Vec<Stri
             Row::Group(group) => format!("{group:?}"),
             Row::UnrevealedNote => "Unrevealed note".to_owned(),
             Row::TradeCopyNote => "Trade copy note".to_owned(),
+            Row::UncertainTierNote => "Uncertain tier note".to_owned(),
             Row::UniqueRollsNote => "Unique rolls note".to_owned(),
             Row::Stat(Stat {
                 text,

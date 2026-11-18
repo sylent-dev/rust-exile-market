@@ -137,6 +137,7 @@ impl Stats<'_> {
                 Row::Stat(stat) => stat_row(ui, &stat, filters, i18n),
                 Row::UnrevealedNote => note(ui, i18n.text(Message::UnrevealedNote)),
                 Row::TradeCopyNote => note(ui, i18n.text(Message::TradeCopyNote)),
+                Row::UncertainTierNote => note(ui, i18n.text(Message::UncertainTierNote)),
                 Row::UniqueRollsNote => note(ui, i18n.text(Message::UniqueRollsNote)),
             }
         }
