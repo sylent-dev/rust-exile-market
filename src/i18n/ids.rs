@@ -48,6 +48,7 @@ messages! {
     EmptyDisplayMode => "empty-display-mode",
     ClipboardUnreadable => "clipboard-unreadable",
     PricesUnavailable => "prices-unavailable",
+    PricesUnreadableRetrying => "prices-unreadable-retrying",
     ItemUnreadable => "item-unreadable",
     ItemUnreadableHint => "item-unreadable-hint",
     SettingsTitle => "settings-title",
@@ -240,7 +241,9 @@ pub(super) const WINDOW_ERROR_LOG: &str = "window-error-log";
 pub(super) const WINDOW_ERROR_DETAILS: &str = "window-error-details";
 pub(super) const STATUS_PRICES: &str = "status-prices";
 pub(super) const STATUS_PRICES_OFFLINE: &str = "status-prices-offline";
+pub(super) const STATUS_PRICES_UNREADABLE: &str = "status-prices-unreadable";
 pub(super) const PRICES_UNREACHABLE: &str = "prices-unreachable";
+pub(super) const PRICES_UNREADABLE: &str = "prices-unreadable";
 pub(super) const AGE_NOW: &str = "age-now";
 pub(super) const AGE_MINUTES: &str = "age-minutes";
 pub(super) const AGE_HOURS: &str = "age-hours";

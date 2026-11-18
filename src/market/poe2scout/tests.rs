@@ -341,6 +341,42 @@ fn a_failure_names_the_request_and_tells_whether_the_database_answered() {
     assert!(failure(hung(), true).answered());
 }
 
+#[test]
+fn a_failure_is_told_by_what_the_database_answered() {
+    let failure = |error| FetchError::Http {
+        path: "/Items".to_owned(),
+        error,
+        after_answers: false,
+    };
+    let status = |code| failure(HttpError::Request(ureq::Error::StatusCode(code)));
+    let json = serde_json::from_str::<u8>("{").unwrap_err();
+
+    let unreachable = [
+        status(404),
+        status(429),
+        status(500),
+        failure(HttpError::Request(ureq::Error::ConnectionFailed)),
+        failure(HttpError::Request(ureq::Error::Timeout(
+            ureq::Timeout::Global,
+        ))),
+    ];
+    let unreadable = [
+        status(302),
+        failure(HttpError::Request(ureq::Error::BodyExceedsLimit(16))),
+        failure(HttpError::Json(json)),
+        FetchError::NoCurrentLeague,
+        FetchError::MissingRate("divine"),
+        FetchError::TooManyCategories(500),
+        FetchError::TooManyLeagues(50),
+    ];
+    for error in unreachable {
+        assert_eq!(error.failure(), Failure::Unreachable, "{error}");
+    }
+    for error in unreadable {
+        assert_eq!(error.failure(), Failure::Unreadable, "{error}");
+    }
+}
+
 /// The code review of the quality fixes: left out, a league that can't be read was taken
 /// for a league that ended, and the player moved to Standard. `leagues` reads a plain
 /// `Vec`, which this pins; `the_leagues_are_read_whole_or_not_at_all` asks for them.

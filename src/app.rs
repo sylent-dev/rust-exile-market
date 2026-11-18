@@ -275,11 +275,14 @@ impl ExileMarketApp {
             warnings.push(self.i18n.text(Message::ClipboardUnreadable));
         }
         match prices {
-            PricesState::Unavailable => warnings.push(self.i18n.text(Message::PricesUnavailable)),
-            PricesState::Known { age, offline: true } => {
-                warnings.push(self.i18n.prices_unreachable(&self.i18n.age(age)));
+            PricesState::Unavailable(failure) => {
+                warnings.push(self.i18n.prices_unavailable(failure));
             }
-            PricesState::Downloading { .. } | PricesState::Known { offline: false, .. } => {}
+            PricesState::Known {
+                age,
+                failure: Some(failure),
+            } => warnings.push(self.i18n.prices_failed(failure, &self.i18n.age(age))),
+            PricesState::Downloading { .. } | PricesState::Known { failure: None, .. } => {}
         }
         warnings
     }

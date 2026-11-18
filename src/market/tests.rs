@@ -164,9 +164,15 @@ fn kind(event: &MarketEvent) -> String {
             format!("partial {} {progress}", prices.league.id())
         }
         MarketEvent::Prices(prices) => format!("prices {}", prices.league.id()),
-        MarketEvent::Unreachable(Source::Leagues) => "unreachable leagues".to_owned(),
-        MarketEvent::Unreachable(Source::Prices(league)) => {
-            format!("unreachable prices {}", league.id())
+        MarketEvent::Failed(source, failure) => {
+            let failure = match failure {
+                Failure::Unreachable => "unreachable",
+                Failure::Unreadable => "unreadable",
+            };
+            match source {
+                Source::Leagues => format!("{failure} leagues"),
+                Source::Prices(league) => format!("{failure} prices {}", league.id()),
+            }
         }
     }
 }

@@ -16,6 +16,7 @@ use crate::filters::{Filter, FilterKey};
 use crate::format;
 use crate::i18n::{Message, Translator, WrittenRange};
 use crate::item::{Item, Rarity};
+use crate::market::Failure;
 use crate::price::Orb;
 use crate::price::estimate::{COUNTED, Estimate, NoEstimate};
 use crate::price::fixed::{Candidate, FixedPrice, NoFixedPrice};
@@ -197,7 +198,8 @@ enum Notice<'a> {
     NoMarketPrice(Rarity),
     /// The prices of the league are downloading; the league once it is known.
     PricesDownloading(Option<&'a str>),
-    PricesUnavailable,
+    /// No price of the league, and the price database can't be read for this reason.
+    PricesUnavailable(Failure),
     FrenchNamesDownloading,
     /// Missing from the complete prices of the league.
     NoPriceFound(&'a str),
@@ -220,7 +222,7 @@ fn view<'a>(
 ) -> PriceView<'a> {
     let ShownLeague { name, prices } = league;
     let downloading = match prices {
-        PricesState::Unavailable => Notice::PricesUnavailable,
+        PricesState::Unavailable(failure) => Notice::PricesUnavailable(failure),
         PricesState::Downloading { .. } | PricesState::Known { .. } => {
             Notice::PricesDownloading(name)
         }
@@ -481,7 +483,7 @@ impl PriceBlock<'_> {
             }),
             Notice::PricesDownloading(Some(league)) => i18n.prices_downloading(league),
             Notice::PricesDownloading(None) => i18n.text(Message::PricesDownloadingNoLeague),
-            Notice::PricesUnavailable => i18n.text(Message::PricesUnavailable),
+            Notice::PricesUnavailable(failure) => i18n.prices_unavailable(failure),
             Notice::FrenchNamesDownloading => i18n.text(Message::FrenchNamesDownloading),
             Notice::NoPriceFound(league) => i18n.no_price_found(league),
         };

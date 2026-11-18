@@ -12,6 +12,7 @@ use fluent_bundle::{FluentArgs, FluentBundle, FluentResource, FluentValue};
 use crate::filters::Property;
 use crate::item::{Affix, Catalyst, Lord, QualityKind, WaystoneProperty};
 use crate::language::{Language, PerLanguage};
+use crate::market::Failure;
 use crate::price::Direction;
 use crate::trade::pseudo::Pseudo;
 use crate::window_error::Cause;
@@ -143,16 +144,36 @@ impl Translator {
         self.format_age(STATUS_PRICES, age)
     }
 
-    /// The state of the prices in the status bar while the price database can't be reached.
+    /// The state of the prices in the status bar, with their age, while the price database
+    /// can't be read for `failure`.
     #[must_use]
-    pub fn status_prices_offline(&self, age: &str) -> String {
-        self.format_age(STATUS_PRICES_OFFLINE, age)
+    pub fn status_prices_failed(&self, failure: Failure, age: &str) -> String {
+        let id = match failure {
+            Failure::Unreachable => STATUS_PRICES_OFFLINE,
+            Failure::Unreadable => STATUS_PRICES_UNREADABLE,
+        };
+        self.format_age(id, age)
     }
 
-    /// The warning of a price database that can't be reached, with the age of the prices.
+    /// The warning of a price database that can't be read for `failure`, with the age of the
+    /// prices.
     #[must_use]
-    pub fn prices_unreachable(&self, age: &str) -> String {
-        self.format_age(PRICES_UNREACHABLE, age)
+    pub fn prices_failed(&self, failure: Failure, age: &str) -> String {
+        let id = match failure {
+            Failure::Unreachable => PRICES_UNREACHABLE,
+            Failure::Unreadable => PRICES_UNREADABLE,
+        };
+        self.format_age(id, age)
+    }
+
+    /// The warning of a price database that can't be read for `failure`, while no price is
+    /// known.
+    #[must_use]
+    pub fn prices_unavailable(&self, failure: Failure) -> String {
+        self.text(match failure {
+            Failure::Unreachable => Message::PricesUnavailable,
+            Failure::Unreadable => Message::PricesUnreadableRetrying,
+        })
     }
 
     /// How long ago something happened, rounded down: `12min ago`, `3h ago`, `2d ago`.

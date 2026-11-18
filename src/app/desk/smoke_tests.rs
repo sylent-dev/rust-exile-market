@@ -12,7 +12,7 @@ use crate::game_data::UniqueModifiers;
 use crate::i18n::Message;
 use crate::item::{Item, test_items};
 use crate::language::Language;
-use crate::market::MarketEvent;
+use crate::market::{self, MarketEvent};
 use crate::offers_state::OffersState;
 use crate::price::{CurrencyPrice, Price, PriceList, Rates, UniquePrice};
 use crate::trade::offers::tests::{every_exchange_offer, every_item_offer};
@@ -237,14 +237,19 @@ impl Scene {
     fn draw_each_way(&mut self, ctx: &Context, drawn: &mut Drawn) {
         let states = [
             PricesState::Downloading { progress: 0.4 },
-            PricesState::Unavailable,
+            PricesState::Unavailable(market::Failure::Unreachable),
+            PricesState::Unavailable(market::Failure::Unreadable),
             PricesState::Known {
                 age: Duration::from_mins(10),
-                offline: false,
+                failure: None,
             },
             PricesState::Known {
                 age: Duration::from_hours(30),
-                offline: true,
+                failure: Some(market::Failure::Unreachable),
+            },
+            PricesState::Known {
+                age: Duration::from_hours(30),
+                failure: Some(market::Failure::Unreadable),
             },
         ];
         for width in WIDTHS {
@@ -264,7 +269,7 @@ impl Scene {
     fn draw_under_the_pointer(&mut self, ctx: &Context, drawn: &mut Drawn) {
         let known = PricesState::Known {
             age: Duration::from_mins(10),
-            offline: false,
+            failure: None,
         };
         let setup = FrameSetup {
             width: WIDTHS[0],

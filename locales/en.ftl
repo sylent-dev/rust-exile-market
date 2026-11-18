@@ -28,13 +28,15 @@ close-tooltip = Close
 ## Status bar
 
 status-bar = { $prices } · { $trade }
-# No price of the league, and the price database can't be reached.
+# No price of the league, and the price database can't be reached or read.
 status-prices-unavailable = poe2scout: no prices yet
 # During the first download of the prices of a league.
 status-prices-downloading = poe2scout: downloading prices…
 # The age of the prices, e.g. "12min ago".
 status-prices = poe2scout { $age }
 status-prices-offline = poe2scout { $age } (offline)
+# The price database answers something the application can't read.
+status-prices-unreadable = poe2scout { $age } (unreadable)
 status-trade-idle = GGG trade: no search yet
 # The age of the last search of the trade site, e.g. "2min ago".
 status-trade = GGG trade { $age }
@@ -100,6 +102,9 @@ clipboard-unreadable = The clipboard can't be read.
 # The age of the prices, e.g. "3h ago".
 prices-unreachable = The price database can't be reached. Last updated { $age }.
 prices-unavailable = Prices unavailable, retrying…
+# The price database answers something the application can't read: it may have changed.
+prices-unreadable = The answer of the price database can't be read. Last updated { $age }.
+prices-unreadable-retrying = Prices can't be read, retrying…
 
 ## Item block
 

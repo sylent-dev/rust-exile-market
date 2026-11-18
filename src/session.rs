@@ -10,7 +10,7 @@ use crate::item_names::ItemNames;
 use crate::language::PerLanguage;
 use crate::league::{League, Leagues};
 use crate::logging;
-use crate::market::{MarketEvent, Source};
+use crate::market::{Failure, MarketEvent, Source};
 use crate::price::estimate::Worth;
 use crate::price::fixed::{self, FixedPrice, NoFixedPrice};
 use crate::price::{PriceList, Rates};
@@ -243,10 +243,10 @@ pub struct Session {
     new_league: Option<League>,
     /// The prices of the league shown, from the cache or the price database.
     prices: Option<LeaguePrices>,
-    /// The last request for the leagues succeeded.
-    are_leagues_reachable: bool,
-    /// The league whose last download of the prices failed, if any.
-    prices_failed: Option<League>,
+    /// Why the last request for the leagues failed; none when it succeeded.
+    leagues_failure: Option<Failure>,
+    /// The league whose last download of the prices failed, and why, if any.
+    prices_failure: Option<(League, Failure)>,
     /// The names of the items of the trade site, which find the prices of a French item.
     item_names: Option<ItemNames>,
     /// The stats of the trade site, from the templates given with the names: the stats of
@@ -273,10 +273,13 @@ pub enum PricesState {
     /// Not complete yet: `progress` of them are downloaded (from 0 to 1), or the league isn't
     /// known yet.
     Downloading { progress: f32 },
-    /// Not complete, and the price database can't be reached.
-    Unavailable,
-    /// Given by the price database `age` ago; `offline` while it can't be reached.
-    Known { age: Duration, offline: bool },
+    /// Not complete, and the price database can't be read for this reason.
+    Unavailable(Failure),
+    /// Given by the price database `age` ago; `failure` while it can't be read.
+    Known {
+        age: Duration,
+        failure: Option<Failure>,
+    },
 }
 
 /// What changed in the leagues, for the settings to keep.
@@ -295,8 +298,8 @@ impl Session {
             league,
             new_league: None,
             prices: None,
-            are_leagues_reachable: true,
-            prices_failed: None,
+            leagues_failure: None,
+            prices_failure: None,
             item_names: None,
             trade_stats: None,
             item: None,
@@ -309,7 +312,7 @@ impl Session {
     pub fn apply_market(&mut self, event: MarketEvent, closed: &[League]) -> Option<LeagueChange> {
         match event {
             MarketEvent::Leagues(leagues) => {
-                self.are_leagues_reachable = true;
+                self.leagues_failure = None;
                 return self.apply_leagues(leagues, closed);
             }
             MarketEvent::CachedPrices(prices) => self.keep_prices(prices, None),
@@ -321,8 +324,10 @@ impl Session {
                 self.downloaded(&prices.league);
                 self.keep_prices(prices, None);
             }
-            MarketEvent::Unreachable(Source::Leagues) => self.are_leagues_reachable = false,
-            MarketEvent::Unreachable(Source::Prices(league)) => self.prices_failed = Some(league),
+            MarketEvent::Failed(Source::Leagues, failure) => self.leagues_failure = Some(failure),
+            MarketEvent::Failed(Source::Prices(league), failure) => {
+                self.prices_failure = Some((league, failure));
+            }
         }
         None
     }
@@ -346,8 +351,12 @@ impl Session {
 
     /// The prices of `league` were downloaded: an earlier failure of its download is over.
     fn downloaded(&mut self, league: &League) {
-        if self.prices_failed.as_ref() == Some(league) {
-            self.prices_failed = None;
+        if self
+            .prices_failure
+            .as_ref()
+            .is_some_and(|(failed, _)| failed == league)
+        {
+            self.prices_failure = None;
         }
     }
 
@@ -523,19 +532,27 @@ impl Session {
     /// The state of the prices of the league shown, at `now`.
     #[must_use]
     pub fn prices_state(&self, now: SystemTime) -> PricesState {
-        // A failed download of another league says nothing of this one.
-        let prices_failed = self.prices_failed.is_some() && self.prices_failed == self.league;
-        let offline = !self.are_leagues_reachable || prices_failed;
-        match self.league_prices() {
-            Some(LeaguePrices {
-                list,
-                downloading: None,
-            }) => PricesState::Known {
+        // A failed download of another league says nothing of this one; it says more of this
+        // league than the leagues do.
+        let prices_failure = self
+            .prices_failure
+            .as_ref()
+            .filter(|(league, _)| self.league.as_ref() == Some(league))
+            .map(|&(_, failure)| failure);
+        let failure = prices_failure.or(self.leagues_failure);
+        match (self.league_prices(), failure) {
+            (
+                Some(LeaguePrices {
+                    list,
+                    downloading: None,
+                }),
+                failure,
+            ) => PricesState::Known {
                 age: list.age(now),
-                offline,
+                failure,
             },
-            _ if offline => PricesState::Unavailable,
-            prices => PricesState::Downloading {
+            (_, Some(failure)) => PricesState::Unavailable(failure),
+            (prices, None) => PricesState::Downloading {
                 progress: prices.and_then(|prices| prices.downloading).unwrap_or(0.0),
             },
         }

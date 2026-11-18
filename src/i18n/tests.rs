@@ -33,7 +33,9 @@ fn the_code_and_every_file_have_the_same_messages() {
             BUG_REPORT_LOG_SESSION,
             STATUS_PRICES,
             STATUS_PRICES_OFFLINE,
+            STATUS_PRICES_UNREADABLE,
             PRICES_UNREACHABLE,
+            PRICES_UNREADABLE,
             AGE_NOW,
             AGE_MINUTES,
             WAIT_SECONDS,
@@ -275,19 +277,57 @@ fn every_message_formats_without_errors() {
         for index in 0..DOWNLOAD_QUOTE_COUNT {
             assert_ne!(translator.download_quote(index), "", "{language:?}");
         }
-        for line in [
-            translator.status_prices("age"),
-            translator.status_prices_offline("age"),
-            translator.prices_unreachable("age"),
-        ] {
-            assert!(line.contains("age"), "{line} in {language:?}");
-        }
         assert!(translator.made_by().contains(crate::AUTHOR), "{language:?}");
         assert!(
             translator.donation_intro().contains(crate::APP_NAME),
             "{language:?}"
         );
     }
+}
+
+#[test]
+fn the_state_of_the_prices_holds_their_age_in_every_language() {
+    for language in Language::ALL {
+        let translator = Translator::new(language);
+        for line in [
+            translator.status_prices("age"),
+            translator.status_prices_failed(Failure::Unreachable, "age"),
+            translator.status_prices_failed(Failure::Unreadable, "age"),
+            translator.prices_failed(Failure::Unreachable, "age"),
+            translator.prices_failed(Failure::Unreadable, "age"),
+        ] {
+            assert!(line.contains("age"), "{line} in {language:?}");
+        }
+    }
+}
+
+#[test]
+fn a_price_database_that_cant_be_read_is_told_apart_from_one_that_cant_be_reached() {
+    let english = Translator::new(Language::English);
+    let said = |failure| {
+        [
+            english.status_prices_failed(failure, "3h ago"),
+            english.prices_failed(failure, "3h ago"),
+            english.prices_unavailable(failure),
+        ]
+    };
+
+    assert_eq!(
+        said(Failure::Unreachable),
+        [
+            "poe2scout 3h ago (offline)",
+            "The price database can't be reached. Last updated 3h ago.",
+            "Prices unavailable, retrying…",
+        ]
+    );
+    assert_eq!(
+        said(Failure::Unreadable),
+        [
+            "poe2scout 3h ago (unreadable)",
+            "The answer of the price database can't be read. Last updated 3h ago.",
+            "Prices can't be read, retrying…",
+        ]
+    );
 }
 
 #[test]

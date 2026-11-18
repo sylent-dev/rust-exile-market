@@ -108,13 +108,15 @@ impl Failure {
     /// Why the request that failed with `error` failed.
     #[must_use]
     pub fn of(error: &HttpError) -> Self {
-        match error {
-            HttpError::Request(ureq::Error::StatusCode(400..=499)) => Self::Refused,
-            HttpError::Request(
-                ureq::Error::StatusCode(300..=399) | ureq::Error::BodyExceedsLimit(_),
-            )
-            | HttpError::Json(_) => Self::Unreadable,
-            HttpError::Request(_) => Self::Unreachable,
+        if error.is_unreadable() {
+            Self::Unreadable
+        } else if matches!(
+            error,
+            HttpError::Request(ureq::Error::StatusCode(400..=499))
+        ) {
+            Self::Refused
+        } else {
+            Self::Unreachable
         }
     }
 }

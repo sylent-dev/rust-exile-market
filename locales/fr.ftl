@@ -28,13 +28,15 @@ close-tooltip = Fermer
 ## Barre d'état
 
 status-bar = { $prices } · { $trade }
-# Aucun prix de la ligue, et la base des prix est injoignable.
+# Aucun prix de la ligue, et la base des prix est injoignable ou illisible.
 status-prices-unavailable = poe2scout : pas encore de prix
 # Pendant le premier téléchargement des prix d'une ligue.
 status-prices-downloading = poe2scout : téléchargement des prix…
 # L'âge des prix, par exemple « il y a 12min ».
 status-prices = poe2scout { $age }
 status-prices-offline = poe2scout { $age } (hors ligne)
+# La base des prix répond quelque chose que l'application ne peut pas lire.
+status-prices-unreadable = poe2scout { $age } (illisible)
 status-trade-idle = GGG trade : pas encore de recherche
 # L'âge de la dernière recherche du site d'échange, par exemple « il y a 2min ».
 status-trade = GGG trade { $age }
@@ -100,6 +102,9 @@ clipboard-unreadable = Le presse-papiers ne peut pas être lu.
 # L'âge des prix, par exemple « il y a 3h ».
 prices-unreachable = La base des prix est injoignable. Dernière mise à jour { $age }.
 prices-unavailable = Prix indisponibles, nouvelle tentative…
+# La base des prix répond quelque chose que l'application ne peut pas lire : elle a peut-être changé.
+prices-unreadable = La réponse de la base des prix est illisible. Dernière mise à jour { $age }.
+prices-unreadable-retrying = Prix illisibles, nouvelle tentative…
 
 ## Bloc objet
 
