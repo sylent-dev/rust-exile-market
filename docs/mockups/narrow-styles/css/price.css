@@ -24,3 +24,15 @@
 .app-reliability .app-tip { right: auto; left: -1px; }
 .app-reliability:hover .app-tip, .app-reliability.is-hovered .app-tip { display: block; }
 .win:has(.app-reliability.is-hovered) { overflow: visible; }
+/* 22f, open: the name of an orb under the pointer, over its icon and its amount (`is-hovered` opens it in a still
+   window); its tooltip under it, its left edge on the left of the orb. */
+.app-orb-hover { position: relative; }
+.app-orb-hover .app-tip { left: -4px; right: auto; font-weight: 400; }
+.app-orb-hover:hover .app-tip, .app-orb-hover.is-hovered .app-tip { display: block; }
+.candidates span.app-orb-hover .app-tip { left: auto; right: -4px; }
+/* The class searched cut with "…" past its column, its whole text under the pointer. */
+.app-sub-cut { position: relative; display: block; }
+.app-sub-cut .app-sub { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 210px; }
+.app-sub-cut.is-hovered .app-tip { display: block; left: -4px; right: auto; }
+.candidates .app-tip span { font-family: var(--font-body); }
+.text:has(.app-sub-cut) { overflow: visible; }
