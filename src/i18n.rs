@@ -245,6 +245,21 @@ impl Translator {
         self.format(AFFIX_FILL_OPEN, Some(&args))
     }
 
+    /// The fill of the prefixes or suffixes of an item some of whose modifiers have no affix
+    /// known, and take places it doesn't count: at most `open` are open, "1 of 3 · up to 1
+    /// open"; the count alone once none can be.
+    #[must_use]
+    pub fn affix_fill_up_to(&self, filled: u32, max: u32, open: u32) -> String {
+        let mut args = FluentArgs::new();
+        args.set("filled", filled);
+        args.set("max", max);
+        if open == 0 {
+            return self.format(AFFIX_FILL, Some(&args));
+        }
+        args.set("open", open);
+        self.format(AFFIX_FILL_UP_TO, Some(&args))
+    }
+
     /// The affix of a modifier of the lord `lord` after the ranges of its tier, in gray, when
     /// the line can be his or an ordinary modifier: "Amanamu Prefix".
     #[must_use]

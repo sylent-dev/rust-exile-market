@@ -196,6 +196,8 @@ group-pseudo = Pseudo
 # Beside Prefixes and Suffixes: how many the item has, of the most it can have.
 affix-fill = { $filled } of { $max }
 affix-fill-open = { $filled } of { $max } · { $open } open
+# The same while a modifier of the item has no affix known (a line in doubt, a prefix or a suffix): it takes a place the count doesn't show, so the open places are a most.
+affix-fill-up-to = { $filled } of { $max } · up to { $open } open
 # The pill of an item without modifiers, which has filters only, and once unfolded.
 show-filters = Show filters
 hide-filters = Hide filters

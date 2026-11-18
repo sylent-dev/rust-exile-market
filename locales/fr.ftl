@@ -199,6 +199,11 @@ affix-fill-open = { $filled } sur { $max } · { $open ->
     [one] { $open } libre
    *[other] { $open } libres
 }
+# De même tant qu'un modificateur de l'objet n'a pas d'affixe connu (une ligne en doute, un préfixe ou un suffixe) : il prend une place que le compte ne montre pas, donc les places libres sont un maximum.
+affix-fill-up-to = { $filled } sur { $max } · jusqu'à { $open ->
+    [one] { $open } libre
+   *[other] { $open } libres
+}
 # La pilule d'un objet sans modificateurs, qui n'a que des filtres, et une fois dépliée.
 show-filters = Afficher les filtres
 hide-filters = Masquer les filtres

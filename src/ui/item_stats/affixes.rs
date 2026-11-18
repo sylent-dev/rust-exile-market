@@ -3,7 +3,8 @@
 //! and the ranges of that tier.
 
 use super::model::{
-    Group, Limit, ModifierTier, Origin, Row, Stat, StatFilter, StatRoll, StatText, TierRow,
+    AffixFill, Group, Limit, ModifierTier, Origin, Row, Stat, StatFilter, StatRoll, StatText,
+    TierRow,
 };
 use super::modifier_stats::{
     LineContext, added_stat, is_enchant, is_implicit, is_rune, limit_of_line, stats_of_kind, varies,
@@ -18,18 +19,10 @@ use crate::tier_rolls::LineRolls;
 /// The rows of a rare, magic or normal item: its enchantments, its runes, its implicit
 /// modifiers, then its prefixes and suffixes.
 pub(super) fn affix_rows<'a>(item: &'a Item, context: &LineContext<'_>) -> Vec<Row<'a>> {
-    // A rune or an implicit can add affixes or take some away (`+1 Suffix Modifier allowed`).
-    let limits = context.line_stats.affix_limits(item);
-    let max = |limit: u32| (!limits.counted_only).then_some(limit);
     let line_varies = |line: &StatLine, _: &Stat<'_>| varies(line);
     let prefixes = affix_stats(item, Some(Affix::Prefix), context);
     let suffixes = affix_stats(item, Some(Affix::Suffix), context);
-    let filled = |affix| {
-        item.modifiers()
-            .iter()
-            .map(|modifier| affix_count(modifier, affix))
-            .sum()
-    };
+    let (prefix_fill, suffix_fill) = affix_fills(item, context);
     let mut rows = Vec::new();
     push_group(
         &mut rows,
@@ -61,24 +54,50 @@ pub(super) fn affix_rows<'a>(item: &'a Item, context: &LineContext<'_>) -> Vec<R
             line_varies,
         ),
     );
-    push_group(
-        &mut rows,
-        Group::Prefixes {
-            filled: filled(Affix::Prefix),
-            max: max(limits.prefixes),
-        },
-        prefixes,
-    );
-    push_group(
-        &mut rows,
-        Group::Suffixes {
-            filled: filled(Affix::Suffix),
-            max: max(limits.suffixes),
-        },
-        suffixes,
-    );
+    push_group(&mut rows, Group::Prefixes(prefix_fill), prefixes);
+    push_group(&mut rows, Group::Suffixes(suffix_fill), suffixes);
     push_group(&mut rows, Group::Explicit, affix_stats(item, None, context));
     rows
+}
+
+/// The fill of the prefixes of `item`, then of its suffixes: how many it has of the most it can
+/// have, which a rune or an implicit can change (`+1 Suffix Modifier allowed`).
+///
+/// While a modifier has no affix known ([`takes_uncounted_place`]), the places open are a most:
+/// each affix has at most the places it has left, and at most the places both have left less
+/// one, these modifiers making one modifier at least (two prefixes and no suffix left, two
+/// lines in doubt: one prefix open at most).
+fn affix_fills(item: &Item, context: &LineContext<'_>) -> (AffixFill, AffixFill) {
+    let limits = context.line_stats.affix_limits(item);
+    let filled = |affix| -> u32 {
+        item.modifiers()
+            .iter()
+            .map(|modifier| affix_count(modifier, affix))
+            .sum()
+    };
+    let (prefixes, suffixes) = (filled(Affix::Prefix), filled(Affix::Suffix));
+    let prefixes_left = limits.prefixes.saturating_sub(prefixes);
+    let suffixes_left = limits.suffixes.saturating_sub(suffixes);
+    let is_room_shared = !limits.counted_only && item.modifiers().iter().any(takes_uncounted_place);
+    let left_for_one = (prefixes_left + suffixes_left).saturating_sub(1);
+    let fill = |filled: u32, limit: u32, left: u32| AffixFill {
+        filled,
+        max: (!limits.counted_only).then_some(limit),
+        open_at_most: is_room_shared.then_some(left.min(left_for_one)),
+    };
+    (
+        fill(prefixes, limits.prefixes, prefixes_left),
+        fill(suffixes, limits.suffixes, suffixes_left),
+    )
+}
+
+/// Whether `modifier` takes a place among the prefixes or the suffixes of its item that the
+/// fill of neither counts ([`affix_count`]): explicit, its affix unknown (a line in doubt or
+/// without tier found, a prefix or a suffix, a header that doesn't tell it), but a line that
+/// adds up a prefix and a suffix, counted in both.
+fn takes_uncounted_place(modifier: &Modifier) -> bool {
+    modifier.kind == ModifierKind::Explicit(None)
+        && !matches!(modifier.doubt, Some(TierDoubt::Split { .. }))
 }
 
 /// The prefixes or suffixes of `affix` that `modifier` counts in the room of its item: one of

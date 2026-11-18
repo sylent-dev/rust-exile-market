@@ -2,7 +2,8 @@
 //! texts these rows are compared with.
 
 use super::model::{
-    Group, Limit, ModifierTier, Row, Stat, StatFilter, StatRoll, StatText, TierRow, WordTip,
+    AffixFill, Group, Limit, ModifierTier, Row, Stat, StatFilter, StatRoll, StatText, TierRow,
+    WordTip,
 };
 use super::rolls::ranges_text;
 use super::{LineFacts, Stats};
@@ -88,19 +89,22 @@ pub(super) fn texts(item: &Item) -> Vec<String> {
 /// after the ranges followed by its tooltip, and two neighbouring tiers `T1/T2 155–179`); last,
 /// the tag of the radius of a line of a Time-Lost jewel, `<Small>`.
 pub(super) fn row_texts<'a>(rows: impl IntoIterator<Item = Row<'a>>) -> Vec<String> {
-    // `2/3`, or the count alone: `6`.
-    let fill = |filled: u32, max: Option<u32>| match max {
-        Some(max) => format!("{filled}/{max}"),
-        None => filled.to_string(),
+    // `2/3`, the count alone, `6`, or with the most places open while modifiers without affix
+    // take some: `1/3 ≤1`.
+    let fill = |fill: AffixFill| {
+        let count = match fill.max {
+            Some(max) => format!("{}/{max}", fill.filled),
+            None => fill.filled.to_string(),
+        };
+        match fill.open_at_most {
+            Some(open) => format!("{count} ≤{open}"),
+            None => count,
+        }
     };
     rows.into_iter()
         .map(|row| match row {
-            Row::Group(Group::Prefixes { filled, max }) => {
-                format!("Prefixes {}", fill(filled, max))
-            }
-            Row::Group(Group::Suffixes { filled, max }) => {
-                format!("Suffixes {}", fill(filled, max))
-            }
+            Row::Group(Group::Prefixes(filled)) => format!("Prefixes {}", fill(filled)),
+            Row::Group(Group::Suffixes(filled)) => format!("Suffixes {}", fill(filled)),
             Row::Group(group) => format!("{group:?}"),
             Row::UnrevealedNote => "Unrevealed note".to_owned(),
             Row::TradeCopyNote => "Trade copy note".to_owned(),

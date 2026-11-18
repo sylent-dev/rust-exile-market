@@ -423,7 +423,9 @@ fn a_modifier_whose_header_is_unknown_is_explicit_without_tier() {
             "■ Strength: 12 ≥11",
             "Implicit",
             "□ +8% to all Elemental Resistances ≥7 [7–10 0.33]",
-            "Suffixes 1/3",
+            // Its affix unknown, it takes a place the fills don't count: two suffixes open
+            // at most.
+            "Suffixes 1/3 ≤2",
             "□ +12 to Strength ≥11 [0.25 T7 9–12]",
             // Neither a prefix nor a suffix: no tier, like a modifier the tables don't
             // know.

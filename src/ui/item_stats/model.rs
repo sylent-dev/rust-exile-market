@@ -32,21 +32,27 @@ pub(super) enum Group {
     Enchant,
     Runes,
     Implicit,
-    /// Their count and the most the item can have; none for a corrupted waystone, its count
-    /// alone ([`crate::game_data::AffixLimits::counted_only`]).
-    Prefixes {
-        filled: u32,
-        max: Option<u32>,
-    },
-    Suffixes {
-        filled: u32,
-        max: Option<u32>,
-    },
+    Prefixes(AffixFill),
+    Suffixes(AffixFill),
     /// The explicit modifiers of a magic or rare item whose header doesn't tell their affix:
     /// a header the parser doesn't know, or lines before the first header.
     Explicit,
     /// The modifiers of a unique, no prefix nor suffix.
     Unique,
+}
+
+/// The fill of the prefixes, or of the suffixes, of an item: beside the title of their group.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct AffixFill {
+    /// How many the item has, their affix known.
+    pub(super) filled: u32,
+    /// The most it can have; none for a corrupted waystone, its count alone
+    /// ([`crate::game_data::AffixLimits::counted_only`]).
+    pub(super) max: Option<u32>,
+    /// The most places open while modifiers of the item have no affix known, in **Explicit**,
+    /// which take places `filled` doesn't count; none when every modifier has its affix, the
+    /// places left being then all open.
+    pub(super) open_at_most: Option<u32>,
 }
 
 /// The word after the roll of a modifier: its origin, as the game writes it, or the currency

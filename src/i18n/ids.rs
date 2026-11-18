@@ -308,6 +308,7 @@ pub(super) const NO_PRICE_FOUND: &str = "no-price-found";
 pub(super) const SHOW_STATS: &str = "show-stats";
 pub(super) const AFFIX_FILL: &str = "affix-fill";
 pub(super) const AFFIX_FILL_OPEN: &str = "affix-fill-open";
+pub(super) const AFFIX_FILL_UP_TO: &str = "affix-fill-up-to";
 pub(super) const LORD_PREFIX: &str = "lord-prefix";
 pub(super) const LORD_SUFFIX: &str = "lord-suffix";
 pub(super) const ACTIVE_FILTERS: &str = "active-filters";

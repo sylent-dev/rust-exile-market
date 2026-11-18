@@ -122,6 +122,47 @@ fn a_value_no_modifier_holds_says_no_tier_found_with_its_tooltip() {
 }
 
 #[test]
+fn the_open_places_are_a_most_while_a_line_has_no_affix() {
+    let resistances =
+        "+38% to Fire Resistance\n+38% to Cold Resistance\n+38% to Lightning Resistance";
+    let in_doubt = "30% increased Energy Shield\n+30 to maximum Life";
+    let shield = "+69 to maximum Energy Shield";
+    // The fills of a helmet of these lines, copied from the in-game trade.
+    let fills = |lines: &[&str]| -> Vec<String> {
+        let helmet = read_again(rare_item(
+            "Ancestral Tiara",
+            "Helmets",
+            "",
+            &lines.join("\n"),
+        ));
+        let is_fill = |text: &String| text.starts_with("Prefixes") || text.starts_with("Suffixes");
+        texts(&helmet).into_iter().filter(is_fill).collect()
+    };
+
+    // Every affix known: the places left are open.
+    assert_eq!(
+        fills(&[shield, resistances]),
+        ["Prefixes 1/3", "Suffixes 3/3"]
+    );
+    // Two prefixes left and no suffix, two lines in doubt, which make one modifier at least:
+    // one prefix open at most.
+    assert_eq!(
+        fills(&[shield, resistances, in_doubt]),
+        ["Prefixes 1/3 ≤1", "Suffixes 3/3 ≤0"]
+    );
+    // Two prefixes and a suffix left, a line no modifier holds: each affix its places left at
+    // most, two of the three being open at most.
+    assert_eq!(
+        fills(&[
+            shield,
+            "+38% to Fire Resistance\n+38% to Cold Resistance",
+            "+99% to Lightning Resistance",
+        ]),
+        ["Prefixes 1/3 ≤2", "Suffixes 2/3 ≤1"]
+    );
+}
+
+#[test]
 fn a_line_whose_tier_isnt_searched_yet_says_nothing() {
     // Copied from the in-game trade, not read again yet, as a magic item whose base the names
     // of the trade site don't tell yet.
@@ -594,10 +635,11 @@ fn the_owners_unset_ring_and_helmet_of_amanamu_show_their_rows_from_the_in_game_
     assert_eq!(
         explicit_rows(in_game_trade),
         [
-            "Prefixes 2/3",
+            // One place left, a prefix or a suffix: the rarity, in Explicit, may take either.
+            "Prefixes 2/3 ≤1",
             "□ +94 to maximum Mana ≥85 [0.60 T3 90–104]",
             "□ 69% increased Armour and Energy Shield ≥62 [0.64 T3 68–79]",
-            "Suffixes 2/3",
+            "Suffixes 2/3 ≤1",
             "□ +28% to Cold Resistance ≥25 [0.56 T4 26–30]",
             "□ 35% increased Presence Area of Effect ≥32 [1.00 25–35 Desecrated]",
             "Explicit",
