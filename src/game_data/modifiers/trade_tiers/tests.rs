@@ -431,6 +431,24 @@ fn a_line_only_a_modifier_out_of_the_room_holds_is_in_doubt_when_it_is_a_candida
         left_without_tier(&tables, &[shield, rarity, life], (0, 2)),
         [(0, NoModifier)]
     );
+    // The same for the second line of the hybrid: the energy shield alone is a suffix here,
+    // and the life has no tier but in their hybrid.
+    let tables = read_tables(&[
+        table_json(
+            "EnergyShield",
+            "suffix",
+            &[ENERGY_SHIELD],
+            &[(1, &[(21, 30)])],
+        ),
+        table_json(
+            "Hybrid",
+            "prefix",
+            &[ENERGY_SHIELD, LIFE],
+            &[(1, &[(20, 29), (10, 19)])],
+        ),
+    ]);
+    let lines = ["25% increased Energy Shield", "+15 to maximum Life"];
+    assert_eq!(left_without_tier(&tables, &lines, (0, 1)), [(1, InDoubt)]);
 }
 
 #[test]

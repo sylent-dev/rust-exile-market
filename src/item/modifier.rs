@@ -154,9 +154,9 @@ pub enum NoTier {
     /// maximum Life` of a helmet, two pure modifiers or their hybrid), or the search can't
     /// vouch for the one it would show.
     InDoubt,
-    /// No modifier of the tables holds its values on the base of the item, in any reading the
-    /// item has room for: an item copied before a patch, a line whose stat the tables don't
-    /// know.
+    /// No modifier of the tables holds its values on the base of the item, among the tiers its
+    /// level allows, in any reading the item has room for: an item copied before a patch, a
+    /// line whose stat the tables don't know.
     NoModifier,
 }
 
