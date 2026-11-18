@@ -46,6 +46,20 @@ impl HttpError {
             Self::Json(_) => true,
         }
     }
+
+    /// The service answered something of another form than the one expected: a redirection,
+    /// a body too large, or JSON the application can't read. The service may have changed:
+    /// trying again wouldn't help, unlike no answer or an error status.
+    #[must_use]
+    pub fn is_unreadable(&self) -> bool {
+        match self {
+            Self::Request(error) => matches!(
+                error,
+                ureq::Error::StatusCode(300..=399) | ureq::Error::BodyExceedsLimit(_)
+            ),
+            Self::Json(_) => true,
+        }
+    }
 }
 
 impl fmt::Display for HttpError {

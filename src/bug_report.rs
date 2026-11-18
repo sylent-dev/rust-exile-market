@@ -46,6 +46,9 @@ const ENCODED_LINE_BREAK: usize = "%0A".len();
 /// play logs a few kilobytes (3 and 5 KB, the owner's last two on 2026-11-09), so a log reaches
 /// it only in a long session.
 const LOG_BUDGET_BYTES: u64 = 60_000;
+/// The first line of a log cut at its budget, in English as the log: the one who reads its copy
+/// doesn't look for its start. The preview and the address keep fewer lines, and never reach it.
+const CUT_LOG_MARK: &str = "… (first lines left out)";
 
 /// What the application knows, for the summary of the report.
 #[derive(Debug, Clone)]
@@ -337,8 +340,8 @@ fn read_log(path: &Path) -> io::Result<String> {
 }
 
 /// The end of `log` that fits in `budget` bytes, from the start of a line: a longer log loses its
-/// first lines whole. A character cut in the middle (a log written while the application stopped)
-/// stays readable.
+/// first lines whole, and [`CUT_LOG_MARK`] says it on a first line. A character cut in the middle
+/// (a log written while the application stopped) stays readable.
 fn read_end(mut log: impl Read + Seek, budget: u64) -> io::Result<String> {
     let length = log.seek(SeekFrom::End(0))?;
     let is_cut = length > budget;
@@ -351,8 +354,8 @@ fn read_end(mut log: impl Read + Seek, budget: u64) -> io::Result<String> {
     log.take(length - start).read_to_end(&mut bytes)?;
     let text = String::from_utf8_lossy(&bytes);
     Ok(if is_cut {
-        text.split_once('\n')
-            .map_or_else(String::new, |(_, rest)| rest.to_owned())
+        let rest = text.split_once('\n').map_or("", |(_, rest)| rest);
+        format!("{CUT_LOG_MARK}\n{rest}")
     } else {
         text.into_owned()
     })

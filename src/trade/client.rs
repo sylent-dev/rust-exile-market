@@ -29,9 +29,9 @@ pub const FETCH_SIZE: usize = 10;
 pub enum TradeError {
     /// The limits don't allow the request before this time: it wasn't sent.
     Wait(Instant),
-    /// The trade site refused the request (HTTP 429, or 403): nothing is sent before this
-    /// time.
-    Refused(Instant),
+    /// The trade site refused the request with this status (HTTP 429, or 403): nothing is sent
+    /// before `until`.
+    Refused { until: Instant, status: u16 },
     /// No answer, an error status, or an answer that isn't the expected one.
     Http(HttpError),
 }
@@ -41,7 +41,11 @@ impl fmt::Display for TradeError {
         let seconds = |until: &Instant| until.saturating_duration_since(Instant::now()).as_secs();
         match self {
             Self::Wait(until) => write!(formatter, "not sent, {} s to wait", seconds(until)),
-            Self::Refused(until) => write!(formatter, "refused, {} s to wait", seconds(until)),
+            Self::Refused { until, status } => write!(
+                formatter,
+                "refused with the status {status}, {} s to wait",
+                seconds(until)
+            ),
             Self::Http(error) => error.fmt(formatter),
         }
     }
@@ -51,7 +55,7 @@ impl std::error::Error for TradeError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Http(error) => Some(error),
-            Self::Wait(_) | Self::Refused(_) => None,
+            Self::Wait(_) | Self::Refused { .. } => None,
         }
     }
 }
@@ -268,7 +272,10 @@ impl<T: Transport> TradeClient<T> {
                     answer.status
                 );
                 let until = self.limits.refused(policy, &answer.limits, now);
-                return Err(TradeError::Refused(until));
+                return Err(TradeError::Refused {
+                    until,
+                    status: answer.status,
+                });
             }
             Attempt::Answered(answer) => answer,
         };
@@ -414,7 +421,7 @@ pub(super) mod tests {
 
         let search = client.search_items(Language::English, &League::new("Standard"), &ring());
 
-        let Err(TradeError::Refused(until)) = search else {
+        let Err(TradeError::Refused { until, .. }) = search else {
             panic!("refused: {search:?}");
         };
         assert!(until > Instant::now() + Duration::from_secs(55));
@@ -436,7 +443,10 @@ pub(super) mod tests {
 
             let search = client.search_items(Language::English, &League::new("Standard"), &ring());
 
-            assert!(matches!(search, Err(TradeError::Refused(_))), "{search:?}");
+            assert!(
+                matches!(search, Err(TradeError::Refused { .. })),
+                "{search:?}"
+            );
             let until = refusal.until(start).expect("a shared wait");
             assert!(until >= start + Duration::from_mins(30), "{status}");
             // The other policies wait too: the same site refused the same address.
@@ -456,7 +466,7 @@ pub(super) mod tests {
 
         let search = client.search_items(Language::English, &League::new("Standard"), &ring());
 
-        let Err(TradeError::Refused(until)) = search else {
+        let Err(TradeError::Refused { until, .. }) = search else {
             panic!("refused: {search:?}");
         };
         assert!(until >= start + Duration::from_mins(1));
@@ -500,7 +510,7 @@ pub(super) mod tests {
 
         let search = client.search_items(Language::English, &League::new("Standard"), &ring());
 
-        let Err(TradeError::Refused(until)) = search else {
+        let Err(TradeError::Refused { until, .. }) = search else {
             panic!("refused: {search:?}");
         };
         assert!(until > Instant::now() + Duration::from_secs(115));

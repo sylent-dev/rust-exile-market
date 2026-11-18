@@ -187,17 +187,23 @@ fn the_prices_are_downloading_until_they_arrive() {
     );
 
     session.apply_market(
-        MarketEvent::Unreachable(Source::Prices(League::new("Forbidden Rites"))),
+        MarketEvent::Failed(
+            Source::Prices(League::new("Forbidden Rites")),
+            Failure::Unreachable,
+        ),
         &[],
     );
-    assert_eq!(session.prices_state(now()), PricesState::Unavailable);
+    assert_eq!(
+        session.prices_state(now()),
+        PricesState::Unavailable(Failure::Unreachable)
+    );
 
     session.apply_market(MarketEvent::Prices(prices("Forbidden Rites", ago(2))), &[]);
     assert_eq!(
         session.prices_state(now()),
         PricesState::Known {
             age: Duration::from_mins(2),
-            offline: false
+            failure: None
         }
     );
 }
@@ -206,7 +212,10 @@ fn the_prices_are_downloading_until_they_arrive() {
 fn cached_prices_are_offline_while_the_database_cant_be_reached() {
     let mut session = session();
 
-    session.apply_market(MarketEvent::Unreachable(Source::Leagues), &[]);
+    session.apply_market(
+        MarketEvent::Failed(Source::Leagues, Failure::Unreachable),
+        &[],
+    );
     session.apply_market(
         MarketEvent::CachedPrices(prices("Forbidden Rites", ago(180))),
         &[],
@@ -216,7 +225,7 @@ fn cached_prices_are_offline_while_the_database_cant_be_reached() {
         session.prices_state(now()),
         PricesState::Known {
             age: Duration::from_hours(3),
-            offline: true
+            failure: Some(Failure::Unreachable)
         }
     );
 }
@@ -256,19 +265,87 @@ fn partial_prices_are_shown_while_downloading() {
 }
 
 #[test]
+fn prices_that_cant_be_read_are_told_apart_from_prices_that_cant_be_reached() {
+    let mut session = session();
+    let unreadable = || {
+        MarketEvent::Failed(
+            Source::Prices(League::new("Forbidden Rites")),
+            Failure::Unreadable,
+        )
+    };
+
+    session.apply_market(unreadable(), &[]);
+    assert_eq!(
+        session.prices_state(now()),
+        PricesState::Unavailable(Failure::Unreadable)
+    );
+
+    session.apply_market(
+        MarketEvent::CachedPrices(prices("Forbidden Rites", ago(180))),
+        &[],
+    );
+    session.apply_market(unreadable(), &[]);
+    assert_eq!(
+        session.prices_state(now()),
+        PricesState::Known {
+            age: Duration::from_mins(180),
+            failure: Some(Failure::Unreadable)
+        }
+    );
+}
+
+#[test]
+fn the_last_failure_received_tells_why_the_prices_are_old() {
+    let unreadable_prices = || {
+        MarketEvent::Failed(
+            Source::Prices(League::new("Forbidden Rites")),
+            Failure::Unreadable,
+        )
+    };
+    let unreachable_leagues = || MarketEvent::Failed(Source::Leagues, Failure::Unreachable);
+    let failure = |events: [MarketEvent; 2]| {
+        let mut session = session();
+        session.apply_market(MarketEvent::Prices(prices("Forbidden Rites", now())), &[]);
+        for event in events {
+            session.apply_market(event, &[]);
+        }
+        match session.prices_state(now()) {
+            PricesState::Known { failure, .. } => failure,
+            state => panic!("known prices: {state:?}"),
+        }
+    };
+
+    // The price database changed, then the network of the player went down.
+    assert_eq!(
+        failure([unreadable_prices(), unreachable_leagues()]),
+        Some(Failure::Unreachable)
+    );
+    assert_eq!(
+        failure([unreachable_leagues(), unreadable_prices()]),
+        Some(Failure::Unreadable)
+    );
+}
+
+#[test]
 fn the_leagues_read_again_dont_hide_a_failing_download() {
     let mut session = session();
     session.apply_market(MarketEvent::Prices(prices("Forbidden Rites", now())), &[]);
 
     session.apply_market(
-        MarketEvent::Unreachable(Source::Prices(League::new("Forbidden Rites"))),
+        MarketEvent::Failed(
+            Source::Prices(League::new("Forbidden Rites")),
+            Failure::Unreachable,
+        ),
         &[],
     );
     session.apply_market(leagues(&["Forbidden Rites"]), &[]);
 
     assert!(matches!(
         session.prices_state(now()),
-        PricesState::Known { offline: true, .. }
+        PricesState::Known {
+            failure: Some(Failure::Unreachable),
+            ..
+        }
     ));
 }
 
@@ -279,7 +356,10 @@ fn a_failed_download_of_the_previous_league_says_nothing_of_the_new_one() {
     session.choose_league(League::new("HC Forbidden Rites"));
     // Sent before the thread saw the new league.
     session.apply_market(
-        MarketEvent::Unreachable(Source::Prices(League::new("Forbidden Rites"))),
+        MarketEvent::Failed(
+            Source::Prices(League::new("Forbidden Rites")),
+            Failure::Unreachable,
+        ),
         &[],
     );
 
@@ -295,7 +375,10 @@ fn a_failed_download_of_an_ended_league_says_nothing_of_standard() {
     session.apply_market(leagues(&["Forbidden Rites"]), &[]);
 
     session.apply_market(
-        MarketEvent::Unreachable(Source::Prices(League::new("Dawn of the Hunt"))),
+        MarketEvent::Failed(
+            Source::Prices(League::new("Dawn of the Hunt")),
+            Failure::Unreachable,
+        ),
         &[],
     );
 
@@ -311,7 +394,10 @@ fn an_unreachable_database_changes_nothing() {
 
     assert_eq!(
         session.apply_market(
-            MarketEvent::Unreachable(Source::Prices(League::new("Forbidden Rites"))),
+            MarketEvent::Failed(
+                Source::Prices(League::new("Forbidden Rites")),
+                Failure::Unreachable
+            ),
             &[]
         ),
         None

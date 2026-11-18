@@ -8,7 +8,7 @@ use std::time::{Duration, SystemTime};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 
-use super::{DownloadObserver, PriceDatabase};
+use super::{DownloadObserver, Failure, PriceDatabase};
 use crate::game_data::UniqueModifiers;
 use crate::http::{self, HttpError, Pace};
 use crate::league::League;
@@ -81,6 +81,20 @@ impl FetchError {
             | Self::MissingRate(_)
             | Self::TooManyCategories(_)
             | Self::TooManyLeagues(_) => true,
+        }
+    }
+
+    /// Why the database couldn't be read, as the player is told: an answer that lacks what
+    /// the application needs can't be read either.
+    #[must_use]
+    pub fn failure(&self) -> Failure {
+        match self {
+            Self::Http { error, .. } if error.is_unreadable() => Failure::Unreadable,
+            Self::Http { .. } => Failure::Unreachable,
+            Self::NoCurrentLeague
+            | Self::MissingRate(_)
+            | Self::TooManyCategories(_)
+            | Self::TooManyLeagues(_) => Failure::Unreadable,
         }
     }
 }

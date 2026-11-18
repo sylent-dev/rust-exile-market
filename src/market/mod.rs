@@ -118,8 +118,18 @@ pub enum MarketEvent {
     },
     /// The prices the database just gave.
     Prices(PriceList),
-    /// The database couldn't be read; the application keeps what it has.
-    Unreachable(Source),
+    /// The database couldn't be read, for this reason; the application keeps what it has.
+    Failed(Source, Failure),
+}
+
+/// Why the price database couldn't be read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Failure {
+    /// No answer, or an error status: the network, or a trouble of the database that may pass.
+    Unreachable,
+    /// An answer of another form than the one expected, or without what the application
+    /// needs: the database may have changed.
+    Unreadable,
 }
 
 /// What was read from the database.
@@ -214,7 +224,7 @@ impl MarketWatch {
     /// unreachable for good.
     pub fn receive(&mut self, mut handle: impl FnMut(MarketEvent)) {
         if self.worker.receive(&mut handle) {
-            handle(MarketEvent::Unreachable(Source::Leagues));
+            handle(MarketEvent::Failed(Source::Leagues, Failure::Unreachable));
         }
     }
 }
@@ -263,16 +273,16 @@ impl<D: PriceDatabase> Watch<'_, D> {
             {
                 return;
             }
-            let mut is_reachable = true;
+            let mut have_leagues_failed = false;
             if Instant::now() >= self.leagues_due {
                 let event = self.read_leagues();
-                is_reachable = !matches!(event, MarketEvent::Unreachable(_));
+                have_leagues_failed = matches!(event, MarketEvent::Failed(..));
                 if !self.send(event) {
                     return;
                 }
             }
             match self.due_pricing() {
-                Some(pricing) if is_reachable => match self.read_prices(pricing) {
+                Some(pricing) if !have_leagues_failed => match self.read_prices(pricing) {
                     Downloaded::Done(event) => {
                         if !self.send(event) {
                             return;
@@ -375,7 +385,7 @@ impl<D: PriceDatabase> Watch<'_, D> {
                 self.failed(&error);
                 let retry = self.retries.leagues_failed(&error);
                 self.leagues_due = Instant::now() + retry;
-                MarketEvent::Unreachable(Source::Leagues)
+                MarketEvent::Failed(Source::Leagues, error.failure())
             }
         }
     }
@@ -412,13 +422,14 @@ impl<D: PriceDatabase> Watch<'_, D> {
                 }
                 // A download only stops when it is interrupted; tried again later, not in a
                 // loop.
-                let failure = MarketEvent::Unreachable(Source::Prices(league.clone()));
+                let failure =
+                    MarketEvent::Failed(Source::Prices(league.clone()), Failure::Unreachable);
                 (failure, self.intervals.retry)
             }
             Err(error) => {
                 self.failed(&error);
                 let retry = self.retries.prices_failed(&error);
-                let failure = MarketEvent::Unreachable(Source::Prices(league.clone()));
+                let failure = MarketEvent::Failed(Source::Prices(league.clone()), error.failure());
                 (failure, retry)
             }
         };
@@ -431,10 +442,10 @@ impl<D: PriceDatabase> Watch<'_, D> {
         Downloaded::Done(event)
     }
 
-    /// Logs that the database can be reached again, after a failure.
+    /// Logs that the database can be read again, after a failure.
     fn succeeded(&mut self) {
         if self.is_failing {
-            log::info!("The price database can be reached again");
+            log::info!("The price database can be read again");
         }
         self.is_failing = false;
     }
@@ -443,9 +454,9 @@ impl<D: PriceDatabase> Watch<'_, D> {
     fn failed(&mut self, error: &FetchError) {
         // Quietly after the first: offline for a night would fill the log.
         if self.is_failing {
-            log::debug!("The price database still can't be reached: {error}");
+            log::debug!("The price database still can't be read: {error}");
         } else {
-            log::warn!("The price database can't be reached: {error}");
+            log::warn!("The price database can't be read: {error}");
         }
         self.is_failing = true;
     }

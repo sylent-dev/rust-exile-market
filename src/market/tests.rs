@@ -18,12 +18,10 @@ const FAST: Intervals = Intervals {
 /// counts its requests.
 #[derive(Default)]
 struct FakeDatabase {
-    /// Fails to give the leagues.
-    leagues_unreachable: bool,
-    /// Fails to give the prices.
-    prices_unreachable: bool,
-    /// Answers the prices with an error status.
-    prices_refused: bool,
+    /// Fails to give the leagues with the error this gives.
+    leagues_error: Option<fn() -> FetchError>,
+    /// Fails to give the prices with the error this gives.
+    prices_error: Option<fn() -> FetchError>,
     /// The download of the prices of this league waits until it is interrupted.
     endless: Option<League>,
     /// The endless download looks for its interruption once this gives a message.
@@ -42,8 +40,8 @@ struct Requests {
 impl PriceDatabase for FakeDatabase {
     fn leagues(&mut self) -> Result<Vec<League>, FetchError> {
         self.requests.leagues.fetch_add(1, Ordering::SeqCst);
-        if self.leagues_unreachable {
-            return Err(unreachable("/Leagues"));
+        if let Some(error) = self.leagues_error {
+            return Err(error());
         }
         Ok(vec![League::new("Forbidden Rites")])
     }
@@ -72,11 +70,8 @@ impl PriceDatabase for FakeDatabase {
                 .push(league.id().to_owned());
             return Ok(None);
         }
-        if self.prices_unreachable {
-            return Err(unreachable("/Items"));
-        }
-        if self.prices_refused {
-            return Err(answered_error());
+        if let Some(error) = self.prices_error {
+            return Err(error());
         }
         let prices = price_list(league, SystemTime::now());
         download.progress(&prices, 0.5);
@@ -164,9 +159,15 @@ fn kind(event: &MarketEvent) -> String {
             format!("partial {} {progress}", prices.league.id())
         }
         MarketEvent::Prices(prices) => format!("prices {}", prices.league.id()),
-        MarketEvent::Unreachable(Source::Leagues) => "unreachable leagues".to_owned(),
-        MarketEvent::Unreachable(Source::Prices(league)) => {
-            format!("unreachable prices {}", league.id())
+        MarketEvent::Failed(source, failure) => {
+            let failure = match failure {
+                Failure::Unreachable => "unreachable",
+                Failure::Unreadable => "unreadable",
+            };
+            match source {
+                Source::Leagues => format!("{failure} leagues"),
+                Source::Prices(league) => format!("{failure} prices {}", league.id()),
+            }
         }
     }
 }
@@ -183,8 +184,8 @@ fn sends_the_leagues_at_startup() {
 fn an_outage_costs_one_request_per_attempt() {
     let directory = TestDirectory::new("market-outage");
     let database = FakeDatabase {
-        leagues_unreachable: true,
-        prices_unreachable: true,
+        leagues_error: Some(|| unreachable("/Leagues")),
+        prices_error: Some(|| unreachable("/Items")),
         ..FakeDatabase::default()
     };
     let requests = Arc::clone(&database.requests);
@@ -205,7 +206,7 @@ fn an_outage_costs_one_request_per_attempt() {
 fn a_failed_download_is_tried_again() {
     let directory = TestDirectory::new("market-retry");
     let database = FakeDatabase {
-        prices_unreachable: true,
+        prices_error: Some(|| unreachable("/Items")),
         ..FakeDatabase::default()
     };
     let requests = Arc::clone(&database.requests);
@@ -220,6 +221,28 @@ fn a_failed_download_is_tried_again() {
         ]
     );
     assert_eq!(requests.leagues.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn an_answer_that_cant_be_read_is_told_as_such() {
+    let directory = TestDirectory::new("market-unreadable-prices");
+    let database = FakeDatabase {
+        prices_error: Some(|| FetchError::MissingRate("divine")),
+        ..FakeDatabase::default()
+    };
+    let (mut prices_watch, wakes) = watch(database, &directory, Some("Standard"));
+    assert_eq!(
+        events(&mut prices_watch, &wakes, 2),
+        ["leagues", "unreadable prices Standard"]
+    );
+
+    let directory = TestDirectory::new("market-unreadable-leagues");
+    let database = FakeDatabase {
+        leagues_error: Some(|| FetchError::NoCurrentLeague),
+        ..FakeDatabase::default()
+    };
+    let (mut watch, wakes) = watch(database, &directory, Some("Standard"));
+    assert_eq!(events(&mut watch, &wakes, 1), ["unreadable leagues"]);
 }
 
 /// The network review of 2026-11-10: a download that fails at its twentieth request
@@ -286,7 +309,7 @@ fn another_league_starts_the_wait_of_the_prices_over() {
 fn the_leagues_read_often_dont_hasten_a_download_the_database_refuses() {
     let directory = TestDirectory::new("market-backoff-leagues");
     let database = FakeDatabase {
-        prices_refused: true,
+        prices_error: Some(answered_error),
         ..FakeDatabase::default()
     };
     let requests = Arc::clone(&database.requests);
@@ -322,7 +345,7 @@ fn the_leagues_read_often_dont_hasten_a_download_the_database_refuses() {
 fn a_download_the_database_refuses_is_tried_again_less_and_less_often() {
     let directory = TestDirectory::new("market-backoff");
     let database = FakeDatabase {
-        prices_refused: true,
+        prices_error: Some(answered_error),
         ..FakeDatabase::default()
     };
     let requests = Arc::clone(&database.requests);

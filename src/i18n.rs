@@ -12,9 +12,20 @@ use fluent_bundle::{FluentArgs, FluentBundle, FluentResource, FluentValue};
 use crate::filters::Property;
 use crate::item::{Affix, Catalyst, Lord, QualityKind, WaystoneProperty};
 use crate::language::{Language, PerLanguage};
+use crate::market::Failure;
 use crate::price::Direction;
 use crate::trade::pseudo::Pseudo;
 use crate::window_error::Cause;
+
+// `allow`, not `expect`: the lint is quiet in the tests, whose `use super::*` reads them too.
+#[allow(
+    clippy::wildcard_imports,
+    reason = "the identifiers of the messages, read by the methods of the translator"
+)]
+use ids::*;
+pub use ids::{DOWNLOAD_QUOTE_COUNT, Message};
+
+mod ids;
 
 /// The Fluent messages of each language, embedded in the executable.
 const MESSAGES: PerLanguage<&str> = PerLanguage {
@@ -25,222 +36,6 @@ const MESSAGES: PerLanguage<&str> = PerLanguage {
 /// The Fluent messages of `language`.
 fn messages(language: Language) -> &'static str {
     MESSAGES.of(language)
-}
-
-/// Declares [`Message`], its list for the tests and the identifier of each message in the
-/// `.ftl` files, from one table, so that a message without arguments is declared once.
-macro_rules! messages {
-    ($($(#[$attribute:meta])* $variant:ident => $id:literal,)*) => {
-        /// A message of the interface without arguments.
-        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-        pub enum Message {
-            $($(#[$attribute])* $variant,)*
-        }
-
-        impl Message {
-            /// Every message, for the tests.
-            #[cfg(test)]
-            const ALL: &'static [Self] = &[$(Self::$variant,)*];
-
-            /// Its identifier in the `.ftl` files.
-            fn id(self) -> &'static str {
-                match self {
-                    $(Self::$variant => $id,)*
-                }
-            }
-        }
-    };
-}
-
-messages! {
-    LeagueModeSoftcore => "league-mode-softcore",
-    LeagueModeHardcore => "league-mode-hardcore",
-    LeagueLoading => "league-loading",
-    NewLeagueSwitch => "new-league-switch",
-    UpdateDownload => "update-download",
-    HomeTooltip => "home-tooltip",
-    SettingsTooltip => "settings-tooltip",
-    BugReportTooltip => "bug-report-tooltip",
-    MinimizeTooltip => "minimize-tooltip",
-    CloseTooltip => "close-tooltip",
-    StatusPricesUnavailable => "status-prices-unavailable",
-    StatusPricesDownloading => "status-prices-downloading",
-    StatusTradeIdle => "status-trade-idle",
-    StatusKeyboard => "status-keyboard",
-    StatusKeyboardSingleScreen => "status-keyboard-single-screen",
-    EmptyCopy => "empty-copy",
-    EmptyPrice => "empty-price",
-    EmptyDisplayMode => "empty-display-mode",
-    ClipboardUnreadable => "clipboard-unreadable",
-    PricesUnavailable => "prices-unavailable",
-    ItemUnreadable => "item-unreadable",
-    ItemUnreadableHint => "item-unreadable-hint",
-    SettingsTitle => "settings-title",
-    SettingsLanguage => "settings-language",
-    LanguageSystem => "language-system",
-    LanguageEnglish => "language-english",
-    LanguageFrench => "language-french",
-    SettingsAlwaysOnTop => "settings-always-on-top",
-    SettingsAlwaysOnTopHelp => "settings-always-on-top-help",
-    SettingsCloseWithGame => "settings-close-with-game",
-    SettingsCloseWithGameHelp => "settings-close-with-game-help",
-    SettingsGame => "settings-game",
-    SettingsSearch => "settings-search",
-    SettingsPseudoTotals => "settings-pseudo-totals",
-    SettingsPseudoTotalsHelp => "settings-pseudo-totals-help",
-    SettingsHotkey => "settings-hotkey",
-    SettingsHotkeyPriceCheck => "settings-hotkey-price-check",
-    SettingsHotkeyHelp => "settings-hotkey-help",
-    SettingsHotkeyChange => "settings-hotkey-change",
-    SettingsHotkeyDefault => "settings-hotkey-default",
-    KeyShift => "key-shift",
-    HotkeyTakenChoose => "hotkey-taken-choose",
-    DonationLink => "donation-link",
-    Disclaimer => "disclaimer",
-    BugReportTitle => "bug-report-title",
-    BugReportIntro => "bug-report-intro",
-    BugReportSent => "bug-report-sent",
-    BugReportLog => "bug-report-log",
-    BugReportLogNote => "bug-report-log-note",
-    BugReportThisSession => "bug-report-this-session",
-    BugReportPreviousSession => "bug-report-previous-session",
-    BugReportNoLog => "bug-report-no-log",
-    BugReportJoinUnreadable => "bug-report-join-unreadable",
-    BugReportOpen => "bug-report-open",
-    BugReportCopy => "bug-report-copy",
-    BugReportCopied => "bug-report-copied",
-    BugReportCopyFailed => "bug-report-copy-failed",
-    BugReportAccount => "bug-report-account",
-    CheckOnTrade => "check-on-trade",
-    TagCorrupted => "tag-corrupted",
-    TagTwiceCorrupted => "tag-twice-corrupted",
-    TagSanctified => "tag-sanctified",
-    TagFractured => "tag-fractured",
-    TagMirrored => "tag-mirrored",
-    TagUnidentified => "tag-unidentified",
-    /// The tooltip of a state tag, gray or lit.
-    StateCorruptedOrNot => "state-corrupted-or-not",
-    StateCorruptedOnly => "state-corrupted-only",
-    StateTwiceCorruptedOnly => "state-twice-corrupted-only",
-    StateSanctifiedOrNot => "state-sanctified-or-not",
-    StateSanctifiedOnly => "state-sanctified-only",
-    StateFracturedOrNot => "state-fractured-or-not",
-    StateFracturedOnly => "state-fractured-only",
-    StateMirroredOrNot => "state-mirrored-or-not",
-    StateMirroredOnly => "state-mirrored-only",
-    PriceLabel => "price-label",
-    EstimatedPriceLabel => "estimated-price-label",
-    PossibleUniques => "possible-uniques",
-    IdentifyToPrice => "identify-to-price",
-    NoOffers => "no-offers",
-    SearchToEstimate => "search-to-estimate",
-    CheckToEstimate => "check-to-estimate",
-    NoOfferCountedToEstimate => "no-offer-counted-to-estimate",
-    NoMarketPriceRare => "no-market-price-rare",
-    NoMarketPriceSkillGem => "no-market-price-skill-gem",
-    NoMarketPriceMagic => "no-market-price-magic",
-    NoMarketPriceNormal => "no-market-price-normal",
-    FrenchNamesDownloading => "french-names-downloading",
-    PricesDownloadingNoLeague => "prices-downloading-no-league",
-    HideStats => "hide-stats",
-    GroupImplicit => "group-implicit",
-    GroupPrefixes => "group-prefixes",
-    GroupSuffixes => "group-suffixes",
-    GroupExplicit => "group-explicit",
-    DpsPhysical => "dps-physical",
-    DpsElemental => "dps-elemental",
-    DpsChaos => "dps-chaos",
-    DpsTooltip => "dps-tooltip",
-    DefenceArmour => "defence-armour",
-    DefenceEvasion => "defence-evasion",
-    DefenceEnergyShield => "defence-energy-shield",
-    DefenceBlock => "defence-block",
-    DefenceRunicWard => "defence-runic-ward",
-    /// The properties of a waystone in the item block, two of them written short, their name
-    /// of the game in their tooltip (`…Full`).
-    WaystoneRevives => "waystone-revives",
-    WaystoneRevivesFull => "waystone-revives-full",
-    WaystoneItemRarity => "waystone-item-rarity",
-    WaystonePackSize => "waystone-pack-size",
-    WaystoneMonsterRarity => "waystone-monster-rarity",
-    WaystoneMonsterEffectiveness => "waystone-monster-effectiveness",
-    WaystoneDropChance => "waystone-drop-chance",
-    WaystoneDropChanceFull => "waystone-drop-chance-full",
-    GroupEnchant => "group-enchant",
-    GroupRunes => "group-runes",
-    GroupUnique => "group-unique",
-    GroupItem => "group-item",
-    GroupWeapon => "group-weapon",
-    GroupWaystone => "group-waystone",
-    GroupGem => "group-gem",
-    GroupPseudo => "group-pseudo",
-    ShowFilters => "show-filters",
-    HideFilters => "hide-filters",
-    FilterRange => "filter-range",
-    FilterLowerBetter => "filter-lower-better",
-    FilterUnsearchable => "filter-unsearchable",
-    FilterUnsearchableHint => "filter-unsearchable-hint",
-    /// The tooltip of the filter of the quality of a catalyst.
-    FilterAnyQualityKind => "filter-any-quality-kind",
-    OriginDesecrated => "origin-desecrated",
-    OriginFractured => "origin-fractured",
-    OriginCrafted => "origin-crafted",
-    OriginVaal => "origin-vaal",
-    /// The currency that adds a modifier whose tier the game doesn't write, in place of its
-    /// origin.
-    OriginEssence => "origin-essence",
-    OriginAlloy => "origin-alloy",
-    /// The line of a modifier not revealed yet, and the note under the stats of its item.
-    UnrevealedPrefix => "unrevealed-prefix",
-    UnrevealedSuffix => "unrevealed-suffix",
-    UnrevealedNote => "unrevealed-note",
-    /// The note under the stats of a rare or magic item copied from the in-game trade.
-    TradeCopyNote => "trade-copy-note",
-    /// The note under the stats of a unique copied from the in-game trade.
-    UniqueRollsNote => "unique-rolls-note",
-    /// After the range of a line of a Time-Lost jewel, the passive skills in its radius it is
-    /// granted to.
-    RadiusSmall => "radius-small",
-    RadiusNotable => "radius-notable",
-    /// After the range of a tier found from the values, the affix it is the tier of.
-    AffixPrefix => "affix-prefix",
-    AffixSuffix => "affix-suffix",
-    /// The tooltip of the suffix of a line that adds up a prefix and a suffix.
-    AddedUpWithPrefix => "added-up-with-prefix",
-    /// After the range of the part of a hybrid in a line that adds up two modifiers, and of
-    /// its other lines; with its affix when the other part is of the other affix.
-    Hybrid => "hybrid",
-    HybridPrefix => "hybrid-prefix",
-    HybridSuffix => "hybrid-suffix",
-    OffersLabel => "offers-label",
-    OffersSearchHint => "offers-search-hint",
-    OffersSearchTooltip => "offers-search-tooltip",
-    OffersSearching => "offers-searching",
-    OffersColumnPrice => "offers-column-price",
-    OffersColumnPerUnit => "offers-column-per-unit",
-    OffersColumnStock => "offers-column-stock",
-    OffersColumnListed => "offers-column-listed",
-    OffersAgainTooltip => "offers-again-tooltip",
-    OffersBusyTooltip => "offers-busy-tooltip",
-    OffersNone => "offers-none",
-    OffersNoneHint => "offers-none-hint",
-    OffersUnreachable => "offers-unreachable",
-    /// The trade site turned the search down with an error.
-    OffersRefused => "offers-refused",
-    /// The answer of the trade site can't be read.
-    OffersUnreadable => "offers-unreadable",
-    OffersIdentify => "offers-identify",
-    OffersMoreTooltip => "offers-more-tooltip",
-    OffersSuspicious => "offers-suspicious",
-    /// Under the name of an offer of another kind of quality, while the quality is searched.
-    OffersOtherQuality => "offers-other-quality",
-    OfferNotCounted => "offer-not-counted",
-    SellerOnline => "seller-online",
-    SellerAway => "seller-away",
-    SellerOffline => "seller-offline",
-    CopyWhisper => "copy-whisper",
-    WhisperCopied => "whisper-copied",
-    WhisperCopyFailed => "whisper-copy-failed",
 }
 
 /// A sentence with a link in it.
@@ -277,143 +72,6 @@ pub enum Requirement {
     Dexterity,
     Intelligence,
 }
-
-/// The identifiers of the messages with arguments, each read by its own method.
-const STATUS_BAR: &str = "status-bar";
-const LEAGUE_TOOLTIP: &str = "league-tooltip";
-const STATUS_MADE_BY: &str = "status-made-by";
-const DONATION_INTRO: &str = "donation-intro";
-const NEW_LEAGUE: &str = "new-league";
-const UPDATE_AVAILABLE: &str = "update-available";
-const STATUS_UPDATE: &str = "status-update";
-const HOTKEY_TAKEN: &str = "hotkey-taken";
-const HOTKEY_TAKEN_SETTINGS: &str = "hotkey-taken-settings";
-const BUG_REPORT_JOIN_ITEM: &str = "bug-report-join-item";
-const BUG_REPORT_LOG_SESSION: &str = "bug-report-log-session";
-const WINDOW_ERROR_DISPLAY: &str = "window-error-display";
-const WINDOW_ERROR_DISPLAY_FIX: &str = "window-error-display-fix";
-const WINDOW_ERROR_OPENGL: &str = "window-error-opengl";
-const WINDOW_ERROR_OPENGL_FIX: &str = "window-error-opengl-fix";
-const WINDOW_ERROR_OTHER: &str = "window-error-other";
-const WINDOW_ERROR_OTHER_FIX: &str = "window-error-other-fix";
-const WINDOW_ERROR_LOG: &str = "window-error-log";
-const WINDOW_ERROR_DETAILS: &str = "window-error-details";
-const STATUS_PRICES: &str = "status-prices";
-const STATUS_PRICES_OFFLINE: &str = "status-prices-offline";
-const PRICES_UNREACHABLE: &str = "prices-unreachable";
-const AGE_NOW: &str = "age-now";
-const AGE_MINUTES: &str = "age-minutes";
-const AGE_HOURS: &str = "age-hours";
-const AGE_DAYS: &str = "age-days";
-const WAIT_SECONDS: &str = "wait-seconds";
-const WAIT_MINUTES: &str = "wait-minutes";
-const DOWNLOAD_TITLE: &str = "download-title";
-const TAG_QUALITY: &str = "tag-quality";
-const TAG_SOCKETS: &str = "tag-sockets";
-const TAG_ITEM_LEVEL: &str = "tag-item-level";
-const TAG_STACK: &str = "tag-stack";
-const GEM_LEVEL: &str = "gem-level";
-const GRANTED_SKILL: &str = "granted-skill";
-const REQUIRES: &str = "requires";
-const REQUIREMENT_LEVEL: &str = "requirement-level";
-const REQUIREMENT_STRENGTH: &str = "requirement-strength";
-const REQUIREMENT_DEXTERITY: &str = "requirement-dexterity";
-const REQUIREMENT_INTELLIGENCE: &str = "requirement-intelligence";
-const OFFERS: &str = "offers";
-const STACK_OF: &str = "stack-of";
-const UNIT_PRICE: &str = "unit-price";
-const TREND_RISE: &str = "trend-rise";
-const TREND_FALL: &str = "trend-fall";
-const TREND_STABLE: &str = "trend-stable";
-const LOW_RELIABILITY_OFFERS: &str = "low-reliability-offers";
-const LOW_RELIABILITY_TRADES: &str = "low-reliability-trades";
-const SIMILAR: &str = "similar";
-const LOW_RELIABILITY_SIMILAR: &str = "low-reliability-similar";
-const ESTIMATE_NOTE: &str = "estimate-note";
-const ESTIMATE_NOTE_RANGE: &str = "estimate-note-range";
-
-/// The two messages of the note of an estimate: `plain`, and `of_kind` with the kind of the
-/// quality of a catalyst searched.
-#[derive(Clone, Copy)]
-struct EstimateNote {
-    plain: &'static str,
-    of_kind: &'static str,
-}
-
-const MEDIAN: EstimateNote = EstimateNote {
-    plain: "estimate-median",
-    of_kind: "estimate-median-of",
-};
-const MEDIAN_CHEAPEST: EstimateNote = EstimateNote {
-    plain: "estimate-median-cheapest",
-    of_kind: "estimate-median-cheapest-of",
-};
-const QUALITY_OF_KIND: &str = "quality-of-kind";
-const OFFER_QUALITY_KIND: &str = "offer-quality-kind";
-const PRICES_DOWNLOADING: &str = "prices-downloading";
-const NO_PRICE_FOUND: &str = "no-price-found";
-const SHOW_STATS: &str = "show-stats";
-const AFFIX_FILL: &str = "affix-fill";
-const AFFIX_FILL_OPEN: &str = "affix-fill-open";
-const LORD_PREFIX: &str = "lord-prefix";
-const LORD_SUFFIX: &str = "lord-suffix";
-const ACTIVE_FILTERS: &str = "active-filters";
-const FILTER_ROLLS: &str = "filter-rolls";
-const HYBRID_WITH: &str = "hybrid-with";
-const HYBRID_LINES_AND: &str = "hybrid-lines-and";
-const HYBRID_PART: &str = "hybrid-part";
-const FILTER_BASE_TYPE: &str = "filter-base-type";
-const FILTER_ITEM_CLASS: &str = "filter-item-class";
-const FILTER_ITEM_LEVEL: &str = "filter-item-level";
-const FILTER_SOCKETS: &str = "filter-sockets";
-const FILTER_GEM_LEVEL: &str = "filter-gem-level";
-const FILTER_QUALITY: &str = "filter-quality";
-const FILTER_CATALYST_QUALITY: &str = "filter-catalyst-quality";
-const FILTER_REQUIRED_LEVEL: &str = "filter-required-level";
-const FILTER_PHYSICAL_DPS: &str = "filter-physical-dps";
-const FILTER_ELEMENTAL_DPS: &str = "filter-elemental-dps";
-const FILTER_WAYSTONE_REVIVES: &str = "filter-waystone-revives";
-const FILTER_WAYSTONE_ITEM_RARITY: &str = "filter-waystone-item-rarity";
-const FILTER_WAYSTONE_PACK_SIZE: &str = "filter-waystone-pack-size";
-const FILTER_WAYSTONE_MONSTER_RARITY: &str = "filter-waystone-monster-rarity";
-const FILTER_WAYSTONE_MONSTER_EFFECTIVENESS: &str = "filter-waystone-monster-effectiveness";
-const FILTER_WAYSTONE_DROP_CHANCE: &str = "filter-waystone-drop-chance";
-const PSEUDO_ELEMENTAL_RESISTANCE: &str = "pseudo-elemental-resistance";
-const PSEUDO_CHAOS_RESISTANCE: &str = "pseudo-chaos-resistance";
-const PSEUDO_LIFE: &str = "pseudo-life";
-const PSEUDO_MANA: &str = "pseudo-mana";
-const PSEUDO_STRENGTH: &str = "pseudo-strength";
-const PSEUDO_DEXTERITY: &str = "pseudo-dexterity";
-const PSEUDO_INTELLIGENCE: &str = "pseudo-intelligence";
-const PSEUDO_ALL_ATTRIBUTES: &str = "pseudo-all-attributes";
-const PSEUDO_UNREVEALED_MODIFIERS: &str = "pseudo-unrevealed-modifiers";
-const STATUS_TRADE: &str = "status-trade";
-const STATUS_TRADE_WAIT: &str = "status-trade-wait";
-const OFFERS_SEARCHED: &str = "offers-searched";
-const OFFERS_COUNT: &str = "offers-count";
-const OFFERS_NEXT_SEARCH_TOOLTIP: &str = "offers-next-search-tooltip";
-const OFFERS_LIMIT: &str = "offers-limit";
-const OFFERS_REFUSED_HINT: &str = "offers-refused-hint";
-const OFFERS_UNREADABLE_HINT: &str = "offers-unreadable-hint";
-/// The words of the two hints above that open the bug report, inside a sentence and first.
-const OFFERS_REPORT: &str = "offers-report";
-const OFFERS_REPORT_START: &str = "offers-report-start";
-/// The sentences under the bar of the download of the prices, one drawn at random per
-/// download.
-const DOWNLOAD_QUOTES: [&str; 10] = [
-    "download-quote-1",
-    "download-quote-2",
-    "download-quote-3",
-    "download-quote-4",
-    "download-quote-5",
-    "download-quote-6",
-    "download-quote-7",
-    "download-quote-8",
-    "download-quote-9",
-    "download-quote-10",
-];
-/// The number of sentences of the download of the prices.
-pub const DOWNLOAD_QUOTE_COUNT: usize = DOWNLOAD_QUOTES.len();
 
 /// A translated sentence cut around one of its arguments, which the caller writes apart, in
 /// bold or in its color: "Rise of the Abyssal has started." is `""`, the league, then
@@ -486,16 +144,36 @@ impl Translator {
         self.format_age(STATUS_PRICES, age)
     }
 
-    /// The state of the prices in the status bar while the price database can't be reached.
+    /// The state of the prices in the status bar, with their age, while the price database
+    /// can't be read for `failure`.
     #[must_use]
-    pub fn status_prices_offline(&self, age: &str) -> String {
-        self.format_age(STATUS_PRICES_OFFLINE, age)
+    pub fn status_prices_failed(&self, failure: Failure, age: &str) -> String {
+        let id = match failure {
+            Failure::Unreachable => STATUS_PRICES_OFFLINE,
+            Failure::Unreadable => STATUS_PRICES_UNREADABLE,
+        };
+        self.format_age(id, age)
     }
 
-    /// The warning of a price database that can't be reached, with the age of the prices.
+    /// The warning of a price database that can't be read for `failure`, with the age of the
+    /// prices.
     #[must_use]
-    pub fn prices_unreachable(&self, age: &str) -> String {
-        self.format_age(PRICES_UNREACHABLE, age)
+    pub fn prices_failed(&self, failure: Failure, age: &str) -> String {
+        let id = match failure {
+            Failure::Unreachable => PRICES_UNREACHABLE,
+            Failure::Unreadable => PRICES_UNREADABLE,
+        };
+        self.format_age(id, age)
+    }
+
+    /// The warning of a price database that can't be read for `failure`, while no price is
+    /// known.
+    #[must_use]
+    pub fn prices_unavailable(&self, failure: Failure) -> String {
+        self.text(match failure {
+            Failure::Unreachable => Message::PricesUnavailable,
+            Failure::Unreadable => Message::PricesUnreadableRetrying,
+        })
     }
 
     /// How long ago something happened, rounded down: `12min ago`, `3h ago`, `2d ago`.
@@ -1022,6 +700,20 @@ impl Translator {
     #[must_use]
     pub fn offers_limit(&self, wait: Duration) -> String {
         self.format_wait(OFFERS_LIMIT, wait)
+    }
+
+    /// The line under the title during the wait of a refusal of the trade site that names no
+    /// limit (HTTP 403), `wait` left.
+    #[must_use]
+    pub fn offers_forbidden(&self, wait: Duration) -> String {
+        self.format_wait(OFFERS_FORBIDDEN, wait)
+    }
+
+    /// What to do after a refusal of the trade site that names no limit, its words that open
+    /// the bug report told.
+    #[must_use]
+    pub fn offers_forbidden_hint(&self) -> Linked {
+        self.linked(OFFERS_FORBIDDEN_HINT, OFFERS_REPORT)
     }
 
     /// What to do after a search the trade site turned down, its words that open the bug

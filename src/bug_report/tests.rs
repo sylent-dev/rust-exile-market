@@ -440,17 +440,42 @@ fn a_log_that_fits_its_budget_is_read_whole() {
 }
 
 #[test]
-fn a_longer_log_keeps_its_last_whole_lines() {
+fn a_longer_log_keeps_its_last_whole_lines_under_a_line_that_says_so() {
     let log = "aaa\nbbb\nccc\n";
 
     // From a line break: the line after it is whole.
     assert_eq!(
         read_end(io::Cursor::new(log), 8).expect("read"),
-        "bbb\nccc\n"
+        "… (first lines left out)\nbbb\nccc\n"
     );
     // Inside a line: the line cut is left out.
-    assert_eq!(read_end(io::Cursor::new(log), 7).expect("read"), "ccc\n");
-    assert_eq!(read_end(io::Cursor::new(log), 2).expect("read"), "");
+    assert_eq!(
+        read_end(io::Cursor::new(log), 7).expect("read"),
+        "… (first lines left out)\nccc\n"
+    );
+    assert_eq!(
+        read_end(io::Cursor::new(log), 2).expect("read"),
+        "… (first lines left out)\n"
+    );
+}
+
+#[test]
+fn a_cut_log_is_told_in_its_copy_only() {
+    let line = "2026-11-18T18:48:03.000+01:00 [INFO] Item copied: Item Class: Belts\n";
+    let file = line.repeat(1_000);
+    let read = read_end(io::Cursor::new(file), LOG_BUDGET_BYTES).expect("read");
+    let report = Report::new(
+        "Exile Market 0.1.0".to_owned(),
+        None,
+        Some(short_lines(&read, None)),
+    );
+
+    let copied = report.whole_log().expect("log");
+    assert_eq!(copied.lines().next(), Some(CUT_LOG_MARK));
+    let sent = report.log_sent().expect("log");
+    assert!(sent.iter().all(|line| line.text() != CUT_LOG_MARK));
+    let decoded = field(report.address(), "log").expect("log");
+    assert!(!decoded.contains(CUT_LOG_MARK));
 }
 
 #[test]
@@ -458,5 +483,8 @@ fn a_character_cut_by_the_budget_is_left_out_with_its_line() {
     let log = "été\nok";
 
     // Its last byte alone is read: the line break and what follows it fit.
-    assert_eq!(read_end(io::Cursor::new(log), 3).expect("read"), "ok");
+    assert_eq!(
+        read_end(io::Cursor::new(log), 3).expect("read"),
+        "… (first lines left out)\nok"
+    );
 }

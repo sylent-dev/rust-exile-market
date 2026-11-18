@@ -12,12 +12,12 @@ use crate::game_data::UniqueModifiers;
 use crate::i18n::Message;
 use crate::item::{Item, test_items};
 use crate::language::Language;
-use crate::market::MarketEvent;
+use crate::market::{self, MarketEvent};
 use crate::offers_state::OffersState;
 use crate::price::{CurrencyPrice, Price, PriceList, Rates, UniquePrice};
 use crate::trade::offers::tests::{every_exchange_offer, every_item_offer};
 use crate::trade::query::Query;
-use crate::trade::search::{Answer, Failure, NextSearch, Outcome, Rest};
+use crate::trade::search::{Answer, Failure, NextSearch, Outcome, Rest, WaitCause};
 
 /// The default width of the window, and the narrowest the player can give it (`main.rs`).
 const WIDTHS: [f32; 2] = [420.0, 360.0];
@@ -227,7 +227,7 @@ impl Scene {
             OffersState::Idle
             | OffersState::Searching
             | OffersState::Failed(_)
-            | OffersState::Limited => {}
+            | OffersState::Limited(_) => {}
         }
         shown.height
     }
@@ -237,14 +237,19 @@ impl Scene {
     fn draw_each_way(&mut self, ctx: &Context, drawn: &mut Drawn) {
         let states = [
             PricesState::Downloading { progress: 0.4 },
-            PricesState::Unavailable,
+            PricesState::Unavailable(market::Failure::Unreachable),
+            PricesState::Unavailable(market::Failure::Unreadable),
             PricesState::Known {
                 age: Duration::from_mins(10),
-                offline: false,
+                failure: None,
             },
             PricesState::Known {
                 age: Duration::from_hours(30),
-                offline: true,
+                failure: Some(market::Failure::Unreachable),
+            },
+            PricesState::Known {
+                age: Duration::from_hours(30),
+                failure: Some(market::Failure::Unreadable),
             },
         ];
         for width in WIDTHS {
@@ -264,7 +269,7 @@ impl Scene {
     fn draw_under_the_pointer(&mut self, ctx: &Context, drawn: &mut Drawn) {
         let known = PricesState::Known {
             age: Duration::from_mins(10),
-            offline: false,
+            failure: None,
         };
         let setup = FrameSetup {
             width: WIDTHS[0],
@@ -348,7 +353,8 @@ fn draw_the_offers(scene: &mut Scene, ctx: &Context, drawn: &mut Drawn, kind: Se
     });
     scene.draw_each_way(ctx, drawn);
     // The trade site can't be reached, turns the search down, can't be read, then refuses,
-    // with a long wait.
+    // with a long wait: without naming a limit, whose line has a hint under it too (the wait
+    // allows no other search).
     for failure in [Failure::Unreachable, Failure::Refused, Failure::Unreadable] {
         scene.search_answered(Answer {
             outcome: Outcome::Failed(failure),
@@ -358,7 +364,7 @@ fn draw_the_offers(scene: &mut Scene, ctx: &Context, drawn: &mut Drawn, kind: Se
     }
     scene.search_answered(failure(Outcome::Limited {
         until: Instant::now() + Duration::from_mins(5),
-        refused: true,
+        cause: WaitCause::Forbidden,
     }));
     scene.draw_each_way(ctx, drawn);
 }

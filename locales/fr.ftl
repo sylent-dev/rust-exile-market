@@ -28,13 +28,15 @@ close-tooltip = Fermer
 ## Barre d'état
 
 status-bar = { $prices } · { $trade }
-# Aucun prix de la ligue, et la base des prix est injoignable.
+# Aucun prix de la ligue, et la base des prix est injoignable ou illisible.
 status-prices-unavailable = poe2scout : pas encore de prix
 # Pendant le premier téléchargement des prix d'une ligue.
 status-prices-downloading = poe2scout : téléchargement des prix…
 # L'âge des prix, par exemple « il y a 12min ».
 status-prices = poe2scout { $age }
 status-prices-offline = poe2scout { $age } (hors ligne)
+# La base des prix répond quelque chose que l'application ne peut pas lire.
+status-prices-unreadable = poe2scout { $age } (illisible)
 status-trade-idle = GGG trade : pas encore de recherche
 # L'âge de la dernière recherche du site d'échange, par exemple « il y a 2min ».
 status-trade = GGG trade { $age }
@@ -100,6 +102,9 @@ clipboard-unreadable = Le presse-papiers ne peut pas être lu.
 # L'âge des prix, par exemple « il y a 3h ».
 prices-unreachable = La base des prix est injoignable. Dernière mise à jour { $age }.
 prices-unavailable = Prix indisponibles, nouvelle tentative…
+# La base des prix répond quelque chose que l'application ne peut pas lire : elle a peut-être changé.
+prices-unreadable = La réponse de la base des prix est illisible. Dernière mise à jour { $age }.
+prices-unreadable-retrying = Prix illisibles, nouvelle tentative…
 
 ## Bloc objet
 
@@ -424,6 +429,10 @@ offers-busy-tooltip = En attente de la réponse du site d'échange
 offers-next-search-tooltip = Prochaine recherche dans { $wait }
 # Sous le titre, pendant une longue attente, par exemple « 4min ».
 offers-limit = Limite du site d'échange : prochaine recherche dans { $wait }.
+# Pendant l'attente d'un refus du site d'échange qui ne nomme pas de limite (HTTP 403), par exemple « 1min », puis
+# quoi faire dessous ; $report est offers-report.
+offers-forbidden = Refus du site d'échange : prochaine recherche dans { $wait }.
+offers-forbidden-hint = Si cela se répète, { $report }.
 offers-none = Aucune offre en ligne avec ces filtres.
 offers-none-hint = Décochez une stat ou baissez un minimum, puis cherchez à nouveau.
 offers-unreachable = Le site d'échange est injoignable.

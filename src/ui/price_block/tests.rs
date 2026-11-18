@@ -14,7 +14,7 @@ const WORTH: Worth = Worth {
 };
 const KNOWN: PricesState = PricesState::Known {
     age: Duration::ZERO,
-    offline: false,
+    failure: None,
 };
 /// The complete prices of Standard.
 const STANDARD: ShownLeague = ShownLeague {
@@ -191,8 +191,12 @@ fn an_item_missing_from_the_complete_prices_has_no_price_found() {
         PriceView::Notice(Notice::PricesDownloading(Some("Standard")))
     );
     assert_eq!(
-        notice(&price, PricesState::Unavailable, Some("Standard")),
-        PriceView::Notice(Notice::PricesUnavailable)
+        notice(
+            &price,
+            PricesState::Unavailable(Failure::Unreachable),
+            Some("Standard")
+        ),
+        PriceView::Notice(Notice::PricesUnavailable(Failure::Unreachable))
     );
 }
 
@@ -205,8 +209,8 @@ fn before_the_prices_the_block_says_they_are_coming() {
         PriceView::Notice(Notice::PricesDownloading(None))
     );
     assert_eq!(
-        notice(&price, PricesState::Unavailable, None),
-        PriceView::Notice(Notice::PricesUnavailable)
+        notice(&price, PricesState::Unavailable(Failure::Unreachable), None),
+        PriceView::Notice(Notice::PricesUnavailable(Failure::Unreachable))
     );
     assert_eq!(
         notice(&Err(NoFixedPrice::NamesUnknown), KNOWN, Some("Standard")),

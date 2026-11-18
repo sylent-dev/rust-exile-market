@@ -11,7 +11,7 @@ use super::client::{FETCH_SIZE, TradeClient, TradeError};
 use super::offers::{ExchangeOffer, ItemOffer};
 use super::query::{Query, SearchKind};
 use super::refusal::Refusal;
-use super::transport::Transport;
+use super::transport::{self, Transport};
 use crate::http::HttpError;
 use crate::language::Language;
 use crate::league::League;
@@ -85,9 +85,32 @@ pub enum Outcome {
     More { offers: Vec<ItemOffer>, rest: Rest },
     /// The search or the fetch failed, for this reason.
     Failed(Failure),
-    /// The trade site refused the request (`refused`), or its limits didn't allow it: nothing
-    /// is sent before `until`.
-    Limited { until: Instant, refused: bool },
+    /// Nothing is sent before `until`, for this reason.
+    Limited { until: Instant, cause: WaitCause },
+}
+
+/// Why nothing is sent to the trade site before the end of a wait: a wait is a duration.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WaitCause {
+    /// The limits the trade site announced didn't allow the request: it wasn't sent.
+    Limits,
+    /// The trade site refused the request for its limits (HTTP 429).
+    TooManyRequests,
+    /// The trade site refused the request without naming a limit (HTTP 403), for a cause not
+    /// known yet.
+    Forbidden,
+}
+
+impl WaitCause {
+    /// The cause of the wait of a refusal of the trade site with `status`.
+    #[must_use]
+    pub fn of_refusal(status: u16) -> Self {
+        if status == transport::TOO_MANY_REQUESTS {
+            Self::TooManyRequests
+        } else {
+            Self::Forbidden
+        }
+    }
 }
 
 /// Why a search, or the fetch of its next offers, failed: told apart for the player, since
@@ -108,13 +131,15 @@ impl Failure {
     /// Why the request that failed with `error` failed.
     #[must_use]
     pub fn of(error: &HttpError) -> Self {
-        match error {
-            HttpError::Request(ureq::Error::StatusCode(400..=499)) => Self::Refused,
-            HttpError::Request(
-                ureq::Error::StatusCode(300..=399) | ureq::Error::BodyExceedsLimit(_),
-            )
-            | HttpError::Json(_) => Self::Unreadable,
-            HttpError::Request(_) => Self::Unreachable,
+        if error.is_unreadable() {
+            Self::Unreadable
+        } else if matches!(
+            error,
+            HttpError::Request(ureq::Error::StatusCode(400..=499))
+        ) {
+            Self::Refused
+        } else {
+            Self::Unreachable
         }
     }
 }
@@ -227,11 +252,11 @@ impl<T: Transport> Searches<T> {
             match error {
                 TradeError::Wait(until) => Outcome::Limited {
                     until,
-                    refused: false,
+                    cause: WaitCause::Limits,
                 },
-                TradeError::Refused(until) => Outcome::Limited {
+                TradeError::Refused { until, status } => Outcome::Limited {
                     until,
-                    refused: true,
+                    cause: WaitCause::of_refusal(status),
                 },
                 TradeError::Http(error) => Outcome::Failed(Failure::of(&error)),
             }
@@ -430,7 +455,7 @@ mod tests {
 
         let Outcome::Limited {
             until,
-            refused: true,
+            cause: WaitCause::TooManyRequests,
         } = refused.outcome
         else {
             panic!("refused: {:?}", refused.outcome);
@@ -440,6 +465,28 @@ mod tests {
         // The exchange has its own limits, but the same site refused the same address: it
         // waits for the delay of the refusal too.
         assert!(refused.next_search.exchange > Instant::now() + Duration::from_secs(55));
+    }
+
+    #[test]
+    fn a_refusal_that_names_no_limit_is_told_apart_from_a_limit() {
+        let site = FakeSite::default();
+        site.answer(403, LimitHeaders::default(), "");
+        let (mut search, wakes) = start(&site);
+
+        search.order(search_ring());
+        let refused = answer(&mut search, &wakes);
+
+        assert!(
+            matches!(
+                refused.outcome,
+                Outcome::Limited {
+                    cause: WaitCause::Forbidden,
+                    ..
+                }
+            ),
+            "{:?}",
+            refused.outcome
+        );
     }
 
     #[test]
@@ -495,7 +542,13 @@ mod tests {
         // Only the last search is answered, without the more offers asked around it: not
         // sent, 10 s after the first one.
         assert!(
-            matches!(answers[1], Outcome::Limited { refused: false, .. }),
+            matches!(
+                answers[1],
+                Outcome::Limited {
+                    cause: WaitCause::Limits,
+                    ..
+                }
+            ),
             "{answers:?}"
         );
         assert_eq!(answers.len(), 2);

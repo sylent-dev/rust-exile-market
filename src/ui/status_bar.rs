@@ -158,12 +158,12 @@ impl<'a> StatusBar<'a> {
         let i18n = self.i18n;
         let prices = match prices {
             PricesState::Downloading { .. } => i18n.text(Message::StatusPricesDownloading),
-            PricesState::Unavailable => i18n.text(Message::StatusPricesUnavailable),
+            PricesState::Unavailable(_) => i18n.text(Message::StatusPricesUnavailable),
+            PricesState::Known { age, failure: None } => i18n.status_prices(&i18n.age(age)),
             PricesState::Known {
                 age,
-                offline: false,
-            } => i18n.status_prices(&i18n.age(age)),
-            PricesState::Known { age, offline: true } => i18n.status_prices_offline(&i18n.age(age)),
+                failure: Some(failure),
+            } => i18n.status_prices_failed(failure, &i18n.age(age)),
         };
         let trade = match trade {
             TradeStatus::Idle => i18n.text(Message::StatusTradeIdle),
@@ -206,6 +206,7 @@ fn faint(line: impl Into<String>) -> RichText {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::market::Failure;
     use egui::{Context, RawInput, pos2, vec2};
 
     /// The width of the league block in a status bar of the narrow window.
@@ -230,14 +231,21 @@ mod tests {
     fn the_keyboard_held_takes_the_place_of_the_sources() {
         let i18n = Translator::new(crate::language::Language::English);
         let bar = |held| {
-            StatusBar::sources(&i18n, PricesState::Unavailable, TradeStatus::Idle)
-                .keyboard(held)
-                .line
+            StatusBar::sources(
+                &i18n,
+                PricesState::Unavailable(Failure::Unreachable),
+                TradeStatus::Idle,
+            )
+            .keyboard(held)
+            .line
         };
         assert_eq!(bar(true), Line::Keyboard);
         assert_eq!(
             bar(false),
-            Line::Sources(PricesState::Unavailable, TradeStatus::Idle)
+            Line::Sources(
+                PricesState::Unavailable(Failure::Unreachable),
+                TradeStatus::Idle
+            )
         );
     }
 
@@ -245,10 +253,14 @@ mod tests {
     fn on_a_single_screen_the_line_says_esc_closes_even_while_a_field_is_edited() {
         let i18n = Translator::new(crate::language::Language::English);
         let bar = |held, active| {
-            StatusBar::sources(&i18n, PricesState::Unavailable, TradeStatus::Idle)
-                .keyboard(held)
-                .single_screen(active)
-                .line
+            StatusBar::sources(
+                &i18n,
+                PricesState::Unavailable(Failure::Unreachable),
+                TradeStatus::Idle,
+            )
+            .keyboard(held)
+            .single_screen(active)
+            .line
         };
         assert_eq!(bar(false, true), Line::KeyboardSingleScreen);
         assert_eq!(bar(true, true), Line::KeyboardSingleScreen);
