@@ -6,6 +6,8 @@ One entry per item: what it is, its kind (the section it sits in), what it depen
 
 ## Polish
 
+- The offers listed long ago faded in the offer list, as PoE Overlay II does since its 1.33 ("slightly fades stale listings based on listing age"): an old offer is often a seller gone or a price no one takes. The listing time is read already (`listed` in `src/trade/offers.rs`); to decide: from what age, and whether the estimate still counts it (2026-11-17, found while preparing 22b; depends on nothing).
+
 - The item class searched in faint under the base type unchecked ("Class searched: Masses à deux mains", `stat_text` in `src/ui/item_stats.rs`), cut with "…" past its column: if a class of the game doesn't fit in the narrow layout, its whole text in a tooltip, like the other lines cut in the application (`galley.elided` and `on_hover_text`, as in `src/ui/price_block.rs`), mock-up first (second code review of 13j3, 2026-10-28: the longest class checked, "Masses à deux mains", fits).
 
 - The bug icon of the title bar made more discreet once the application is stable and the issues fewer (step 16, the owner's idea on 2026-11-04): fainter (mock-up window "Later" of the section "Bug report (16)"), a row in the settings, or a link in their status bar; decide with the owner from the issues received.

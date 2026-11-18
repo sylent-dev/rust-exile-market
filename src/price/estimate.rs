@@ -44,19 +44,104 @@ impl<'a> Worth<'a> {
         }
     }
 
+    /// How an estimate counts `offer`, searched with the quality of `searched_catalyst`: the
+    /// kind of its quality first, whose market isn't the item's, then its price.
+    #[must_use]
+    pub fn counted(self, offer: &ItemOffer, searched_catalyst: Option<Catalyst>) -> Counted {
+        if let Some(kind) = offer.other_quality(searched_catalyst) {
+            return Counted::OtherQuality(kind);
+        }
+        let Some(price) = &offer.price else {
+            return Counted::Unpriced;
+        };
+        let Some(unit) = self.unit_worth(&price.currency) else {
+            return Counted::Currency;
+        };
+        amount_worth(price.amount, unit).map_or(Counted::Unpriced, Counted::Exalted)
+    }
+
     /// `amount` of the currency `id` of the trade site, in Exalted Orbs; `None` for a
-    /// currency without price, or whose price stands on too few trades.
+    /// currency without price, or whose price stands on too few trades, and for an amount
+    /// that is no price.
     fn in_exalted(self, amount: f64, id: &str) -> Option<f64> {
+        amount_worth(amount, self.unit_worth(id)?)
+    }
+
+    /// One of the currency `id` of the trade site, in Exalted Orbs; `None` for a currency
+    /// without price, or whose price stands on too few trades: a price of nothing would count
+    /// an offer as free.
+    fn unit_worth(self, id: &str) -> Option<f64> {
         let worth = match Orb::of(id) {
             Some(Orb::Exalted) => 1.0,
             Some(Orb::Divine) => self.rates.divine,
             Some(Orb::Chaos) => self.rates.chaos,
             None => price::currency(self.currencies, id)?.trusted_exalted()?,
         };
-        // A price of nothing, or none, would count an offer as free; so would an amount of
-        // nothing, and an amount beyond every price is no price either.
-        let exalted = amount * worth;
-        (worth > 0.0 && amount > 0.0 && exalted.is_finite()).then_some(exalted)
+        (worth > 0.0).then_some(worth)
+    }
+}
+
+/// `amount` of a currency worth `unit` Exalted Orbs each, in Exalted Orbs; `None` for an
+/// amount of nothing, which would count an offer as free, or beyond every price.
+fn amount_worth(amount: f64, unit: f64) -> Option<f64> {
+    let exalted = amount * unit;
+    (amount > 0.0 && exalted.is_finite()).then_some(exalted)
+}
+
+/// How an estimate counts an offer of its search.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Counted {
+    /// Counted, worth this many Exalted Orbs.
+    Exalted(f64),
+    /// Of this other kind of quality than the one searched: its market isn't the item's.
+    OtherQuality(Catalyst),
+    /// Paid in a currency without price, or whose price stands on too few trades.
+    Currency,
+    /// Listed without a price, or for an amount that is no price (nothing, or beyond every
+    /// price).
+    Unpriced,
+}
+
+impl Counted {
+    /// What the offer is worth to the estimate, when it counts.
+    #[must_use]
+    pub fn exalted(self) -> Option<f64> {
+        match self {
+            Self::Exalted(exalted) => Some(exalted),
+            Self::OtherQuality(_) | Self::Currency | Self::Unpriced => None,
+        }
+    }
+}
+
+/// Why a search of an item priced by its offers gives no estimate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NoEstimate {
+    /// No offers to count yet: not searched, searching, failed or refused; or not priced by
+    /// its offers, or not yet (a fixed price, a search that compared none of its stats, the
+    /// prices of the league not known).
+    NotSearched,
+    /// Searched, its offers, if any, not counted for another reason than their currency: none,
+    /// all of another kind of quality, or without a price.
+    NothingCounted,
+    /// Searched, some of its offers paid in a currency the estimate doesn't count.
+    CurrenciesNotCounted,
+}
+
+/// Why the `first_page` of offers of a search, counted with the `worth` of the currencies and
+/// the `searched_catalyst`, gives no estimate.
+#[must_use]
+pub fn no_estimate_reason(
+    first_page: &[ItemOffer],
+    worth: Worth,
+    searched_catalyst: Option<Catalyst>,
+) -> NoEstimate {
+    let in_uncounted_currency = first_page
+        .iter()
+        .any(|offer| worth.counted(offer, searched_catalyst) == Counted::Currency);
+    if in_uncounted_currency {
+        NoEstimate::CurrenciesNotCounted
+    } else {
+        NoEstimate::NothingCounted
     }
 }
 
@@ -91,6 +176,11 @@ pub struct Estimate<'a> {
     pub exalted: f64,
     /// The offers counted: [`COUNTED`], or fewer when there are fewer.
     pub counted: usize,
+    /// The cheapest of the offers counted, in Exalted Orbs: how far it is from the dearest
+    /// tells how sure the estimate is.
+    pub cheapest: f64,
+    /// The dearest of the offers counted, in Exalted Orbs.
+    pub dearest: f64,
     /// The similar offers found by the trade site.
     pub total: u64,
     /// The median of the first page of offers, which tells the suspicious ones.
@@ -114,11 +204,7 @@ impl<'a> Estimate<'a> {
     ) -> Option<Self> {
         let mut prices: Vec<f64> = first_page
             .iter()
-            .filter(|offer| {
-                searched_catalyst.is_none_or(|catalyst| !offer.has_other_quality(catalyst))
-            })
-            .filter_map(|offer| offer.price.as_ref())
-            .filter_map(|price| worth.in_exalted(price.amount, &price.currency))
+            .filter_map(|offer| worth.counted(offer, searched_catalyst).exalted())
             .collect();
         // The trade site sorts them with its own rates.
         prices.sort_by(f64::total_cmp);
@@ -134,6 +220,8 @@ impl<'a> Estimate<'a> {
         Some(Self {
             exalted: median(&counted)?,
             counted: counted.len(),
+            cheapest: *counted.first()?,
+            dearest: *counted.last()?,
             total,
             reference,
             searched_catalyst,

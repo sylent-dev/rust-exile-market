@@ -12,10 +12,14 @@ fn no_offer_is_said_only_when_none_is_left_to_fetch() {
         "a page left out for its currency: the next ones may be shown"
     );
     assert!(!no_offer(&[], More::Loading));
+    let counting = Counting {
+        reference: None,
+        estimate_worth: None,
+        searched_catalyst: None,
+    };
     let rows = item_rows(
         &[item_offer(1.0, "divine")],
-        None,
-        None,
+        counting,
         SystemTime::UNIX_EPOCH,
     );
     assert!(!no_offer(&rows, More::None));

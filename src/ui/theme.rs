@@ -339,6 +339,9 @@ pub mod size {
     pub const BUBBLE_RADIUS: u8 = 4;
     /// Width of the lines of the icons drawn with egui.
     pub const ICON_STROKE: f32 = 1.6;
+    /// The space between the small title of a band and the line under it: "searched 2min ago"
+    /// under the title of the offers, "Low reliability" under the title of the price.
+    pub const TITLE_LINE_GAP: f32 = 4.0;
 }
 
 /// The durations of the motions, in seconds.

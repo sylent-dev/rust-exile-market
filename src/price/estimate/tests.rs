@@ -37,6 +37,31 @@ fn the_estimate_is_the_median_of_the_five_cheapest_offers_but_the_suspicious_one
 }
 
 #[test]
+fn the_range_goes_from_the_cheapest_to_the_dearest_offer_counted() {
+    // The bow again: the bait at 300 ex and the offers past the fifth aren't counted.
+    let mut offers = vec![item_offer(300.0, "exalted")];
+    offers.extend(divines(&[2.0, 2.2, 2.4, 2.5, 3.0, 3.1, 3.5, 4.0, 4.2]));
+
+    let bow = Estimate::of(&offers, 18, WORTH, None).unwrap();
+
+    assert_eq!((bow.cheapest, bow.dearest), (2.0 * 700.0, 3.0 * 700.0));
+}
+
+#[test]
+fn the_range_reads_the_offers_sorted_with_the_rates_of_the_prices() {
+    // The trade site put 1 div before 650 ex, and 1.1 div last: the cheapest is the 650 ex.
+    let offers = [
+        item_offer(1.0, "divine"),
+        item_offer(650.0, "exalted"),
+        item_offer(1.1, "divine"),
+    ];
+
+    let sorted = Estimate::of(&offers, 3, WORTH, None).unwrap();
+
+    assert_eq!((sorted.cheapest, sorted.dearest), (650.0, 1.1 * 700.0));
+}
+
+#[test]
 fn the_offers_are_compared_in_exalted_orbs() {
     // The magic item of the mock-up: 1 c is worth 70 ex, and comes after 50 ex.
     let offers = [
@@ -376,4 +401,99 @@ fn an_amount_of_nothing_or_beyond_every_price_isnt_counted() {
         assert_eq!(worth.in_exalted(amount, "divine"), None, "{amount}");
     }
     assert_eq!(worth.in_exalted(2.0, "divine"), Some(1400.0));
+}
+
+/// `offer` with the quality of a catalyst of the kind `catalyst`.
+fn of_kind(mut offer: ItemOffer, catalyst: Catalyst) -> ItemOffer {
+    offer.item.quality = Some(OfferQuality {
+        value: 40,
+        kind: Some(QualityKind {
+            catalyst: Some(catalyst),
+            words: String::new(),
+        }),
+    });
+    offer
+}
+
+/// An offer listed without a price.
+fn unpriced() -> ItemOffer {
+    ItemOffer {
+        price: None,
+        ..item_offer(1.0, "divine")
+    }
+}
+
+#[test]
+fn an_offer_is_counted_by_its_kind_of_quality_first_then_by_its_price() {
+    // A Lesser Charging Rune priced on one trade.
+    let thin = [CurrencyPrice {
+        price: price::Price {
+            quantity: 1,
+            ..priced("lesser-charging-rune", 40_156.0).price
+        },
+        ..priced("lesser-charging-rune", 40_156.0)
+    }];
+    let worth = Worth {
+        rates: RATES,
+        currencies: &thin,
+    };
+    let mana = Some(Catalyst::Mana);
+
+    assert_eq!(
+        worth.counted(&item_offer(2.0, "divine"), mana),
+        Counted::Exalted(1400.0)
+    );
+    assert_eq!(
+        worth.counted(
+            &of_kind(item_offer(3.0, "banded-wombgift"), Catalyst::Attack),
+            mana
+        ),
+        Counted::OtherQuality(Catalyst::Attack),
+        "its quality before its currency"
+    );
+    assert_eq!(
+        worth.counted(
+            &of_kind(item_offer(3.0, "banded-wombgift"), Catalyst::Attack),
+            None
+        ),
+        Counted::Currency,
+        "any quality, when none is searched"
+    );
+    assert_eq!(
+        worth.counted(&item_offer(1.0, "lesser-charging-rune"), None),
+        Counted::Currency
+    );
+    assert_eq!(worth.counted(&unpriced(), None), Counted::Unpriced);
+    assert_eq!(
+        worth.counted(&item_offer(0.0, "divine"), None),
+        Counted::Unpriced,
+        "an amount of nothing isn't a reason of its currency"
+    );
+}
+
+#[test]
+fn a_search_without_estimate_tells_whether_some_offers_were_paid_in_a_currency_not_counted() {
+    let wombgift = || item_offer(3.0, "banded-wombgift");
+    let reason =
+        |page: &[ItemOffer], searched_catalyst| no_estimate_reason(page, WORTH, searched_catalyst);
+
+    assert_eq!(reason(&[], None), NoEstimate::NothingCounted);
+    assert_eq!(reason(&[unpriced()], None), NoEstimate::NothingCounted);
+    // One of them is enough.
+    assert_eq!(
+        reason(&[unpriced(), wombgift()], None),
+        NoEstimate::CurrenciesNotCounted
+    );
+    // Of another kind of quality, the offers block says it.
+    assert_eq!(
+        reason(
+            &[of_kind(wombgift(), Catalyst::Attack)],
+            Some(Catalyst::Mana)
+        ),
+        NoEstimate::NothingCounted
+    );
+    assert_eq!(
+        reason(&[of_kind(wombgift(), Catalyst::Attack)], None),
+        NoEstimate::CurrenciesNotCounted
+    );
 }

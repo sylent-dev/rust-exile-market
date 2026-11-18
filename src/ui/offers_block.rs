@@ -22,20 +22,20 @@ use super::{icons, widgets};
 use crate::i18n::{Message, Translator};
 use crate::item::Item;
 use crate::offers_state::{ItemOffers, LONG_WAIT, NextOffers, Offers, OffersState};
-use crate::price::estimate::Reference;
+use crate::price::estimate::{Reference, Worth};
 use crate::roll_difference::CopiedLines;
 use crate::trade::offers::{ExchangeOffer, ItemOffer};
 use crate::trade::query::SearchKind;
 use crate::trade::search::Failure;
 use head::{Block, Head, block, failure_lines, failure_message};
-use rows::{Row, exchange_rows, item_rows};
+use rows::{Counting, Row, exchange_rows, item_rows};
 pub(super) use rows::{RowPrice, offer_price};
 
 /// The space above and under the content of the band, and between the label and a message.
 const PADDING_Y: f32 = 12.0;
 
 /// The space between the label and the line under it.
-const TITLE_GAP: f32 = 4.0;
+const TITLE_GAP: f32 = size::TITLE_LINE_GAP;
 
 /// The space between two messages.
 const MESSAGE_GAP: f32 = 2.0;
@@ -72,6 +72,9 @@ pub struct OffersBlock<'a> {
     pub kind: SearchKind,
     /// The price that tells the suspicious offers.
     pub reference: Option<Reference<'a>>,
+    /// What the currencies are worth to the estimate, for an item priced by its offers: an
+    /// offer in a currency it doesn't count is marked.
+    pub estimate_worth: Option<Worth<'a>>,
     /// The copied item, and its lines, which the tooltips compare.
     pub item: &'a Item,
     pub lines: &'a CopiedLines,
@@ -135,8 +138,12 @@ impl OffersBlock<'_> {
                 self.title_row(ui, &Head::of(line, Block::Searching), None)
             }
             OffersState::Items(items) => {
-                let searched_catalyst = self.offers.searched_catalyst(self.item);
-                let rows = item_rows(&items.offers, self.reference, searched_catalyst, now);
+                let counting = Counting {
+                    reference: self.reference,
+                    estimate_worth: self.estimate_worth,
+                    searched_catalyst: self.offers.searched_catalyst(self.item),
+                };
+                let rows = item_rows(&items.offers, counting, now);
                 self.results(ui, &List::of_items(items, &rows), wait)
             }
             OffersState::Exchange {

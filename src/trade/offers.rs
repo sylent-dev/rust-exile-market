@@ -106,21 +106,23 @@ pub struct OfferQuality {
 
 impl ItemOffer {
     /// The kind of the quality of a catalyst of the item, when it is another kind than
-    /// `catalyst`: its filter searches any kind. A kind the application doesn't know can't be
-    /// told apart.
+    /// `searched_catalyst`, the kind searched, if one is: its filter searches any kind. A kind
+    /// the application doesn't know can't be told apart.
     #[must_use]
-    pub fn other_quality(&self, catalyst: Catalyst) -> Option<Catalyst> {
+    pub fn other_quality(&self, searched_catalyst: Option<Catalyst>) -> Option<Catalyst> {
+        let searched = searched_catalyst?;
         self.item
             .quality
             .as_ref()
             .and_then(|quality| quality.kind.as_ref()?.catalyst)
-            .filter(|&kind| kind != catalyst)
+            .filter(|&kind| kind != searched)
     }
 
-    /// Whether the item has the quality of a catalyst of another kind than `catalyst`.
+    /// Whether the item has the quality of a catalyst of another kind than
+    /// `searched_catalyst`, the kind searched, if one is.
     #[must_use]
-    pub fn has_other_quality(&self, catalyst: Catalyst) -> bool {
-        self.other_quality(catalyst).is_some()
+    pub fn has_other_quality(&self, searched_catalyst: Option<Catalyst>) -> bool {
+        self.other_quality(searched_catalyst).is_some()
     }
 }
 

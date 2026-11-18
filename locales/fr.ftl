@@ -321,39 +321,44 @@ unit-price = Prix unitaire : { $prices }
 trend-rise = +{ $percent }% sur les { $days } derniers jours
 trend-fall = −{ $percent }% sur les { $days } derniers jours
 trend-stable = Stable sur les { $days } derniers jours
-uncertain = { $count ->
-    [0] Aucune offre récente : le prix est incertain
-    [one] Une seule offre : le prix est incertain
-   *[other] Seulement { $count } offres : le prix est incertain
+# Sous le titre du prix d'un unique fondé sur moins de 5 offres, en jaune.
+low-reliability-offers = { $count ->
+    [0] Fiabilité faible : aucune offre récente
+    [one] Fiabilité faible : { $count } offre
+   *[other] Fiabilité faible : { $count } offres
 }
-# Sous le prix d'un objet du marché des changes fondé sur moins de 10 échanges.
-thin-trades = { $count ->
-    [0] Aucun échange récent : le prix est incertain
-    [one] Un seul échange : le prix est incertain
-   *[other] Seulement { $count } échanges : le prix est incertain
+# Sous le titre du prix d'un objet du marché des changes fondé sur moins de 10 échanges.
+low-reliability-trades = { $count ->
+    [0] Fiabilité faible : aucun échange récent
+    [one] Fiabilité faible : { $count } échange
+   *[other] Fiabilité faible : { $count } échanges
 }
 # À droite du titre d'un prix estimé : les offres similaires trouvées.
 similar = { $count ->
     [one] { $count } similaire
    *[other] { $count } similaires
 }
-# Sous un prix estimé d'après moins de 5 offres, les offres suspectes mises à part.
-estimate-uncertain = { $count ->
-    [one] Une seule offre similaire : l'estimation est incertaine
-   *[other] Seulement { $count } offres similaires : l'estimation est incertaine
+# Sous le titre d'un prix estimé d'après moins de 5 offres, les offres suspectes mises à part.
+low-reliability-similar = { $count ->
+    [one] Fiabilité faible : { $count } offre similaire
+   *[other] Fiabilité faible : { $count } offres similaires
 }
-# Sous un prix estimé : comment il est calculé.
+# Sous un prix estimé : comment il est calculé, sans son point final (estimate-note).
 estimate-median = { $count ->
-    [one] Prix de la seule offre similaire.
-   *[other] Médiane des { $count } offres similaires.
+    [one] Prix de la seule offre similaire
+   *[other] Médiane des { $count } offres similaires
 }
-estimate-median-cheapest = Médiane des { $count } offres similaires les moins chères.
+estimate-median-cheapest = Médiane des { $count } offres similaires les moins chères
 # La même, quand la qualité d'un catalyseur est cherchée : les offres d'un autre type de qualité ($quality, quality-of-kind) ne comptent pas.
 estimate-median-of = { $count ->
-    [one] Prix de la seule offre similaire de { $quality }.
-   *[other] Médiane des { $count } offres similaires de { $quality }.
+    [one] Prix de la seule offre similaire de { $quality }
+   *[other] Médiane des { $count } offres similaires de { $quality }
 }
-estimate-median-cheapest-of = Médiane des { $count } offres similaires les moins chères de { $quality }.
+estimate-median-cheapest-of = Médiane des { $count } offres similaires les moins chères de { $quality }
+# La note d'une estimation ($note, l'une des quatre ci-dessus) ; avec la fourchette des offres comptées,
+# de la moins chère à la plus chère, dans une seule devise ($currency : div ou ex) : « …, de 2 à 3 div. »
+estimate-note = { $note }.
+estimate-note-range = { $note }, de { $cheapest } à { $dearest } { $currency }.
 # Le type de la qualité d'un catalyseur, dans une phrase.
 quality-of-kind = { $kind ->
         [life] qualité de vie
@@ -386,6 +391,8 @@ search-to-estimate = Cherchez des offres similaires pour l'estimer.
 # Un objet rare ou magique dont aucun filtre ne compare les statistiques : les offres de tout
 # objet de sa base ne diraient rien de son prix.
 check-to-estimate = Cochez une statistique qui distingue cet objet pour l'estimer.
+# Après une recherche dont aucune offre n'est comptée, certaines payées dans une devise sans prix, ou cotée sur moins de 10 échanges.
+no-offer-counted-to-estimate = Aucune offre similaire n'est payée dans une devise au prix fiable.
 # Un objet à nom fixe dont le prix n'est pas encore connu, ou manquant.
 prices-downloading = Les prix de { $league } sont en cours de téléchargement…
 # Avant que la ligue soit connue, au premier lancement.
@@ -437,6 +444,8 @@ offers-more-tooltip = Afficher plus d'offres
 offers-suspicious = Attention : très en dessous du prix du marché.
 # Sous le nom d'une offre dont la qualité d'un catalyseur est d'un autre type que celle de l'objet, quand sa qualité est cherchée.
 offers-other-quality = Qualité d'un autre type : cette offre ne compte pas dans l'estimation.
+# Après le nom de la devise d'une offre que l'estimation ne compte pas, dans la liste : une devise sans prix, ou cotée sur moins de 10 échanges.
+offer-not-counted = non comptée
 # Après le prix d'une telle offre, dans la liste : son type de qualité, écrit comme le filtre, pour qu'il se lise comme une qualité et non comme un nom.
 offer-quality-kind = { $kind ->
         [life] Qualité de vie

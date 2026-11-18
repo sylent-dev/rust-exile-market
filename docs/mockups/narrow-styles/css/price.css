@@ -17,3 +17,10 @@
 /* B of the thin prices (17e3c): the amounts of a price on fewer than 10 trades, faint. */
 .app-thin .price { color: var(--weak); }
 .app-thin .price img, .app-thin .price .orb { opacity: .5; }
+
+/* 22b: the mark of a price that stands on too little, "Low reliability" in yellow on a small line under the title
+   (owner, 2026-11-18), nothing when reliable; why in its tooltip. */
+.app-reliability { position: relative; }
+.app-reliability .app-tip { right: auto; left: -1px; }
+.app-reliability:hover .app-tip, .app-reliability.is-hovered .app-tip { display: block; }
+.win:has(.app-reliability.is-hovered) { overflow: visible; }

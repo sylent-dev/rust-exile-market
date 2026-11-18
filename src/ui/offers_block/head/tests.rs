@@ -149,6 +149,7 @@ impl HintWindow {
             offers: &self.offers,
             kind: SearchKind::Items,
             reference: None,
+            estimate_worth: None,
             item: &self.item,
             lines: &self.lines,
             has_bug_report: self.has_bug_report,

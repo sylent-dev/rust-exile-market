@@ -118,6 +118,25 @@ pub struct UniquePrice {
     pub modifiers: UniqueModifiers,
 }
 
+/// The offers behind the price of a unique, under which its price is uncertain, told so to the
+/// player, and not trusted to compare an offer with: a price on a few offers may be stale, and
+/// an honest offer under a quarter of it would read as bait.
+pub const MIN_OFFERS: u32 = 5;
+
+impl UniquePrice {
+    /// Its price in Exalted Orbs, when it stands on [`MIN_OFFERS`] at least.
+    #[must_use]
+    pub fn trusted_exalted(&self) -> Option<f64> {
+        (self.price.quantity >= MIN_OFFERS).then_some(self.price.exalted)
+    }
+
+    /// Its price stands on fewer than [`MIN_OFFERS`]: uncertain, and told so to the player.
+    #[must_use]
+    pub fn is_thin(&self) -> bool {
+        self.trusted_exalted().is_none()
+    }
+}
+
 /// An item of the currency exchange: currency, fragments, essences, runes…
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CurrencyPrice {

@@ -14,10 +14,10 @@ use super::theme::{color, size, text};
 use super::widgets;
 use crate::filters::{Filter, FilterKey};
 use crate::format;
-use crate::i18n::{Message, Translator};
+use crate::i18n::{Message, Translator, WrittenRange};
 use crate::item::{Item, Rarity};
 use crate::price::Orb;
-use crate::price::estimate::{COUNTED, Estimate};
+use crate::price::estimate::{COUNTED, Estimate, NoEstimate};
 use crate::price::fixed::{Candidate, FixedPrice, NoFixedPrice};
 use crate::price::{Direction, Price, Rates};
 use crate::session::PricesState;
@@ -45,8 +45,6 @@ const ROW_PADDING_Y: f32 = 4.0;
 const ROW_HEIGHT: f32 = LIST_ORB_SIZE + 2.0 * ROW_PADDING_Y;
 /// The least space between the name of a possible unique and its price.
 const NAME_GAP: f32 = 12.0;
-/// Fewer offers make the price of a unique uncertain.
-const ENOUGH_OFFERS: u32 = 5;
 /// The currencies of the amounts, in their order.
 const CURRENCIES: [Orb; 3] = [Orb::Divine, Orb::Chaos, Orb::Exalted];
 /// Under this many Divine or Chaos Orbs, an amount is too small to matter and isn't shown.
@@ -79,11 +77,53 @@ struct MarketPrice<'a> {
 /// What a fixed price is the price of, and whether it stands on too little to be sure.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Fixed {
-    /// A unique, on fewer than [`ENOUGH_OFFERS`] offers when `uncertain`.
-    Unique { uncertain: bool },
+    /// A unique, on fewer than [`crate::price::MIN_OFFERS`] offers when `is_thin`.
+    Unique { is_thin: bool },
     /// An item of the currency exchange, on fewer than [`crate::price::MIN_TRADES`] trades
-    /// when `thin`.
-    Exchange { thin: bool },
+    /// when `is_thin`.
+    Exchange { is_thin: bool },
+}
+
+/// Why a price stands on too little to be sure of it, with the count it stands on; nothing is
+/// said of a reliable price, which a price of the trade site can't promise.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LowReliability {
+    /// A unique on fewer than [`crate::price::MIN_OFFERS`] offers.
+    Offers(u32),
+    /// An item of the currency exchange on fewer than [`crate::price::MIN_TRADES`] trades.
+    Trades(u32),
+    /// An estimate from fewer than [`COUNTED`] offers, the suspicious ones left out.
+    SimilarOffers(usize),
+}
+
+/// Why the price of `view` has a low reliability, if it has.
+fn low_reliability(view: &PriceView) -> Option<LowReliability> {
+    match *view {
+        PriceView::Priced(MarketPrice { price, of, .. }) => match of {
+            Fixed::Unique { is_thin: true } => Some(LowReliability::Offers(price.quantity)),
+            Fixed::Exchange { is_thin: true } => Some(LowReliability::Trades(price.quantity)),
+            Fixed::Unique { is_thin: false } | Fixed::Exchange { is_thin: false } => None,
+        },
+        PriceView::Estimated(estimate) => {
+            (estimate.counted < COUNTED).then_some(LowReliability::SimilarOffers(estimate.counted))
+        }
+        PriceView::Candidates { .. } | PriceView::Notice(_) => None,
+    }
+}
+
+/// The range of the offers counted in `estimate`, written in one currency, as a row of a list
+/// ([`list_currency`]) chosen by the estimate; none from one offer, nor when both ends are
+/// written the same.
+fn written_range(estimate: &Estimate) -> Option<WrittenRange> {
+    let rates = estimate.reference.worth.rates;
+    let currency = list_currency(estimate.exalted, rates);
+    let (cheapest, abbreviation) = in_currency(estimate.cheapest, currency, rates);
+    let (dearest, _) = in_currency(estimate.dearest, currency, rates);
+    (cheapest != dearest).then_some(WrittenRange {
+        cheapest,
+        dearest,
+        currency: abbreviation,
+    })
 }
 
 /// Whether the filters of the item, as the player left them, compare its stats.
@@ -127,17 +167,26 @@ impl StatChecks {
 }
 
 /// The line under "No market price…" of an item without estimate, given the `checks` of its
-/// filters: an item priced by its stats ([`Item::is_priced_by_stats`]) is estimated only from a
-/// search that compares some, so that it asks for one to be checked, and says nothing when
-/// none can be (the offers of any item of its base would say nothing of its price).
-fn estimate_hint(is_priced_by_stats: bool, checks: StatChecks) -> Option<Message> {
-    if !is_priced_by_stats {
-        return Some(Message::SearchToEstimate);
+/// filters and why it has `no_estimate`: an item priced by its stats ([`Item::is_priced_by_stats`]) is
+/// estimated only from a search that compares some, so that it asks for one to be checked, and
+/// says nothing when none can be (the offers of any item of its base would say nothing of its
+/// price); once searched, why no offer is counted, or nothing when the offers block says it.
+fn estimate_hint(
+    is_priced_by_stats: bool,
+    checks: StatChecks,
+    no_estimate: NoEstimate,
+) -> Option<Message> {
+    if is_priced_by_stats {
+        match checks {
+            StatChecks::Checked => {}
+            StatChecks::Unchecked => return Some(Message::CheckToEstimate),
+            StatChecks::NoneToCheck => return None,
+        }
     }
-    match checks {
-        StatChecks::Checked => Some(Message::SearchToEstimate),
-        StatChecks::Unchecked => Some(Message::CheckToEstimate),
-        StatChecks::NoneToCheck => None,
+    match no_estimate {
+        NoEstimate::NotSearched => Some(Message::SearchToEstimate),
+        NoEstimate::NothingCounted => None,
+        NoEstimate::CurrenciesNotCounted => Some(Message::NoOfferCountedToEstimate),
     }
 }
 
@@ -181,14 +230,14 @@ fn view<'a>(
             price: &currency.price,
             rates: *rates,
             of: Fixed::Exchange {
-                thin: currency.is_thin(),
+                is_thin: currency.is_thin(),
             },
         }),
         Ok((FixedPrice::Unique(unique), rates)) => PriceView::Priced(MarketPrice {
             price: &unique.price,
             rates: *rates,
             of: Fixed::Unique {
-                uncertain: unique.price.quantity < ENOUGH_OFFERS,
+                is_thin: unique.is_thin(),
             },
         }),
         Ok((FixedPrice::Uniques(candidates), rates)) => PriceView::Candidates {
@@ -216,8 +265,9 @@ pub struct PriceBlock<'a> {
     pub item: &'a Item,
     /// The fixed price of the item with the rates of its prices, or why it has none.
     pub price: Result<(FixedPrice<'a>, Rates), NoFixedPrice>,
-    /// The estimated price of an item without a fixed price, from its similar offers.
-    pub estimate: Option<Estimate<'a>>,
+    /// The estimated price of an item without a fixed price, from its similar offers, or why
+    /// it has none.
+    pub estimate: Result<Estimate<'a>, NoEstimate>,
     /// Whether the filters of the item, as the player left them, compare its stats.
     pub checks: StatChecks,
     pub league: ShownLeague<'a>,
@@ -227,7 +277,12 @@ pub struct PriceBlock<'a> {
 impl PriceBlock<'_> {
     /// Draws the block, the whole width of `ui`.
     pub fn show(self, ui: &mut Ui) {
-        let view = view(&self.price, self.estimate, self.item.rarity(), self.league);
+        let view = view(
+            &self.price,
+            self.estimate.ok(),
+            self.item.rarity(),
+            self.league,
+        );
         Frame::NONE
             .fill(color::BAND_A)
             .inner_margin(vec2(size::BAND_PADDING, PADDING_Y))
@@ -248,7 +303,7 @@ impl PriceBlock<'_> {
     }
 
     /// The title, and on its right the offers of a unique or of an estimate, or the size of
-    /// a stack.
+    /// a stack; under it, why the price has a low reliability.
     fn title_row(&self, ui: &mut Ui, view: &PriceView) {
         let title = match view {
             PriceView::Estimated(_) => Message::EstimatedPriceLabel,
@@ -277,6 +332,23 @@ impl PriceBlock<'_> {
                 });
             }
         });
+        if let Some(reliability) = low_reliability(view) {
+            let i18n = self.i18n;
+            let reason = match reliability {
+                LowReliability::Offers(count) => i18n.low_reliability_offers(count),
+                LowReliability::Trades(count) => i18n.low_reliability_trades(count),
+                LowReliability::SimilarOffers(counted) => i18n.low_reliability_similar(counted),
+            };
+            ui.add_space(size::TITLE_LINE_GAP);
+            ui.add(
+                Label::new(
+                    RichText::new(reason)
+                        .font(text::small())
+                        .color(color::WARNING),
+                )
+                .wrap(),
+            );
+        }
     }
 
     /// The size of a copied stack of more than one item.
@@ -288,10 +360,9 @@ impl PriceBlock<'_> {
     }
 
     /// The price in the three currencies, the value of the whole stack when there is one,
-    /// then the unit price, the trend and the warning of a unique with few offers, or of an
-    /// item of the currency exchange with few trades.
+    /// then the unit price and the trend.
     fn priced(&self, ui: &mut Ui, market_price: MarketPrice) {
-        let MarketPrice { price, rates, of } = market_price;
+        let MarketPrice { price, rates, .. } = market_price;
         let stack = self.stack_size();
         amounts(ui, price.exalted * f64::from(stack.unwrap_or(1)), rates);
         if stack.is_some() {
@@ -315,32 +386,20 @@ impl PriceBlock<'_> {
             ui.add_space(LINE_GAP);
             line(ui, &text, tint);
         }
-        let warning = match of {
-            Fixed::Unique { uncertain: true } => Some(self.i18n.uncertain(price.quantity)),
-            Fixed::Exchange { thin: true } => Some(self.i18n.thin_trades(price.quantity)),
-            Fixed::Unique { uncertain: false } | Fixed::Exchange { thin: false } => None,
-        };
-        if let Some(warning) = warning {
-            ui.add_space(LINE_GAP);
-            line(ui, &warning, color::WARNING);
-        }
     }
 
-    /// The estimated price in the three currencies, the warning of an estimate from few
-    /// offers, then how it is made.
+    /// The estimated price in the three currencies, then how it is made, with the range of its
+    /// offers.
     fn estimated(&self, ui: &mut Ui, estimate: Estimate) {
         amounts(ui, estimate.exalted, estimate.reference.worth.rates);
         let counted = estimate.counted;
-        if counted < COUNTED {
-            ui.add_space(LINE_GAP);
-            line(ui, &self.i18n.estimate_uncertain(counted), color::WARNING);
-        }
+        let range = written_range(&estimate);
         let note = if counted == COUNTED {
             self.i18n
-                .estimate_median_cheapest(counted, estimate.searched_catalyst)
+                .estimate_median_cheapest(counted, estimate.searched_catalyst, range.as_ref())
         } else {
             self.i18n
-                .estimate_median(counted, estimate.searched_catalyst)
+                .estimate_median(counted, estimate.searched_catalyst, range.as_ref())
         };
         ui.add_space(LINE_GAP);
         line(ui, &note, color::WEAK);
@@ -428,7 +487,9 @@ impl PriceBlock<'_> {
         };
         message(ui, &first, color::TEXT);
         if let Notice::NoMarketPrice(_) = notice
-            && let Some(second) = estimate_hint(self.item.is_priced_by_stats(), self.checks)
+            && let Err(no_estimate) = self.estimate
+            && let Some(second) =
+                estimate_hint(self.item.is_priced_by_stats(), self.checks, no_estimate)
         {
             ui.add_space(MESSAGE_GAP);
             message(ui, &i18n.text(second), color::WEAK);
@@ -504,15 +565,20 @@ fn value_in(exalted: f64, currency: Orb, rates: Rates) -> f64 {
     }
 }
 
-/// The price of a row of a list, in one currency: Divine Orbs from one Divine Orb, Exalted
-/// Orbs under it.
+/// The price of a row of a list, in one currency ([`list_currency`]).
 fn list_price(exalted: f64, rates: Rates) -> (String, Orb) {
-    let currency = if exalted >= rates.divine {
+    let currency = list_currency(exalted, rates);
+    (in_currency(exalted, currency, rates).0, currency)
+}
+
+/// The one currency of `exalted` Exalted Orbs in a list or a range: Divine Orbs from one
+/// Divine Orb, Exalted Orbs under it.
+fn list_currency(exalted: f64, rates: Rates) -> Orb {
+    if exalted >= rates.divine {
         Orb::Divine
     } else {
         Orb::Exalted
-    };
-    (in_currency(exalted, currency, rates).0, currency)
+    }
 }
 
 /// The orb of `currency`, `size` across.

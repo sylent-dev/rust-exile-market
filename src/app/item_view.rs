@@ -9,7 +9,7 @@ use crate::item::Item;
 use crate::league::League;
 use crate::offers_state::{Offers, OffersState};
 use crate::price::Rates;
-use crate::price::estimate::{Estimate, Reference, Worth};
+use crate::price::estimate::{self, Estimate, NoEstimate, Reference, Worth};
 use crate::price::fixed::{FixedPrice, NoFixedPrice};
 use crate::session::{ItemTrade, PricesState, Session, ShownItem};
 use crate::settings::PseudoTotals;
@@ -101,10 +101,11 @@ impl ItemView<'_> {
         let trade = session.trade(item);
         let fixed_price = session.fixed_price(item);
         let worth = session.worth();
-        let estimate = shown_estimate(offers, item, &fixed_price, worth);
+        let estimate_worth = estimate_worth(offers, item, &fixed_price, worth);
+        let estimate = shown_estimate(offers, item, estimate_worth);
         // Without a fixed price, the estimate tells the suspicious offers.
         let reference =
-            reference(&fixed_price, worth).or(estimate.map(|estimate| estimate.reference));
+            reference(&fixed_price, worth).or(estimate.ok().map(|estimate| estimate.reference));
         let action = ItemBlock::new(item, line_facts(shown), filters, i18n)
             // The pill shows only when its link can be opened: the league and the search known.
             .tradable(trade.is_tradable())
@@ -135,6 +136,7 @@ impl ItemView<'_> {
                 offers,
                 kind,
                 reference,
+                estimate_worth,
                 item,
                 lines: shown.lines(),
                 has_bug_report,
@@ -152,17 +154,17 @@ impl ItemView<'_> {
 }
 
 /// The price of one item that tells a suspicious offer: the price of a fixed-name item, with
-/// the `worth` of the currencies of its prices; none for an item of the currency exchange
-/// whose price stands on too few trades, which would tell honest offers. Both come from the
-/// prices of the league shown: the rates beside the fixed price are those of `worth`, which
-/// also prices the other currencies.
+/// the `worth` of the currencies of its prices; none for a price of low reliability, a unique
+/// on too few offers or an item of the currency exchange on too few trades, which would tell
+/// honest offers. Both come from the prices of the league shown: the rates beside the fixed
+/// price are those of `worth`, which also prices the other currencies.
 fn reference<'a>(
     fixed_price: &Result<(FixedPrice, Rates), NoFixedPrice>,
     worth: Option<Worth<'a>>,
 ) -> Option<Reference<'a>> {
     let exalted = match fixed_price {
         Ok((FixedPrice::Currency(currency), _)) => currency.trusted_exalted()?,
-        Ok((FixedPrice::Unique(unique), _)) => unique.price.exalted,
+        Ok((FixedPrice::Unique(unique), _)) => unique.trusted_exalted()?,
         Ok((FixedPrice::Uniques(_), _)) | Err(_) => return None,
     };
     Some(Reference {
@@ -171,33 +173,41 @@ fn reference<'a>(
     })
 }
 
-/// The estimated price of `item`, the item shown, without a fixed price, from the `offers` of
-/// its search and the `worth` of the currencies with the prices of the league; none for a rare
-/// or magic item whose search compared none of its stats, whose offers are any items of its
-/// base: their price says nothing of its own.
-fn shown_estimate<'a>(
+/// The `worth` of the currencies with the prices of the league, when `item`, the item shown, is
+/// priced by its `offers`: without a fixed price, and for a rare or magic item, once a search
+/// compared some of its stats; none otherwise, the offers of any item of its base saying
+/// nothing of its own price.
+fn estimate_worth<'a>(
     offers: &Offers,
     item: &Item,
     fixed_price: &Result<(FixedPrice, Rates), NoFixedPrice>,
     worth: Option<Worth<'a>>,
-) -> Option<Estimate<'a>> {
+) -> Option<Worth<'a>> {
     let Err(NoFixedPrice::NotFixedName) = fixed_price else {
         return None;
     };
     if item.is_priced_by_stats() && !offers.compared_stats() {
         return None;
     }
-    let searched_catalyst = offers.searched_catalyst(item);
-    let OffersState::Items(items) = offers.state() else {
-        return None;
+    worth
+}
+
+/// The estimated price of `item`, the item shown, from the first page of the `offers` of its
+/// search, with the `estimate_worth` of the currencies when it is priced by its offers; or why
+/// it has none.
+fn shown_estimate<'a>(
+    offers: &Offers,
+    item: &Item,
+    estimate_worth: Option<Worth<'a>>,
+) -> Result<Estimate<'a>, NoEstimate> {
+    let (Some(worth), OffersState::Items(items)) = (estimate_worth, offers.state()) else {
+        return Err(NoEstimate::NotSearched);
     };
+    let searched_catalyst = offers.searched_catalyst(item);
     // The next offers loaded don't move it.
-    Estimate::of(
-        items.offers.get(..items.first_page)?,
-        items.total,
-        worth?,
-        searched_catalyst,
-    )
+    let first_page = items.offers.get(..items.first_page).unwrap_or_default();
+    Estimate::of(first_page, items.total, worth, searched_catalyst)
+        .ok_or_else(|| estimate::no_estimate_reason(first_page, worth, searched_catalyst))
 }
 
 #[cfg(test)]
