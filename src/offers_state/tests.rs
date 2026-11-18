@@ -176,7 +176,7 @@ fn the_quality_searched_lasts_with_its_offers_until_the_next_search() {
         Outcome::Failed(Failure::Unreachable),
         Outcome::Limited {
             until: now,
-            refused: true,
+            wait: Wait::LimitReached,
         },
     ] {
         let _ = offers.more();
@@ -386,13 +386,13 @@ fn a_refusal_waits_for_its_delay_and_shows_no_offer() {
     let just_before = now + Duration::from_secs(239);
     let outcome = Outcome::Limited {
         until,
-        refused: true,
+        wait: Wait::LimitReached,
     };
 
     // Limits that would allow a search sooner don't shorten the delay.
     offers.apply(answer(outcome, after(now, 10)), SystemTime::UNIX_EPOCH);
 
-    assert_eq!(offers.state(), &OffersState::Limited);
+    assert_eq!(offers.state(), &OffersState::Limited(Wait::LimitReached));
     assert_eq!(offers.last_search(), None);
     assert_eq!(
         offers.wait(SearchKind::Items, now),
@@ -448,7 +448,7 @@ fn a_refused_search_of_the_exchange_waits_only_before_the_next_one() {
     let _ = offers.search(exchange_search(), now);
     let outcome = Outcome::Limited {
         until: now + Duration::from_secs(240),
-        refused: true,
+        wait: Wait::LimitReached,
     };
 
     offers.apply(answer(outcome, after(now, 10)), SystemTime::UNIX_EPOCH);
@@ -472,7 +472,7 @@ fn refused_more_offers_wait_as_the_limits_of_the_fetch_tell() {
     let _ = offers.more();
     let outcome = Outcome::Limited {
         until: now + Duration::from_secs(240),
-        refused: true,
+        wait: Wait::LimitReached,
     };
 
     // The limits of the fetch are already in the waiting time of the searches of items.
@@ -499,7 +499,7 @@ fn no_answer_shortens_a_wait_told_before() {
     let _ = offers.search(item_search(), now);
     let outcome = Outcome::Limited {
         until: now + Duration::from_secs(240),
-        refused: true,
+        wait: Wait::LimitReached,
     };
     offers.apply(answer(outcome, after(now, 10)), SystemTime::UNIX_EPOCH);
 
@@ -521,7 +521,7 @@ fn a_limit_answered_without_an_order_applies_to_both_kinds_of_searches() {
     let mut offers = Offers::default();
     let outcome = Outcome::Limited {
         until: now + Duration::from_secs(240),
-        refused: true,
+        wait: Wait::LimitReached,
     };
 
     offers.apply(answer(outcome, after(now, 10)), SystemTime::UNIX_EPOCH);
@@ -609,7 +609,7 @@ fn the_offers_of_an_item_left_keep_its_list_but_not_a_failure_nor_a_search_under
     for state in [
         OffersState::Searching,
         OffersState::Failed(Failure::Refused),
-        OffersState::Limited,
+        OffersState::Limited(Wait::Forbidden),
     ] {
         let mut offers = Offers::default();
         let _ = offers.swap(state);

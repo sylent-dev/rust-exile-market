@@ -337,6 +337,8 @@ pub(super) const OFFERS_SEARCHED: &str = "offers-searched";
 pub(super) const OFFERS_COUNT: &str = "offers-count";
 pub(super) const OFFERS_NEXT_SEARCH_TOOLTIP: &str = "offers-next-search-tooltip";
 pub(super) const OFFERS_LIMIT: &str = "offers-limit";
+pub(super) const OFFERS_FORBIDDEN: &str = "offers-forbidden";
+pub(super) const OFFERS_FORBIDDEN_HINT: &str = "offers-forbidden-hint";
 pub(super) const OFFERS_REFUSED_HINT: &str = "offers-refused-hint";
 pub(super) const OFFERS_UNREADABLE_HINT: &str = "offers-unreadable-hint";
 /// The words of the two hints above that open the bug report, inside a sentence and first.

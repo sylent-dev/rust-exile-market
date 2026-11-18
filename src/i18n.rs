@@ -702,6 +702,20 @@ impl Translator {
         self.format_wait(OFFERS_LIMIT, wait)
     }
 
+    /// The line under the title during the wait of a refusal of the trade site that names no
+    /// limit (HTTP 403), `wait` left.
+    #[must_use]
+    pub fn offers_forbidden(&self, wait: Duration) -> String {
+        self.format_wait(OFFERS_FORBIDDEN, wait)
+    }
+
+    /// What to do after a refusal of the trade site that names no limit, its words that open
+    /// the bug report told.
+    #[must_use]
+    pub fn offers_forbidden_hint(&self) -> Linked {
+        self.linked(OFFERS_FORBIDDEN_HINT, OFFERS_REPORT)
+    }
+
     /// What to do after a search the trade site turned down, its words that open the bug
     /// report told.
     #[must_use]

@@ -27,7 +27,7 @@ use crate::roll_difference::CopiedLines;
 use crate::trade::offers::{ExchangeOffer, ItemOffer};
 use crate::trade::query::SearchKind;
 use crate::trade::search::Failure;
-use head::{Block, Head, block, failure_lines, failure_message};
+use head::{Block, Head, block, failure_lines, failure_message, limited_lines};
 use rows::{Counting, Row, exchange_rows, item_rows};
 pub(super) use rows::{RowPrice, offer_price};
 
@@ -125,13 +125,10 @@ impl OffersBlock<'_> {
                 let head = Head::of(line, block(Block::Search, wait, busy));
                 self.title_row(ui, &head, hint.as_ref())
             }
-            OffersState::Limited => {
-                let line = if wait.is_zero() {
-                    (i18n.text(Message::OffersSearchHint), color::FAINT)
-                } else {
-                    (i18n.offers_limit(wait), color::WARNING)
-                };
-                self.title_row(ui, &Head::of(line, block(Block::Search, wait, busy)), None)
+            &OffersState::Limited(reason) => {
+                let (line, hint) = limited_lines(i18n, reason, wait);
+                let head = Head::of(line, block(Block::Search, wait, busy));
+                self.title_row(ui, &head, hint.as_ref())
             }
             OffersState::Searching => {
                 let line = (i18n.text(Message::OffersSearching), color::FAINT);

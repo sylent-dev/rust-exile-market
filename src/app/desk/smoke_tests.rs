@@ -17,7 +17,7 @@ use crate::offers_state::OffersState;
 use crate::price::{CurrencyPrice, Price, PriceList, Rates, UniquePrice};
 use crate::trade::offers::tests::{every_exchange_offer, every_item_offer};
 use crate::trade::query::Query;
-use crate::trade::search::{Answer, Failure, NextSearch, Outcome, Rest};
+use crate::trade::search::{Answer, Failure, NextSearch, Outcome, Rest, Wait};
 
 /// The default width of the window, and the narrowest the player can give it (`main.rs`).
 const WIDTHS: [f32; 2] = [420.0, 360.0];
@@ -227,7 +227,7 @@ impl Scene {
             OffersState::Idle
             | OffersState::Searching
             | OffersState::Failed(_)
-            | OffersState::Limited => {}
+            | OffersState::Limited(_) => {}
         }
         shown.height
     }
@@ -353,7 +353,8 @@ fn draw_the_offers(scene: &mut Scene, ctx: &Context, drawn: &mut Drawn, kind: Se
     });
     scene.draw_each_way(ctx, drawn);
     // The trade site can't be reached, turns the search down, can't be read, then refuses,
-    // with a long wait.
+    // with a long wait: without naming a limit, whose line has a hint under it too (the wait
+    // allows no other search).
     for failure in [Failure::Unreachable, Failure::Refused, Failure::Unreadable] {
         scene.search_answered(Answer {
             outcome: Outcome::Failed(failure),
@@ -363,7 +364,7 @@ fn draw_the_offers(scene: &mut Scene, ctx: &Context, drawn: &mut Drawn, kind: Se
     }
     scene.search_answered(failure(Outcome::Limited {
         until: Instant::now() + Duration::from_mins(5),
-        refused: true,
+        wait: Wait::Forbidden,
     }));
     scene.draw_each_way(ctx, drawn);
 }

@@ -114,6 +114,8 @@ fn the_code_and_every_file_have_the_same_messages() {
             OFFERS_COUNT,
             OFFERS_NEXT_SEARCH_TOOLTIP,
             OFFERS_LIMIT,
+            OFFERS_FORBIDDEN,
+            OFFERS_FORBIDDEN_HINT,
             OFFERS_REFUSED_HINT,
             OFFERS_UNREADABLE_HINT,
             OFFERS_REPORT,

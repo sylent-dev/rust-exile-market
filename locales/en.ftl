@@ -420,6 +420,10 @@ offers-busy-tooltip = Waiting for the answer of the trade site
 offers-next-search-tooltip = Next search in { $wait }
 # Under the title, during a long wait, e.g. "4min".
 offers-limit = Trade site limit: next search in { $wait }.
+# During the wait of a refusal of the trade site that names no limit (HTTP 403), e.g. "1min", then what to do under it;
+# $report is offers-report.
+offers-forbidden = Refused by the trade site: next search in { $wait }.
+offers-forbidden-hint = If it happens again, { $report }.
 offers-none = No offer online with these filters.
 offers-none-hint = Uncheck a stat or lower a minimum, then search again.
 offers-unreachable = The trade site can't be reached.

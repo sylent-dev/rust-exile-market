@@ -429,6 +429,10 @@ offers-busy-tooltip = En attente de la réponse du site d'échange
 offers-next-search-tooltip = Prochaine recherche dans { $wait }
 # Sous le titre, pendant une longue attente, par exemple « 4min ».
 offers-limit = Limite du site d'échange : prochaine recherche dans { $wait }.
+# Pendant l'attente d'un refus du site d'échange qui ne nomme pas de limite (HTTP 403), par exemple « 1min », puis
+# quoi faire dessous ; $report est offers-report.
+offers-forbidden = Refus du site d'échange : prochaine recherche dans { $wait }.
+offers-forbidden-hint = Si cela se répète, { $report }.
 offers-none = Aucune offre en ligne avec ces filtres.
 offers-none-hint = Décochez une stat ou baissez un minimum, puis cherchez à nouveau.
 offers-unreachable = Le site d'échange est injoignable.

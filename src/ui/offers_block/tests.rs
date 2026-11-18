@@ -2,7 +2,7 @@ use super::*;
 use crate::language::Language;
 use crate::offers_state::SearchedBy;
 use crate::trade::offers::fixtures::{exchange_offer, item_offer};
-use crate::trade::search::Rest;
+use crate::trade::search::{Rest, Wait};
 
 #[test]
 fn no_offer_is_said_only_when_none_is_left_to_fetch() {
@@ -63,4 +63,42 @@ fn the_offers_of_the_exchange_show_the_chevron_until_all_are_shown() {
 
     assert_eq!(first.more, More::Chevron);
     assert_eq!(all.more, More::None);
+}
+
+#[test]
+fn a_refusal_that_names_no_limit_says_so_and_what_to_do_while_its_wait_runs() {
+    let i18n = Translator::new(Language::English);
+    let minute = Duration::from_mins(1);
+    let line = |reason, wait| {
+        let ((line, color), hint) = limited_lines(&i18n, reason, wait);
+        (line, color, hint.map(|hint| hint.text))
+    };
+
+    assert_eq!(
+        line(Wait::Forbidden, minute),
+        (
+            "Refused by the trade site: next search in 1min.".to_owned(),
+            color::WARNING,
+            Some("If it happens again, report it.".to_owned())
+        )
+    );
+    for limit in [Wait::Limits, Wait::LimitReached] {
+        assert_eq!(
+            line(limit, minute),
+            (
+                "Trade site limit: next search in 1min.".to_owned(),
+                color::WARNING,
+                None
+            )
+        );
+    }
+    // The wait over, the line before the first search.
+    assert_eq!(
+        line(Wait::Forbidden, Duration::ZERO),
+        (
+            "One search per click, within the limits of the trade site.".to_owned(),
+            color::FAINT,
+            None
+        )
+    );
 }
