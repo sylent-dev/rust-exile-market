@@ -153,7 +153,7 @@ SECTIONS.push(["Summed lines in doubt (13k2e4b), decision A: 248%, the pure part
   ["A3 · The worst tier, \"or T1\" after its range, with a tooltip", win(topBar(), item({ ...SUMMED_BOW, stats: summedBowA([2, "155–169", { label: "or T1", tip: "248% is a pure 170–173 with the hybrid at 75–78, or a pure 169 with the hybrid at 79", hover: true }]) }, true), price(RARE_ESTIMATE_BEFORE), foot())],
 ]]);
 SECTIONS.push(["Summed lines in doubt (13k2e4b), decision B: a line split two ways, or beyond the splits found", [
-  ["B1 · Chosen · 217% and +200 split two ways: both lines without tier, in Explicit, as today", win(topBar(), item({ ...SUMMED_BOW, props: [["Physical DPS", "610"]], statsLabel: "Stats (9)", stats: summedBowB(null) }, true), price(RARE_ESTIMATE_BEFORE), foot())],
+  ["B1 · Chosen · 217% and +200 split two ways: both lines without tier, in Explicit; “Uncertain tier” under each since 22d", win(topBar(), item({ ...SUMMED_BOW, props: [["Physical DPS", "610"]], statsLabel: "Stats (9)", stats: [...summedBowB({ label: "Uncertain tier" }).map(row => row.after ? { ...row, after: { ...row.after, hover: false } } : row), { note: "A tier is uncertain when several modifiers fit its value." }] }, true), price(RARE_ESTIMATE_BEFORE), foot())],
   ["B2 · The same, \"Two splits\" under each line, with a tooltip", win(topBar(), item({ ...SUMMED_BOW, props: [["Physical DPS", "610"]], statsLabel: "Stats (9)", stats: summedBowB({ label: "Two splits", tip: TWO_SPLITS }) }, true), price(RARE_ESTIMATE_BEFORE), foot())],
   ["B · Your body armour (B1 or B2): the 4 prefix lines summed by two hybrids, without tier", win(topBar(), item({ ...SUMMED_ARMOUR, stats: summedArmourStats }, true), price(RARE_ESTIMATE_BEFORE), foot())],
 ]]);

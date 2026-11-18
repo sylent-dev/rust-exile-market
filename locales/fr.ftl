@@ -199,6 +199,11 @@ affix-fill-open = { $filled } sur { $max } · { $open ->
     [one] { $open } libre
    *[other] { $open } libres
 }
+# De même tant qu'un modificateur de l'objet n'a pas d'affixe connu (une ligne en doute, un préfixe ou un suffixe) : il prend une place que le compte ne montre pas, donc les places libres sont un maximum.
+affix-fill-up-to = { $filled } sur { $max } · jusqu'à { $open ->
+    [one] { $open } libre
+   *[other] { $open } libres
+}
 # La pilule d'un objet sans modificateurs, qui n'a que des filtres, et une fois dépliée.
 show-filters = Afficher les filtres
 hide-filters = Masquer les filtres
@@ -279,6 +284,15 @@ unrevealed-suffix = Suffixe profané non révélé
 unrevealed-note = Un modificateur non révélé peut changer l'objet : ses autres stats partent décochées.
 # Sous les stats d'un objet rare ou magique copié depuis l'échange du jeu, sans les affixes ni les paliers de la copie avancée.
 trade-copy-note = Les paliers sont trouvés d'après les valeurs.
+# Sa seconde phrase, sur une ligne à elle, dès qu'une ligne est en doute (« Palier incertain »).
+uncertain-tier-note = Un palier est incertain quand plusieurs modificateurs correspondent à sa valeur.
+# À la place du palier d'une ligne copiée depuis l'échange du jeu, petit et gris : plusieurs modificateurs correspondent à sa valeur et rien ne dit lequel a été tiré.
+tier-uncertain = Palier incertain
+# De même pour une valeur qu'aucun modificateur des données du jeu ne contient (un objet copié avant un patch), et son info-bulle.
+tier-not-found = Aucun palier trouvé
+tier-not-found-why = Aucun modificateur connu ne contient cette valeur.
+# Sous les stats d'un objet sanctifié copié depuis l'échange du jeu, à la place de la note des paliers : la sanctification déplace chaque valeur, peut-être hors de son palier, donc aucun palier n'est cherché.
+sanctified-note = Les valeurs d'un objet sanctifié peuvent sortir de leur palier : aucun n'est trouvé.
 # Sous les stats d'un objet unique copié depuis l'échange du jeu, sans les plages de la copie avancée : ses jets viennent de la base de prix.
 unique-rolls-note = Les jets sont ceux de poe2scout.
 # Après la plage d'une ligne d'un joyau perdu dans le temps, sur un petit bloc gris : les talents du rayon qui reçoivent la ligne. La ligne est affichée sans les mots du jeu qui les nomment.

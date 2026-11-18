@@ -2,10 +2,10 @@
 //! writes them, with the tiers found from their values.
 
 use super::split_lines::AddedTiers;
-use super::trade_tiers::{FoundTiers, TradeItem, trade_tiers};
+use super::trade_tiers::{FoundTiers, TradeItem, TradeTiers, trade_tiers};
 use super::{ModifierTiers, Tier};
 use crate::game_data::lines::modifier_stats;
-use crate::item::{Affix, AffixTier, Modifier, ModifierKind, PartTier, Range, TierDoubt};
+use crate::item::{Affix, AffixTier, Modifier, ModifierKind, NoTier, PartTier, Range, TierDoubt};
 use crate::language::Language;
 
 /// The `modifiers` of `item`, rare or magic, copied from the in-game trade, written again with
@@ -15,24 +15,39 @@ use crate::language::Language;
 /// or a suffix stays explicit, without affix nor tier, with the tier of each
 /// ([`TierDoubt::EitherAffix`]); a line that adds up two modifiers is one modifier with the
 /// other lines of its hybrid, without tier, with the tiers of each part
-/// ([`TierDoubt::Split`]); one that no tier holds stays as it was.
+/// ([`TierDoubt::Split`]); one searched and left without tier stays as it was, with why
+/// ([`TierDoubt::NoTier`]); any other one stays as it was.
 #[must_use]
 pub fn with_trade_tiers(item: &TradeItem<'_>, modifiers: &[Modifier]) -> Vec<Modifier> {
-    let found = trade_tiers(item, modifiers);
-    with_found_tiers(item.base.language, item.base.base_type, modifiers, &found)
+    let tiers = trade_tiers(item, modifiers);
+    with_found_tiers(item.base.language, item.base.base_type, modifiers, &tiers)
 }
 
-/// `modifiers`, their lines written in `language`, written again with the tiers `found` from
-/// their values, as [`with_trade_tiers`] tells: the modifiers of each of `found` made one
-/// modifier in their place; a modifier none of `found` starts at, or whose tiers can't be
-/// written, stays as it was. `base_type` only names the item in the log of a split that can't
-/// be written.
+/// `modifiers`, their lines written in `language`, written again with the `tiers` found from
+/// their values, as [`with_trade_tiers`] tells: the modifiers of each of those found made one
+/// modifier in their place; a modifier none of them starts at, or whose tiers can't be
+/// written, stays as it was, with why it has no tier when it was searched. `base_type` only
+/// names the item in the log of a split that can't be written.
 fn with_found_tiers(
     language: Language,
     base_type: &str,
     modifiers: &[Modifier],
-    found: &[FoundTiers],
+    tiers: &TradeTiers,
 ) -> Vec<Modifier> {
+    let TradeTiers {
+        found,
+        without_tier,
+    } = tiers;
+    let no_tier = |index: usize| {
+        let told = without_tier.iter().find(|(line, _)| *line == index);
+        // Found, but its tiers can't be written on its lines: nothing the application can
+        // vouch for.
+        let unwritten = || {
+            let is_found = found.iter().any(|found| found.modifiers.contains(&index));
+            is_found.then_some(NoTier::InDoubt)
+        };
+        told.map(|&(_, why)| why).or_else(unwritten)
+    };
     let mut written = Vec::with_capacity(modifiers.len());
     let mut next = 0;
     while let Some(modifier) = modifiers.get(next) {
@@ -50,7 +65,13 @@ fn with_found_tiers(
             written.push(joined);
             next = end;
         } else {
-            written.push(modifier.clone());
+            written.push(match no_tier(next) {
+                Some(why) => Modifier {
+                    doubt: Some(TierDoubt::NoTier(why)),
+                    ..modifier.clone()
+                },
+                None => modifier.clone(),
+            });
             next += 1;
         }
     }

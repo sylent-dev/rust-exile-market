@@ -32,7 +32,7 @@ fn the_note_shows_also_when_the_only_tiers_found_are_those_of_a_line_in_doubt() 
 }
 
 #[test]
-fn a_sanctified_item_copied_from_the_in_game_trade_shows_no_tier_nor_the_note() {
+fn a_sanctified_item_copied_from_the_in_game_trade_shows_no_tier_and_a_note_of_its_own() {
     let text = include_str!("../../item/test-items/en-owner-trade-rare-helmet-fractured.txt");
     let tiara = read_again(parse(&format!(
         "{}\n--------\nSanctified\n",
@@ -40,8 +40,9 @@ fn a_sanctified_item_copied_from_the_in_game_trade_shows_no_tier_nor_the_note() 
     )));
     assert!(tiara.has_state(crate::item::ItemState::Sanctified));
 
-    // Its values can each have left their tier: every line as copied, without affix, tier
-    // nor bar, and no note, no tier being found.
+    // Its values can each have left their tier: every line as copied, without affix, tier,
+    // bar nor word, its lines not being searched, and a note saying why, in place of the note
+    // of the tiers.
     let texts = texts(&tiara);
     let explicit = texts
         .iter()
@@ -58,6 +59,161 @@ fn a_sanctified_item_copied_from_the_in_game_trade_shows_no_tier_nor_the_note() 
             "□ +43% to Fire Resistance ≥39",
             "□ +40% to Cold Resistance ≥36",
             "□ +69 to maximum Energy Shield ≥62 [Desecrated]",
+            "Sanctified note",
+        ]
+    );
+    // The advanced copy of a sanctified item writes its tiers: no note.
+    let sceptre = parse(include_str!(
+        "../../item/test-items/en-owner-rare-sceptre-sanctified.txt"
+    ));
+    assert!(sceptre.has_state(crate::item::ItemState::Sanctified));
+    assert!(!rows(&sceptre).contains(&Row::SanctifiedNote));
+}
+
+#[test]
+fn a_line_in_doubt_says_so_in_place_of_its_tier_and_the_note_says_when() {
+    // Two pure prefixes or their hybrid, the helmet having room for either: no tier is found
+    // on it, and the note of the tiers shows all the same, with when a tier is uncertain.
+    let helmet = read_again(rare_item(
+        "Ancestral Tiara",
+        "Helmets",
+        "",
+        "30% increased Energy Shield\n+30 to maximum Life",
+    ));
+
+    let texts = texts(&helmet);
+    assert_eq!(
+        texts[texts.len() - 5..],
+        [
+            "Explicit",
+            "□ 30% increased Energy Shield ≥27 [TierUncertain]",
+            "□ +30 to maximum Life ≥27 [TierUncertain]",
+            "Trade copy note",
+            "Uncertain tier note",
+        ]
+    );
+}
+
+#[test]
+fn a_value_no_modifier_holds_says_no_tier_found_with_its_tooltip() {
+    let helmet = |lines| read_again(rare_item("Ancestral Tiara", "Helmets", "", lines));
+
+    // A cold resistance above every tier, next to a tier found: the note of the tiers, without
+    // when a tier is uncertain, none being.
+    let texts_of = |lines| texts(&helmet(lines));
+    let found = texts_of("+38% to Fire Resistance\n+99% to Cold Resistance");
+    assert_eq!(
+        found[found.len() - 3..],
+        [
+            "Explicit",
+            "□ +99% to Cold Resistance ≥89 [TierNotFound TierNotFoundWhy]",
+            "Trade copy note",
+        ]
+    );
+    // Alone: no note, no tier being found from the values.
+    let alone = texts_of("+99% to Cold Resistance");
+    assert_eq!(
+        alone[alone.len() - 2..],
+        [
+            "Explicit",
+            "□ +99% to Cold Resistance ≥89 [TierNotFound TierNotFoundWhy]",
+        ]
+    );
+}
+
+#[test]
+fn a_crafted_line_no_modifier_holds_shows_its_origin_alone() {
+    let helmet = |lines| read_again(rare_item("Ancestral Tiara", "Helmets", "", lines));
+    let texts_of = |lines| texts(&helmet(lines));
+
+    // The game data hold the crafts of the alloys only: "Crafted" says why no tier is found.
+    let unheld = texts_of("+99% to Cold Resistance (crafted)");
+    assert_eq!(
+        unheld[unheld.len() - 2..],
+        ["Explicit", "□ +99% to Cold Resistance ≥89 [Crafted]"]
+    );
+    // An ordinary modifier a craft added finds its tier.
+    let found = texts_of("+38% to Cold Resistance (crafted)");
+    assert_eq!(
+        found[found.len() - 3..],
+        [
+            "Suffixes 1/3",
+            "□ +38% to Cold Resistance ≥34 [0.82 T2 36–40 Crafted]",
+            "Trade copy note",
+        ]
+    );
+    // Crafted lines in doubt, two pure prefixes or their hybrid, still say so.
+    let in_doubt = texts_of("30% increased Energy Shield (crafted)\n+30 to maximum Life (crafted)");
+    assert_eq!(
+        in_doubt[in_doubt.len() - 4..],
+        [
+            "□ 30% increased Energy Shield ≥27 [TierUncertain Crafted]",
+            "□ +30 to maximum Life ≥27 [TierUncertain Crafted]",
+            "Trade copy note",
+            "Uncertain tier note",
+        ]
+    );
+}
+
+#[test]
+fn the_open_places_are_a_most_while_a_line_has_no_affix() {
+    let resistances =
+        "+38% to Fire Resistance\n+38% to Cold Resistance\n+38% to Lightning Resistance";
+    let in_doubt = "30% increased Energy Shield\n+30 to maximum Life";
+    let shield = "+69 to maximum Energy Shield";
+    // The fills of a helmet of these lines, copied from the in-game trade.
+    let fills = |lines: &[&str]| -> Vec<String> {
+        let helmet = read_again(rare_item(
+            "Ancestral Tiara",
+            "Helmets",
+            "",
+            &lines.join("\n"),
+        ));
+        let is_fill = |text: &String| text.starts_with("Prefixes") || text.starts_with("Suffixes");
+        texts(&helmet).into_iter().filter(is_fill).collect()
+    };
+
+    // Every affix known: the places left are open.
+    assert_eq!(
+        fills(&[shield, resistances]),
+        ["Prefixes 1/3", "Suffixes 3/3"]
+    );
+    // Two prefixes left and no suffix, two lines in doubt, which make one modifier at least:
+    // one prefix open at most.
+    assert_eq!(
+        fills(&[shield, resistances, in_doubt]),
+        ["Prefixes 1/3 ≤1", "Suffixes 3/3 ≤0"]
+    );
+    // Two prefixes and a suffix left, a line no modifier holds: each affix its places left at
+    // most, two of the three being open at most.
+    assert_eq!(
+        fills(&[
+            shield,
+            "+38% to Fire Resistance\n+38% to Cold Resistance",
+            "+99% to Lightning Resistance",
+        ]),
+        ["Prefixes 1/3 ≤2", "Suffixes 2/3 ≤1"]
+    );
+}
+
+#[test]
+fn a_line_whose_tier_isnt_searched_yet_says_nothing() {
+    // Copied from the in-game trade, not read again yet, as a magic item whose base the names
+    // of the trade site don't tell yet.
+    let helmet = rare_item(
+        "Ancestral Tiara",
+        "Helmets",
+        "",
+        "30% increased Energy Shield\n+30 to maximum Life",
+    );
+
+    let texts = texts(&helmet);
+    assert_eq!(
+        texts[texts.len() - 3..],
+        [
+            "Explicit",
+            "□ 30% increased Energy Shield ≥27",
+            "□ +30 to maximum Life ≥27",
         ]
     );
 }
@@ -513,10 +669,11 @@ fn the_owners_unset_ring_and_helmet_of_amanamu_show_their_rows_from_the_in_game_
     assert_eq!(
         explicit_rows(in_game_trade),
         [
-            "Prefixes 2/3",
+            // One place left, a prefix or a suffix: the rarity, in Explicit, may take either.
+            "Prefixes 2/3 ≤1",
             "□ +94 to maximum Mana ≥85 [0.60 T3 90–104]",
             "□ 69% increased Armour and Energy Shield ≥62 [0.64 T3 68–79]",
-            "Suffixes 2/3",
+            "Suffixes 2/3 ≤1",
             "□ +28% to Cold Resistance ≥25 [0.56 T4 26–30]",
             "□ 35% increased Presence Area of Effect ≥32 [1.00 25–35 Desecrated]",
             "Explicit",

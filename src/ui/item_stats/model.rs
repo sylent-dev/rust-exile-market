@@ -8,8 +8,8 @@ use crate::filters::{self, Filter, FilterKey, Half, Property};
 use crate::format;
 use crate::i18n::{Message, Translator};
 use crate::item::{
-    self, Affix, AffixTier, Currency, Lord, Modifier, ModifierOrigin, PartTier, QualityKind,
-    RadiusSkills, Range, StatLine, TierDoubt,
+    self, Affix, AffixTier, Currency, Lord, Modifier, ModifierOrigin, NoTier, PartTier,
+    QualityKind, RadiusSkills, Range, StatLine, TierDoubt,
 };
 use crate::tier_rolls::TierSpan;
 use crate::trade::pseudo::Pseudo;
@@ -32,21 +32,34 @@ pub(super) enum Group {
     Enchant,
     Runes,
     Implicit,
-    /// Their count and the most the item can have; none for a corrupted waystone, its count
-    /// alone ([`crate::game_data::AffixLimits::counted_only`]).
-    Prefixes {
-        filled: u32,
-        max: Option<u32>,
-    },
-    Suffixes {
-        filled: u32,
-        max: Option<u32>,
-    },
+    Prefixes(AffixFill),
+    Suffixes(AffixFill),
     /// The explicit modifiers of a magic or rare item whose header doesn't tell their affix:
     /// a header the parser doesn't know, or lines before the first header.
     Explicit,
     /// The modifiers of a unique, no prefix nor suffix.
     Unique,
+}
+
+/// The fill of the prefixes, or of the suffixes, of an item: beside the title of their group.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct AffixFill {
+    /// How many the item has, their affix known.
+    pub(super) filled: u32,
+    /// The room they fill; none for a corrupted waystone, its count alone
+    /// ([`crate::game_data::AffixLimits::counted_only`]).
+    pub(super) room: Option<AffixRoom>,
+}
+
+/// The room an item has for its prefixes, or for its suffixes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct AffixRoom {
+    /// The most it can have.
+    pub(super) max: u32,
+    /// The most places open while modifiers of the item have no affix known, in **Explicit**,
+    /// which take places the fill doesn't count; none when every modifier has its affix, the
+    /// places left being then all open.
+    pub(super) open_at_most: Option<u32>,
 }
 
 /// The word after the roll of a modifier: its origin, as the game writes it, or the currency
@@ -154,7 +167,8 @@ pub(super) struct TierRow<'a> {
     pub(super) tier: ModifierTier,
     /// The better of two neighbouring tiers the modifier may be: `T1/T2`.
     pub(super) better: Option<u32>,
-    /// In gray after the ranges: the affix of the tier ("Prefix"), or "Hybrid".
+    /// In gray after the ranges: the affix of the tier ("Prefix"), or "Hybrid"; alone, why a
+    /// line has no tier ("Uncertain tier").
     pub(super) word: Option<Message>,
     /// The lord of the Abyss named before the affix: "Amanamu Prefix".
     pub(super) lord: Option<Lord>,
@@ -194,6 +208,27 @@ impl<'a> TierRow<'a> {
             is_tier_in_word: false,
             tip: None,
             currency: None,
+        }
+    }
+
+    /// In place of the tier of a line copied from the in-game trade that has none, `why`:
+    /// "Uncertain tier" for a line in doubt, which the note under the stats explains, or "No
+    /// tier found" for a value no modifier holds, rarer, with its tooltip.
+    pub(super) fn no_tier(why: NoTier) -> Self {
+        let (word, tip) = match why {
+            NoTier::InDoubt => (Message::TierUncertain, None),
+            NoTier::NoModifier => (
+                Message::TierNotFound,
+                Some(WordTip::Text(Message::TierNotFoundWhy)),
+            ),
+        };
+        Self {
+            word: Some(word),
+            tip,
+            ..Self::plain(ModifierTier {
+                number: None,
+                ranges: Vec::new(),
+            })
         }
     }
 
@@ -510,6 +545,11 @@ pub(super) enum Row<'a> {
     /// Under the stats of a rare or magic item copied from the in-game trade, whose tiers are
     /// found from the values.
     TradeCopyNote,
+    /// Under that note, once a line of the item is in doubt: when a tier is uncertain.
+    UncertainTierNote,
+    /// Under the stats of a sanctified item copied from the in-game trade, in place of both:
+    /// why no tier is found.
+    SanctifiedNote,
     /// Under the stats of a unique copied from the in-game trade, whose rolls come from the
     /// price database.
     UniqueRollsNote,

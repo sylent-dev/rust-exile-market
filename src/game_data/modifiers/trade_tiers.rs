@@ -1,6 +1,6 @@
 //! The tiers of the modifiers of an item copied from the in-game trade, found from their values
 //! alone: its candidates, its best reading, then the other readings that put lines in doubt,
-//! and how the search ended.
+//! why a line is left without tier, and how the search ended.
 
 use super::ModifierTiers;
 use super::best_reading::{AffixesLeft, BestReading, Cut, Room, best_reading};
@@ -10,7 +10,7 @@ use super::doubts::{self, Doubts, Outcome};
 use super::item_tables::{ItemBase, ItemTables};
 use super::split_lines::AddedTiers;
 use crate::game_data::lines::modifier_stats;
-use crate::item::{Affix, Modifier, ModifierKind, ModifierOrigin};
+use crate::item::{Affix, Modifier, ModifierKind, ModifierOrigin, NoTier};
 use crate::language::Language;
 
 /// How many prefixes and suffixes an item can have: those of its rarity, with those its runes
@@ -70,13 +70,23 @@ pub(super) struct FoundTiers {
     pub(super) added: Option<AddedTiers>,
 }
 
+/// What the search of the tiers of an item copied from the in-game trade tells of its lines.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub(super) struct TradeTiers {
+    /// The tiers found, in the order of their lines.
+    pub(super) found: Vec<FoundTiers>,
+    /// The indexes among the modifiers of the item of the lines searched and left without
+    /// tier, in their order, each with why.
+    pub(super) without_tier: Vec<(usize, NoTier)>,
+}
+
 /// The tiers of the explicit `modifiers` of `item`, rare or magic, copied from the in-game
 /// trade, found from their values in the tables of its base among the tiers its level allows;
 /// the other modifiers count as the affix their header tells. A
-/// modifier no tier holds isn't in the list, nor counted as a prefix or a suffix: a stat the
-/// tables don't know; nor a line adding up two modifiers of the same stat in more than one way
-/// (two ways in two neighbouring tiers of one of them being one), with the other lines of its
-/// hybrids, which take their room.
+/// modifier no tier holds isn't among those found, nor counted as a prefix or a suffix: a stat
+/// the tables don't know; nor a line adding up two modifiers of the same stat in more than one
+/// way (two ways in two neighbouring tiers of one of them being one), with the other lines of
+/// its hybrids, which take their room.
 ///
 /// Only the explicit modifiers without header are read, one line each, as the parser reads
 /// such a copy: a modifier whose header the parser doesn't know isn't a line of the in-game
@@ -116,31 +126,35 @@ pub(super) struct FoundTiers {
 /// being read on consecutive lines ([`FoundTiers::modifiers`]): its lines stay without tier,
 /// also when the room of the item leaves no other reading.
 ///
+/// A line left without tier says why ([`lines_without_tier`]): in doubt, when modifiers of
+/// the tables hold it and nothing tells which rolled, or held by no modifier.
+///
 /// No tier is found on a sanctified item, whose values can each have left their tier, for
 /// the one next to it as well (the `+74 to maximum Mana` of the owner's sceptre, a T5
 /// `80–89`, falls in the T6): nothing in such a copy tells which did (owner's choice on
-/// 2026-11-11).
+/// 2026-11-11). Its lines aren't searched, nor those of an item whose base the tables don't
+/// know: none of them is told without tier.
 #[must_use]
-pub(super) fn trade_tiers(item: &TradeItem<'_>, modifiers: &[Modifier]) -> Vec<FoundTiers> {
+pub(super) fn trade_tiers(item: &TradeItem<'_>, modifiers: &[Modifier]) -> TradeTiers {
     if item.is_sanctified {
-        return Vec::new();
+        return TradeTiers::default();
     }
     let Some(tables) = ItemTables::of_game(item.base) else {
-        return Vec::new();
+        return TradeTiers::default();
     };
     let ItemBase {
         language,
         base_type,
         ..
     } = item.base;
-    let (found, effort) = trade_tiers_in(&tables, language, modifiers, item.limits);
+    let (tiers, effort) = trade_tiers_in(&tables, language, modifiers, item.limits);
     log::debug!(
         "Game data, {base_type} copied from the in-game trade: read in {} readings and {} steps",
         effort.readings,
         effort.steps
     );
     effort.ending.log(base_type, item.limits);
-    found
+    tiers
 }
 
 /// What the search of the tiers of an item copied from the in-game trade took, against its
@@ -193,18 +207,51 @@ impl Ending {
     }
 }
 
+/// Whether `modifier` is a line of the in-game trade whose tier is searched from its values:
+/// an explicit modifier without header, revealed.
+fn is_searched(modifier: &Modifier) -> bool {
+    modifier.kind == ModifierKind::Explicit(None)
+        && modifier.tier.is_none()
+        && !modifier.is_unrevealed
+        && !modifier.lines.is_empty()
+}
+
 /// For each of `modifiers`, its lines as copied when it is a line of the in-game trade to
-/// read: an explicit modifier without header, with its stat of the game data.
+/// read: one searched ([`is_searched`]), with its stat of the game data.
 fn lines_to_read(language: Language, modifiers: &[Modifier]) -> Vec<Option<Copied<'static>>> {
     modifiers
         .iter()
         .map(|modifier| {
-            let open = modifier.kind == ModifierKind::Explicit(None)
-                && modifier.tier.is_none()
-                && !modifier.is_unrevealed
-                && !modifier.lines.is_empty();
-            open.then(|| Copied::of(modifier, &modifier_stats(language, modifier, None)))
+            is_searched(modifier)
+                .then(|| Copied::of(modifier, &modifier_stats(language, modifier, None)))
                 .flatten()
+        })
+        .collect()
+}
+
+/// The lines of `modifiers` searched ([`is_searched`]) that `found` leaves without tier, each
+/// with why: in doubt when `is_in_doubt` says so of a line to read, one with its stat of the
+/// game data (`to_read`, [`lines_to_read`]); held by no modifier otherwise, a line without
+/// such a stat among them.
+fn lines_without_tier(
+    modifiers: &[Modifier],
+    to_read: &[Option<Copied<'_>>],
+    found: &[FoundTiers],
+    is_in_doubt: impl Fn(usize) -> bool,
+) -> Vec<(usize, NoTier)> {
+    let has_tier = |line| found.iter().any(|found| found.modifiers.contains(&line));
+    let has_stat = |line: usize| to_read.get(line).is_some_and(Option::is_some);
+    modifiers
+        .iter()
+        .enumerate()
+        .filter(|&(line, modifier)| is_searched(modifier) && !has_tier(line))
+        .map(|(line, _)| {
+            let why = if has_stat(line) && is_in_doubt(line) {
+                NoTier::InDoubt
+            } else {
+                NoTier::NoModifier
+            };
+            (line, why)
         })
         .collect()
 }
@@ -212,12 +259,18 @@ fn lines_to_read(language: Language, modifiers: &[Modifier]) -> Vec<Option<Copie
 /// [`trade_tiers`] among `tables`, for lines written in `language`: those of the game, or
 /// those of a test, so that the search is tested on tables a patch of the game doesn't change;
 /// with what the search took.
+///
+/// A line left without tier is in doubt when a candidate holds it, also one the room of the
+/// item rules out, or another reading leaves it so, and every line to read is when the search
+/// stops at a bound or doesn't meet its best reading; a line no candidate holds and no reading
+/// in the room of the item reads is held by no modifier, as far as the search tells: a hybrid
+/// whose lines are apart is no candidate, and no reading when the item has no room for it.
 fn trade_tiers_in(
     tables: &ItemTables<'_>,
     language: Language,
     modifiers: &[Modifier],
     limits: AffixLimits,
-) -> (Vec<FoundTiers>, Effort) {
+) -> (TradeTiers, Effort) {
     let copied = lines_to_read(language, modifiers);
     let candidates = candidates(tables, &copied);
     let room = room_left(limits, modifiers);
@@ -235,7 +288,11 @@ fn trade_tiers_in(
                 steps: 0,
                 ending: Ending::ReadingsCut,
             };
-            return (Vec::new(), effort);
+            let tiers = TradeTiers {
+                found: Vec::new(),
+                without_tier: lines_without_tier(modifiers, &copied, &[], |_| true),
+            };
+            return (tiers, effort);
         }
     };
     let doubts = doubts::doubts(tables, &copied, &best);
@@ -244,7 +301,19 @@ fn trade_tiers_in(
         steps: doubts.steps,
         ending: Ending::OtherReadings(doubts.outcome),
     };
-    (found_tiers(&best, &doubts), effort)
+    let found = found_tiers(&best, &doubts);
+    let is_in_doubt = |line: usize| {
+        let is_held = candidates
+            .iter()
+            .any(|candidate| candidate.modifiers.contains(&line));
+        is_held || doubts.in_doubt.contains(&line)
+    };
+    let without_tier = lines_without_tier(modifiers, &copied, &found, is_in_doubt);
+    let tiers = TradeTiers {
+        found,
+        without_tier,
+    };
+    (tiers, effort)
 }
 
 /// The room `limits` leave to the lines read from their values: without those of `modifiers`

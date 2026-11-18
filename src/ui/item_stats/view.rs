@@ -9,8 +9,8 @@ use egui::{
 
 use super::Stats;
 use super::model::{
-    Group, Limit, ModifierTier, Origin, Row, Stat, StatFilter, StatRoll, StatText, TierRow,
-    WordTip, radius_word, tier_word,
+    AffixFill, AffixRoom, Group, Limit, ModifierTier, Origin, Row, Stat, StatFilter, StatRoll,
+    StatText, TierRow, WordTip, radius_word, tier_word,
 };
 use super::rolls::ranges_text;
 use crate::filters::{Filter, FilterKey, Filters, Half, Window};
@@ -137,6 +137,8 @@ impl Stats<'_> {
                 Row::Stat(stat) => stat_row(ui, &stat, filters, i18n),
                 Row::UnrevealedNote => note(ui, i18n.text(Message::UnrevealedNote)),
                 Row::TradeCopyNote => note(ui, i18n.text(Message::TradeCopyNote)),
+                Row::UncertainTierNote => note(ui, i18n.text(Message::UncertainTierNote)),
+                Row::SanctifiedNote => note(ui, i18n.text(Message::SanctifiedNote)),
                 Row::UniqueRollsNote => note(ui, i18n.text(Message::UniqueRollsNote)),
             }
         }
@@ -160,20 +162,35 @@ fn group_title(ui: &mut Ui, group: Group, i18n: &Translator) {
         Group::Enchant => (Message::GroupEnchant, None),
         Group::Runes => (Message::GroupRunes, None),
         Group::Implicit => (Message::GroupImplicit, None),
-        Group::Prefixes { filled, max } => (Message::GroupPrefixes, Some((filled, max))),
-        Group::Suffixes { filled, max } => (Message::GroupSuffixes, Some((filled, max))),
+        Group::Prefixes(fill) => (Message::GroupPrefixes, Some(fill)),
+        Group::Suffixes(fill) => (Message::GroupSuffixes, Some(fill)),
         Group::Explicit => (Message::GroupExplicit, None),
         Group::Unique => (Message::GroupUnique, None),
     };
     ui.spacing_mut().item_spacing.x = TITLE_GAP;
     widgets::small_title(ui, &i18n.text(message), color::FAINT);
-    if let Some((filled, max)) = fill {
-        let (words, tint) = match max {
-            Some(max) if filled < max => (i18n.affix_fill(filled, max), color::ACCENT),
-            Some(max) => (i18n.affix_fill(filled, max), color::WEAK),
-            None => (filled.to_string(), color::WEAK),
+    if let Some(fill) = fill {
+        let (words, can_be_open) = fill_words(fill, i18n);
+        let tint = if can_be_open {
+            color::ACCENT
+        } else {
+            color::WEAK
         };
         ui.label(RichText::new(words).font(text::label()).color(tint));
+    }
+}
+
+/// The words of `fill` in `i18n`, and whether a place can be open: "2 of 3 · 1 open"; "1 of 3 ·
+/// up to 1 open" while modifiers without affix known take places it doesn't count; the count
+/// alone without most.
+fn fill_words(fill: AffixFill, i18n: &Translator) -> (String, bool) {
+    let AffixFill { filled, room } = fill;
+    let Some(AffixRoom { max, open_at_most }) = room else {
+        return (filled.to_string(), false);
+    };
+    match open_at_most {
+        None => (i18n.affix_fill(filled, max), filled < max),
+        Some(open) => (i18n.affix_fill_up_to(filled, max, open), open > 0),
     }
 }
 

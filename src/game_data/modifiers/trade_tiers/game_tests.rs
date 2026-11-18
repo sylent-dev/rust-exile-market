@@ -20,7 +20,7 @@ fn found_tiers(
     (prefixes, suffixes): (u32, u32),
 ) -> Vec<FoundTiers> {
     let limits = AffixLimits::new(prefixes, suffixes);
-    trade_tiers(&trade_item(item, item.base_type(), limits), modifiers)
+    trade_tiers(&trade_item(item, item.base_type(), limits), modifiers).found
 }
 
 /// For each part of a line split in two neighbouring tiers, the tier number of its tier and
@@ -252,7 +252,7 @@ fn the_tiers_found_from_the_values_alone_are_those_of_the_advanced_copy() {
         let base_type = base_type.unwrap_or(item.base_type());
         let (modifiers, written) = as_in_game_trade(&item, base_type);
 
-        let read = trade_tiers(&trade_item(&item, base_type, limits), &modifiers);
+        let read = trade_tiers(&trade_item(&item, base_type, limits), &modifiers).found;
 
         // The values of a sanctified item can have left their tiers: none is found.
         if item.has_state(ItemState::Sanctified) {
@@ -327,9 +327,10 @@ fn a_base_the_data_doesnt_know_has_no_tiers_found() {
     let item = parse(TIARA_EN);
     let limits = AffixLimits::new(3, 3);
 
-    let found = trade_tiers(&english_item("Unknown Tiara", 82, limits), item.modifiers());
+    let tiers = trade_tiers(&english_item("Unknown Tiara", 82, limits), item.modifiers());
 
-    assert_eq!(found, []);
+    // Its lines aren't searched: none is told without tier.
+    assert_eq!(tiers, TradeTiers::default());
 }
 
 /// The lines of two pure prefixes of a helmet that also fit the hybrid of both, T3
@@ -391,7 +392,8 @@ fn a_tier_above_the_item_level_isnt_found() {
         let found = trade_tiers(
             &english_item("Ancestral Tiara", item_level, limits),
             &modifiers,
-        );
+        )
+        .found;
         summary(&modifiers, &found)
     };
 
@@ -409,7 +411,8 @@ fn a_tier_above_the_item_level_isnt_found() {
         let found = trade_tiers(
             &english_item("Ancestral Tiara", item_level, limits),
             &rarity,
-        );
+        )
+        .found;
         summary(&rarity, &found)
     };
     assert_eq!(
@@ -516,7 +519,8 @@ fn greaves_read(modifiers: &[Modifier], item_level: u32) -> (LinesRead, Added) {
     let found = trade_tiers(
         &english_item("Bronze Greaves", item_level, limits),
         modifiers,
-    );
+    )
+    .found;
     (lines_read(modifiers, &found), added(modifiers, &found))
 }
 
@@ -600,7 +604,8 @@ fn the_summed_part_of_a_split_line_in_two_neighbouring_tiers_keeps_both() {
         let found = trade_tiers(
             &english_item("Ancestral Tiara", item_level, limits),
             &rarity,
-        );
+        )
+        .found;
         let numbers = |tiers: &ModifierTiers| -> Vec<u32> {
             tiers.possible().map(|tier| tier.number).collect()
         };
@@ -643,7 +648,7 @@ fn a_line_held_alone_is_split_when_the_other_line_of_the_hybrid_has_no_tier_alon
     ];
     let limits = AffixLimits::new(3, 3);
 
-    let found = trade_tiers(&english_item("Soldier Cuirass", 82, limits), &modifiers);
+    let found = trade_tiers(&english_item("Soldier Cuirass", 82, limits), &modifiers).found;
 
     // 9% is under every pure tier: the hybrid T6 (6–13 · 7–10), and the life the pure T7
     // (85–99), not the pure T6 (100–119) the life alone would be.
@@ -726,7 +731,8 @@ fn the_tiers_of_a_split_are_those_the_item_level_allows() {
         let found = trade_tiers(
             &english_item("Warmonger Bow", item_level, limits),
             &modifiers,
-        );
+        )
+        .found;
         (summary(&modifiers, &found), added(&modifiers, &found))
     };
 
@@ -759,9 +765,10 @@ fn no_tier_is_found_from_the_values_of_a_sanctified_item() {
         )
     };
 
-    // Its values can each have left their tier, for the one next to it as well.
-    assert_ne!(read(false), []);
-    assert_eq!(read(true), []);
+    // Its values can each have left their tier, for the one next to it as well: its lines
+    // aren't searched, and none is told without tier.
+    assert_ne!(read(false).found, []);
+    assert_eq!(read(true), TradeTiers::default());
 }
 
 #[test]
@@ -814,7 +821,7 @@ fn an_affix_the_room_ruled_out_is_kept_when_a_reading_in_doubt_frees_it() {
     .collect();
     let limits = AffixLimits::new(3, 3);
 
-    let found = trade_tiers(&english_item("Ancestral Tiara", 82, limits), &modifiers);
+    let found = trade_tiers(&english_item("Ancestral Tiara", 82, limits), &modifiers).found;
 
     // The energy shield, the life and the mana are three pure prefixes, which leave the rarity
     // a suffix; but they are in doubt, another reading of them, with a line adding up two
@@ -872,7 +879,7 @@ fn a_line_split_with_a_neighbour_its_hybrid_may_not_have_is_in_doubt() {
     let read = |lines: &[&str]| {
         let modifiers: Vec<_> = lines.iter().map(|line| modifier(None, &[*line])).collect();
         let limits = AffixLimits::new(3, 3);
-        trade_tiers(&english_item("Soldier Cuirass", 82, limits), &modifiers)
+        trade_tiers(&english_item("Soldier Cuirass", 82, limits), &modifiers).found
     };
 
     // 119% is above every pure tier: the pure T2 (92–100) with the hybrid with the life T4

@@ -131,6 +131,9 @@ const RECORDED: [Counts; 6] = [
         right: 24137,
         either_affix: 198,
         without_tier: 2520,
+        in_doubt: 2520,
+        hybrid_without_tier: 1604,
+        summed_without_tier: 648,
         other_tier: 85,
         other_modifier: 47,
         summed_other_modifier: 47,
@@ -147,6 +150,9 @@ const RECORDED: [Counts; 6] = [
         right: 22669,
         either_affix: 216,
         without_tier: 3994,
+        in_doubt: 3994,
+        hybrid_without_tier: 2969,
+        summed_without_tier: 712,
         other_tier: 82,
         other_modifier: 44,
         summed_other_modifier: 44,
@@ -163,6 +169,9 @@ const RECORDED: [Counts; 6] = [
         right: 23925,
         either_affix: 172,
         without_tier: 1648,
+        in_doubt: 1648,
+        hybrid_without_tier: 1194,
+        summed_without_tier: 287,
         other_tier: 43,
         other_modifier: 22,
         summed_other_modifier: 11,
@@ -179,6 +188,9 @@ const RECORDED: [Counts; 6] = [
         right: 22705,
         either_affix: 75,
         without_tier: 300,
+        in_doubt: 300,
+        hybrid_without_tier: 258,
+        summed_without_tier: 42,
         other_tier: 0,
         other_modifier: 54,
         summed_other_modifier: 0,
@@ -195,6 +207,9 @@ const RECORDED: [Counts; 6] = [
         right: 23743,
         either_affix: 153,
         without_tier: 1207,
+        in_doubt: 1207,
+        hybrid_without_tier: 928,
+        summed_without_tier: 190,
         other_tier: 42,
         other_modifier: 30,
         summed_other_modifier: 9,
@@ -211,6 +226,9 @@ const RECORDED: [Counts; 6] = [
         right: 24590,
         either_affix: 175,
         without_tier: 2068,
+        in_doubt: 2068,
+        hybrid_without_tier: 1229,
+        summed_without_tier: 636,
         other_tier: 24,
         other_modifier: 34,
         summed_other_modifier: 34,
@@ -614,6 +632,14 @@ struct Counts {
     either_affix: usize,
     /// The lines left without tier.
     without_tier: usize,
+    /// Those of `without_tier` the search tells in doubt, the others held by no modifier: all
+    /// of them, every line of the draw having a reading.
+    in_doubt: usize,
+    /// Those of `without_tier` that are a line of one hybrid.
+    hybrid_without_tier: usize,
+    /// Those of `without_tier` that add up two modifiers or more; the others, neither of a
+    /// hybrid nor a sum, are a pure modifier.
+    summed_without_tier: usize,
     /// The lines read as their modifiers, one in another tier: a value in two tiers takes the
     /// worst.
     other_tier: usize,
@@ -745,13 +771,18 @@ fn either_affix(line: usize, found: &[FoundTiers]) -> bool {
         .any(|found| found.modifiers.contains(&line) && found.affixes.len() > 1)
 }
 
-/// Whether the line `line` of `item` is a line of one hybrid that `found` reads alone, as a
-/// modifier of that line only.
-fn hybrid_read_alone(item: &DrawnItem<'_>, line: usize, found: &[FoundTiers]) -> bool {
+/// Whether the line `line` of `item` is a line of one hybrid, which adds up no other modifier.
+fn of_one_hybrid(item: &DrawnItem<'_>, line: usize) -> bool {
     let [modifier] = item.lines[line].modifiers.as_slice() else {
         return false;
     };
     item.modifiers[*modifier].lines.len() > 1
+}
+
+/// Whether the line `line` of `item` is a line of one hybrid that `found` reads alone, as a
+/// modifier of that line only.
+fn hybrid_read_alone(item: &DrawnItem<'_>, line: usize, found: &[FoundTiers]) -> bool {
+    of_one_hybrid(item, line)
         && found
             .iter()
             .any(|found| found.modifiers == (line..line + 1) && found.added.is_none())
@@ -787,7 +818,11 @@ fn measure(way: Way) -> (Counts, Vec<&'static str>) {
             };
             read += 1;
             let limits = AffixLimits::new(most, most);
-            let (found, effort) = trade_tiers_in(&tables, Language::English, &modifiers, limits);
+            let (tiers, effort) = trade_tiers_in(&tables, Language::English, &modifiers, limits);
+            let TradeTiers {
+                found,
+                without_tier,
+            } = tiers;
             counts.items += 1;
             counts.most_readings = counts.most_readings.max(effort.readings);
             counts.most_steps = counts.most_steps.max(effort.steps);
@@ -801,7 +836,13 @@ fn measure(way: Way) -> (Counts, Vec<&'static str>) {
                         counts.right += 1;
                         counts.either_affix += usize::from(either_affix(index, &found));
                     }
-                    Read::WithoutTier => counts.without_tier += 1,
+                    Read::WithoutTier => {
+                        counts.without_tier += 1;
+                        let in_doubt = without_tier.contains(&(index, NoTier::InDoubt));
+                        counts.in_doubt += usize::from(in_doubt);
+                        counts.hybrid_without_tier += usize::from(of_one_hybrid(&item, index));
+                        counts.summed_without_tier += usize::from(summed);
+                    }
                     Read::OtherTier => {
                         counts.other_tier += 1;
                         wrong = true;

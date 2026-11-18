@@ -38,7 +38,7 @@ pub use gem::{
 #[cfg(test)]
 pub use modifier::Roll;
 pub use modifier::{
-    Affix, AffixTier, Currency, Lord, Modifier, ModifierKind, ModifierOrigin, PartTier,
+    Affix, AffixTier, Currency, Lord, Modifier, ModifierKind, ModifierOrigin, NoTier, PartTier,
     RadiusSkills, Range, StatLine, TierDoubt, radius_line,
 };
 pub use parser::{ParseError, ParseWarning, read_quality, whole_percent};

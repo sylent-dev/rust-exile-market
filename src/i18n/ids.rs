@@ -170,14 +170,24 @@ messages! {
     UnrevealedPrefix => "unrevealed-prefix",
     UnrevealedSuffix => "unrevealed-suffix",
     UnrevealedNote => "unrevealed-note",
-    /// The note under the stats of a rare or magic item copied from the in-game trade.
+    /// The note under the stats of a rare or magic item copied from the in-game trade, and its
+    /// second sentence once a line is in doubt.
     TradeCopyNote => "trade-copy-note",
+    UncertainTierNote => "uncertain-tier-note",
+    /// The note under the stats of a sanctified item copied from the in-game trade, in place
+    /// of the one above.
+    SanctifiedNote => "sanctified-note",
     /// The note under the stats of a unique copied from the in-game trade.
     UniqueRollsNote => "unique-rolls-note",
     /// After the range of a line of a Time-Lost jewel, the passive skills in its radius it is
     /// granted to.
     RadiusSmall => "radius-small",
     RadiusNotable => "radius-notable",
+    /// In place of the tier of a line copied from the in-game trade that has none, why: a line
+    /// in doubt, or a value no modifier holds, with its tooltip.
+    TierUncertain => "tier-uncertain",
+    TierNotFound => "tier-not-found",
+    TierNotFoundWhy => "tier-not-found-why",
     /// After the range of a tier found from the values, the affix it is the tier of.
     AffixPrefix => "affix-prefix",
     AffixSuffix => "affix-suffix",
@@ -298,6 +308,7 @@ pub(super) const NO_PRICE_FOUND: &str = "no-price-found";
 pub(super) const SHOW_STATS: &str = "show-stats";
 pub(super) const AFFIX_FILL: &str = "affix-fill";
 pub(super) const AFFIX_FILL_OPEN: &str = "affix-fill-open";
+pub(super) const AFFIX_FILL_UP_TO: &str = "affix-fill-up-to";
 pub(super) const LORD_PREFIX: &str = "lord-prefix";
 pub(super) const LORD_SUFFIX: &str = "lord-suffix";
 pub(super) const ACTIVE_FILTERS: &str = "active-filters";

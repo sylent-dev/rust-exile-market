@@ -57,6 +57,7 @@ fn the_code_and_every_file_have_the_same_messages() {
             SHOW_STATS,
             AFFIX_FILL,
             AFFIX_FILL_OPEN,
+            AFFIX_FILL_UP_TO,
             LORD_PREFIX,
             LORD_SUFFIX,
             ACTIVE_FILTERS,
@@ -402,6 +403,24 @@ fn the_fill_of_the_affixes_tells_the_open_ones() {
 
     assert_eq!(english.affix_fill(3, 3), "3 of 3");
     assert_eq!(english.affix_fill(2, 3), "2 of 3 · 1 open");
+}
+
+#[test]
+fn the_fill_of_the_affixes_tells_the_most_places_open_while_some_are_taken_unseen() {
+    let english = Translator::new(Language::English);
+    let french = Translator::new(Language::French);
+
+    assert_eq!(english.affix_fill_up_to(1, 3, 2), "1 of 3 · up to 2 open");
+    assert_eq!(
+        french.affix_fill_up_to(1, 3, 2),
+        "1 sur 3 · jusqu'à 2 libres"
+    );
+    assert_eq!(
+        french.affix_fill_up_to(1, 3, 1),
+        "1 sur 3 · jusqu'à 1 libre"
+    );
+    // None can be open: the count alone, as for a full affix.
+    assert_eq!(english.affix_fill_up_to(2, 3, 0), "2 of 3");
 }
 
 /// The marks of `line`, a line of a translation file, that don't follow a non-breaking

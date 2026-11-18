@@ -91,3 +91,21 @@ fn the_bar_of_the_tier_of_a_waystone_goes_from_tier_1_to_tier_16() {
     assert!(waystone_tier_share(0).abs() < f32::EPSILON);
     assert!((waystone_tier_share(17) - 1.0).abs() < f32::EPSILON);
 }
+
+#[test]
+fn the_fill_of_an_affix_is_lit_while_a_place_can_be_open() {
+    let i18n = Translator::new(crate::language::Language::English);
+    let words = |room| fill_words(AffixFill { filled: 2, room }, &i18n);
+    let room = |max, open_at_most| Some(AffixRoom { max, open_at_most });
+
+    assert_eq!(words(room(3, None)), ("2 of 3 · 1 open".to_owned(), true));
+    assert_eq!(words(room(2, None)), ("2 of 2".to_owned(), false));
+    // Modifiers without affix take places the fill doesn't count: one open at most, or none.
+    assert_eq!(
+        words(room(3, Some(1))),
+        ("2 of 3 · up to 1 open".to_owned(), true)
+    );
+    assert_eq!(words(room(3, Some(0))), ("2 of 3".to_owned(), false));
+    // A corrupted waystone: its count alone.
+    assert_eq!(words(None), ("2".to_owned(), false));
+}

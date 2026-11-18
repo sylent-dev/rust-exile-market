@@ -423,7 +423,9 @@ fn a_modifier_whose_header_is_unknown_is_explicit_without_tier() {
             "■ Strength: 12 ≥11",
             "Implicit",
             "□ +8% to all Elemental Resistances ≥7 [7–10 0.33]",
-            "Suffixes 1/3",
+            // Its affix unknown, it takes a place the fills don't count: two suffixes open
+            // at most.
+            "Suffixes 1/3 ≤2",
             "□ +12 to Strength ≥11 [0.25 T7 9–12]",
             // Neither a prefix nor a suffix: no tier, like a modifier the tables don't
             // know.
@@ -993,6 +995,23 @@ fn a_corrupted_waystone_shows_the_count_of_its_affixes_alone() {
             "□ Area has patches of Shocked Ground",
             "□ Monsters are Evasive",
             "□ Monsters are Armoured",
+            "Trade copy note",
+        ]
+    );
+    // With a line no modifier holds, in Explicit: still the count alone, without open places,
+    // nothing being able to change the item.
+    let unheld = texts(&read_again(parse(
+        "Item Class: Waystones\nRarity: Rare\nGrim Path\nWaystone (Tier 15)\n--------\n\
+             Item Level: 82\n--------\n\
+             Monsters are Evasive\n99% less effect of Curses on Monsters\n--------\nCorrupted",
+    )));
+    assert_eq!(
+        explicit_rows(unheld),
+        [
+            "Suffixes 1",
+            "□ Monsters are Evasive",
+            "Explicit",
+            "□ 99% less effect of Curses on Monsters ≥89 [TierNotFound TierNotFoundWhy]",
             "Trade copy note",
         ]
     );

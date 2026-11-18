@@ -196,6 +196,8 @@ group-pseudo = Pseudo
 # Beside Prefixes and Suffixes: how many the item has, of the most it can have.
 affix-fill = { $filled } of { $max }
 affix-fill-open = { $filled } of { $max } · { $open } open
+# The same while a modifier of the item has no affix known (a line in doubt, a prefix or a suffix): it takes a place the count doesn't show, so the open places are a most.
+affix-fill-up-to = { $filled } of { $max } · up to { $open } open
 # The pill of an item without modifiers, which has filters only, and once unfolded.
 show-filters = Show filters
 hide-filters = Hide filters
@@ -276,6 +278,15 @@ unrevealed-suffix = Unrevealed desecrated suffix
 unrevealed-note = An unrevealed modifier can change the item: its other stats start unchecked.
 # Under the stats of a rare or magic item copied from the trade of the game, without the affixes and tiers of the advanced copy.
 trade-copy-note = The tiers are found from the values.
+# Its second sentence, on a line of its own, once a line is in doubt ("Uncertain tier").
+uncertain-tier-note = A tier is uncertain when several modifiers fit its value.
+# In place of the tier of a line copied from the trade of the game, small and gray: several modifiers fit its value and nothing tells which one rolled.
+tier-uncertain = Uncertain tier
+# The same for a value no modifier of the game data holds (an item copied before a patch), and its tooltip.
+tier-not-found = No tier found
+tier-not-found-why = No known modifier holds this value.
+# Under the stats of a sanctified item copied from the trade of the game, in place of the note of the tiers: the sanctification moves each value, maybe out of its tier, so no tier is searched.
+sanctified-note = The values of a sanctified item can leave their tier: none is found.
 # Under the stats of a unique copied from the trade of the game, without the ranges of the advanced copy: its rolls come from the price database.
 unique-rolls-note = The rolls are those of poe2scout.
 # After the range of a line of a Time-Lost jewel, on a small gray block: the passive skills in its radius that receive the line. The line is shown without the words of the game that name them.
