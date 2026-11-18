@@ -1,9 +1,9 @@
 //! The filters of the offers search, as the player sets them: whether each stat of the item,
 //! or its base type, item level, sockets, quality, required level, DPS, the tier and the
-//! properties of a waystone or of a gem, or pseudo totals, is searched, its minimum and its maximum, and the
-//! state tags the player lit. They belong to the item copied, and are remembered with it when
-//! another item is copied ([`crate::recent_items`]); a stat the player didn't touch keeps the
-//! choice made for it by default.
+//! properties of a waystone or of a gem, or pseudo totals, is searched, its minimum and its
+//! maximum, and the state tags the player lit. They belong to the item copied, and are
+//! remembered with it when another item is copied ([`crate::recent_items`]); a stat the player
+//! didn't touch keeps the choice made for it by default.
 //!
 //! The minimum and the maximum searched stay within the range of the stat, whatever the
 //! player is typing ([`Filter::searched`]).

@@ -22,7 +22,7 @@ Le palier d'une pierre de téléportation est maintenant un filtre à part, « T
 1. **Le palier élargi** : **Ctrl+D** sur la pierre, **« Show N stats »**.
    ✅ Pas de ligne « Base: Waystone » ; en tête du groupe **Waystone**, « Tier: N » coché, son champ « N – N », la barre et « TN » dessous, dans la couleur du palier.
    Tape `N-1` dans le **min** et vide le **max** (« 11 – » pour une T12), puis clique sur la **loupe**.
-   ✅ Les offres arrivent ; au survol de quelques-unes, leur infobulle dit « Waystone · T11 » ou « T12 » (ou plus), jamais en dessous du min.
+   ✅ Les offres arrivent ; au survol, au moins une est d'un autre palier que N (« … · T11 » pour une T12, ou au-dessus), aucune en dessous du min. Si toutes sont en TN, note-le : le marché est peut-être trop maigre.
    Puis clique sur **« Check on trade »**.
    ✅ Le site d'échange s'ouvre sur la catégorie des pierres de téléportation, le filtre « Waystone Tier » à min `N-1`, sans max.
 

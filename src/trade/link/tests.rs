@@ -463,6 +463,25 @@ fn a_magic_item_is_searched_by_the_category_of_the_base_its_name_holds() {
 }
 
 #[test]
+fn a_waystone_is_searched_by_its_tier_only_when_it_can_be_read() {
+    // A tier the game data doesn't know: among any base, its tier narrowing the waystones;
+    // by its base type when nothing narrows the search.
+    let unknown = parse("Item Class: Waystones\nRarity: Rare\nGrim Path\nWaystone (Tier 17)");
+    assert_eq!(searched_base(&unknown, false, true), SearchedBase::Any);
+    assert_eq!(
+        searched_base(&unknown, false, false),
+        SearchedBase::Type("Waystone (Tier 17)".to_owned())
+    );
+    // A base without tier: by its base type, never among every tier.
+    let tierless = parse("Item Class: Waystones\nRarity: Rare\nGrim Path\nStrange Waystone");
+    assert_eq!(
+        searched_base(&tierless, false, true),
+        SearchedBase::Type("Strange Waystone".to_owned())
+    );
+    assert_eq!(searched_tier(&tierless, "Strange Waystone"), None);
+}
+
+#[test]
 fn a_base_the_game_data_doesnt_know_is_searched_when_nothing_else_narrows_the_search() {
     let rare = parse("Item Class: Rings\nRarity: Rare\nWoe Loop\nMystery Ring");
 

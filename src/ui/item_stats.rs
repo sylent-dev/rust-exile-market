@@ -157,7 +157,16 @@ pub(super) fn property_value(property: Property, value: f64) -> String {
         Property::Waystone(waystone) if waystone.is_percent() && value > 0.0 => {
             format!("+{}", format::number(value))
         }
-        _ => format::number(value),
+        Property::Waystone(_)
+        | Property::WaystoneTier
+        | Property::ItemLevel
+        | Property::Sockets
+        | Property::Quality
+        | Property::RequiredLevel
+        | Property::PhysicalDps
+        | Property::ElementalDps
+        | Property::GemLevel
+        | Property::GemSockets => format::number(value),
     }
 }
 

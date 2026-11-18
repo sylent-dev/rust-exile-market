@@ -578,6 +578,49 @@ fn a_waystone_is_searched_by_its_properties_and_its_tier() {
     );
 }
 
+#[test]
+fn a_waystone_whose_tier_cant_be_read_keeps_the_filter_of_its_base() {
+    // A base of the class of the waystones that writes no tier, as a patch could add: searched
+    // by its base type, never among every tier.
+    let waystone = parse(
+        "Item Class: Waystones\nRarity: Normal\nStrange Waystone\n--------\n\
+         Item Rarity: +11% (augmented)\n--------\nItem Level: 80",
+    );
+    assert_eq!(
+        texts(&waystone),
+        [
+            "Item",
+            "■ Base: Strange Waystone",
+            "■ ItemLevel: 80 ≥80",
+            "Waystone",
+            "■ Waystone(ItemRarity): 11 ≥9",
+        ]
+    );
+}
+
+#[test]
+fn the_tier_of_a_waystone_alone_doesnt_compare_the_item() {
+    // Its tier narrows the waystones of the league, not the ones of its tier: with its
+    // properties left unchecked, the price block asks for a stat to estimate it.
+    let waystone = parse(
+        "Item Class: Waystones\nRarity: Rare\nGrim Path\nWaystone (Tier 12)\n--------\n\
+         Revives Available: 3 (augmented)\nMonster Rarity: +25% (augmented)\n--------\n\
+         Item Level: 80\n--------\n{ Prefix Modifier \"Painful\" (Tier: 1) }\n\
+         18(15-19)% increased Monster Damage",
+    );
+    assert_eq!(
+        texts(&waystone)[..5],
+        [
+            "Item",
+            "□ ItemLevel: 80 ≥80",
+            "Waystone",
+            "■ WaystoneTier: 12 =12 [Waystone T12]",
+            "□ Waystone(Revives): 3 ≥3",
+        ]
+    );
+    assert_eq!(default_checks(&waystone), crate::ui::StatChecks::Unchecked);
+}
+
 /// The query sent for the waystone copied as `text`, of `base_type`, its filter of the tier
 /// set by the player to `tier` (its minimum, its maximum, checked) when given.
 fn waystone_query(

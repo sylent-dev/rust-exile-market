@@ -8,7 +8,7 @@ use super::rolls::{COMPARABLE_MARGIN, comparable_limit, decimals};
 use crate::filters::{FilterKey, Half, Property};
 use crate::game_data::{self, Category};
 use crate::item::{
-    self, Item, MAX_GEM_LEVEL, MAX_GEM_QUALITY, MAX_GEM_SOCKETS, MAX_WAYSTONE_TIER, Range, Rarity,
+    Item, MAX_GEM_LEVEL, MAX_GEM_QUALITY, MAX_GEM_SOCKETS, MAX_WAYSTONE_TIER, Range, Rarity,
     USUAL_QUALITY, WaystoneProperty,
 };
 use crate::trade::link;
@@ -62,14 +62,15 @@ const UNREVEALED_MODIFIERS: Range = Range { min: 0.0, max: 6.0 };
 
 /// The filters of the properties of a rare, magic or normal item, like Exiled Exchange 2: its
 /// base type, checked (unchecked, its item class is searched in its place), but for a
-/// waystone, searched by its tier ([`waystone_filters`]); its item level, checked on a
+/// waystone searched by its tier ([`link::searched_tier`], [`waystone_filters`]); its item
+/// level, checked on a
 /// normal item only (a player who checks it on another usually looks for a level of crafting),
 /// with the level of the item as its minimum; then its sockets, its quality and its required
 /// level when they are filters, and the number of its unrevealed modifiers, checked with that
 /// number as its minimum.
 pub(super) fn item_filters<'a>(item: &'a Item, base_type: Option<&'a str>) -> Vec<Stat<'a>> {
     let base_type_filter = base_type
-        .filter(|_| !item.is_waystone())
+        .filter(|&base_type| link::searched_tier(item, base_type).is_none())
         .map(|base_type| Stat {
             key: FilterKey::BaseType,
             text: StatText::BaseType {
@@ -102,19 +103,17 @@ pub(super) fn item_filters<'a>(item: &'a Item, base_type: Option<&'a str>) -> Ve
         .collect()
 }
 
-/// The filters of a waystone: first its tier, read from its `base_type`, checked, from that
+/// The filters of a waystone: first its tier, read from its `base_type` when it is searched by
+/// it ([`link::searched_tier`]), checked, from that
 /// tier to that tier, which the player widens, a bar of the tier under it; then its properties,
 /// in the order of the item: the item rarity and the drop chance checked, what the players run
 /// a map for, the others unchecked; a percentage with a minimum at 90 % of its value, rounded
 /// down, as a modifier, the revives with their number; none for a property of zero or below,
 /// which searches nothing.
 pub(super) fn waystone_filters(item: &Item, base_type: Option<&str>) -> Vec<Stat<'static>> {
-    if !item.is_waystone() {
-        return Vec::new();
-    }
     let tier = base_type
-        .and_then(|base_type| item::base_and_tier(item.language(), base_type))
-        .map(|(_, tier)| Stat {
+        .and_then(|base_type| link::searched_tier(item, base_type))
+        .map(|tier| Stat {
             roll: Some(StatRoll::WaystoneTier(tier)),
             ..property_filter(
                 Property::WaystoneTier,
