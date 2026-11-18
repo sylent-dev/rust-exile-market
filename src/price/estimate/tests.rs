@@ -37,6 +37,31 @@ fn the_estimate_is_the_median_of_the_five_cheapest_offers_but_the_suspicious_one
 }
 
 #[test]
+fn the_range_goes_from_the_cheapest_to_the_dearest_offer_counted() {
+    // The bow again: the bait at 300 ex and the offers past the fifth aren't counted.
+    let mut offers = vec![item_offer(300.0, "exalted")];
+    offers.extend(divines(&[2.0, 2.2, 2.4, 2.5, 3.0, 3.1, 3.5, 4.0, 4.2]));
+
+    let bow = Estimate::of(&offers, 18, WORTH, None).unwrap();
+
+    assert_eq!((bow.cheapest, bow.dearest), (2.0 * 700.0, 3.0 * 700.0));
+}
+
+#[test]
+fn the_range_reads_the_offers_sorted_with_the_rates_of_the_prices() {
+    // The trade site put 1 div before 650 ex, and 1.1 div last: the cheapest is the 650 ex.
+    let offers = [
+        item_offer(1.0, "divine"),
+        item_offer(650.0, "exalted"),
+        item_offer(1.1, "divine"),
+    ];
+
+    let sorted = Estimate::of(&offers, 3, WORTH, None).unwrap();
+
+    assert_eq!((sorted.cheapest, sorted.dearest), (650.0, 1.1 * 700.0));
+}
+
+#[test]
 fn the_offers_are_compared_in_exalted_orbs() {
     // The magic item of the mock-up: 1 c is worth 70 ex, and comes after 50 ex.
     let offers = [

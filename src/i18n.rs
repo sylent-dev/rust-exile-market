@@ -249,6 +249,16 @@ pub struct Linked {
     pub link: Range<usize>,
 }
 
+/// The range of the offers counted in an estimate, written in one currency: from `cheapest` to
+/// `dearest` `currency`, "2 to 3 div".
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WrittenRange {
+    pub cheapest: String,
+    pub dearest: String,
+    /// The abbreviation of the currency, the same in every language: `div`, `ex`.
+    pub currency: &'static str,
+}
+
 /// The tags of the item block with a number.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NumberTag {
@@ -313,10 +323,12 @@ const UNIT_PRICE: &str = "unit-price";
 const TREND_RISE: &str = "trend-rise";
 const TREND_FALL: &str = "trend-fall";
 const TREND_STABLE: &str = "trend-stable";
-const UNCERTAIN: &str = "uncertain";
-const THIN_TRADES: &str = "thin-trades";
+const LOW_RELIABILITY_OFFERS: &str = "low-reliability-offers";
+const LOW_RELIABILITY_TRADES: &str = "low-reliability-trades";
 const SIMILAR: &str = "similar";
-const ESTIMATE_UNCERTAIN: &str = "estimate-uncertain";
+const LOW_RELIABILITY_SIMILAR: &str = "low-reliability-similar";
+const ESTIMATE_NOTE: &str = "estimate-note";
+const ESTIMATE_NOTE_RANGE: &str = "estimate-note-range";
 
 /// The two messages of the note of an estimate: `plain`, and `of_kind` with the kind of the
 /// quality of a catalyst searched.
@@ -718,16 +730,17 @@ impl Translator {
         self.format(id, Some(&args))
     }
 
-    /// The warning of a price with few offers.
+    /// The line of low reliability of the price of a unique on few offers, `count` of them.
     #[must_use]
-    pub fn uncertain(&self, count: u32) -> String {
-        self.format_number(UNCERTAIN, "count", count)
+    pub fn low_reliability_offers(&self, count: u32) -> String {
+        self.format_number(LOW_RELIABILITY_OFFERS, "count", count)
     }
 
-    /// The warning of an item of the currency exchange priced on few trades.
+    /// The line of low reliability of an item of the currency exchange priced on few trades,
+    /// `count` of them.
     #[must_use]
-    pub fn thin_trades(&self, count: u32) -> String {
-        self.format_number(THIN_TRADES, "count", count)
+    pub fn low_reliability_trades(&self, count: u32) -> String {
+        self.format_number(LOW_RELIABILITY_TRADES, "count", count)
     }
 
     /// The similar offers found, on the right of the title of an estimated price: "18 similar".
@@ -736,28 +749,50 @@ impl Translator {
         self.format_number(SIMILAR, "count", total)
     }
 
-    /// The warning of an estimate from few offers.
+    /// The line of low reliability of an estimate from few offers, the `counted` ones.
     #[must_use]
-    pub fn estimate_uncertain(&self, counted: usize) -> String {
-        self.format_number(ESTIMATE_UNCERTAIN, "count", counted)
+    pub fn low_reliability_similar(&self, counted: usize) -> String {
+        self.format_number(LOW_RELIABILITY_SIMILAR, "count", counted)
     }
 
     /// How an estimate from all the `counted` offers is made, of the kind of the quality of a
-    /// catalyst searched: "Median of the 3 similar offers of mana quality."
+    /// catalyst searched, with the `range` of the offers: "Median of the 3 similar offers of mana
+    /// quality, 40 to 300 ex."
     #[must_use]
-    pub fn estimate_median(&self, counted: usize, searched_catalyst: Option<Catalyst>) -> String {
-        self.format_estimate(MEDIAN, counted, searched_catalyst)
+    pub fn estimate_median(
+        &self,
+        counted: usize,
+        searched_catalyst: Option<Catalyst>,
+        range: Option<&WrittenRange>,
+    ) -> String {
+        let note = self.format_estimate(MEDIAN, counted, searched_catalyst);
+        self.estimate_note(note, range)
     }
 
     /// How an estimate from the `counted` cheapest offers is made, of the kind of the quality
-    /// of a catalyst searched.
+    /// of a catalyst searched, with the `range` of the offers.
     #[must_use]
     pub fn estimate_median_cheapest(
         &self,
         counted: usize,
         searched_catalyst: Option<Catalyst>,
+        range: Option<&WrittenRange>,
     ) -> String {
-        self.format_estimate(MEDIAN_CHEAPEST, counted, searched_catalyst)
+        let note = self.format_estimate(MEDIAN_CHEAPEST, counted, searched_catalyst);
+        self.estimate_note(note, range)
+    }
+
+    /// The `note` of an estimate as a sentence, with the `range` of its offers when given.
+    fn estimate_note(&self, note: String, range: Option<&WrittenRange>) -> String {
+        let mut args = FluentArgs::new();
+        args.set("note", note);
+        let Some(range) = range else {
+            return self.format(ESTIMATE_NOTE, Some(&args));
+        };
+        args.set("cheapest", range.cheapest.as_str());
+        args.set("dearest", range.dearest.as_str());
+        args.set("currency", range.currency);
+        self.format(ESTIMATE_NOTE_RANGE, Some(&args))
     }
 
     /// The kind of the quality of an offer, after its price in the list: "Attack quality".

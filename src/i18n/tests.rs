@@ -93,9 +93,11 @@ fn the_code_and_every_file_have_the_same_messages() {
             TREND_RISE,
             TREND_FALL,
             TREND_STABLE,
-            UNCERTAIN,
+            LOW_RELIABILITY_OFFERS,
             SIMILAR,
-            ESTIMATE_UNCERTAIN,
+            LOW_RELIABILITY_SIMILAR,
+            ESTIMATE_NOTE,
+            ESTIMATE_NOTE_RANGE,
             MEDIAN.plain,
             MEDIAN.of_kind,
             MEDIAN_CHEAPEST.plain,
@@ -114,7 +116,7 @@ fn the_code_and_every_file_have_the_same_messages() {
             OFFERS_UNREADABLE_HINT,
             OFFERS_REPORT,
             OFFERS_REPORT_START,
-            THIN_TRADES,
+            LOW_RELIABILITY_TRADES,
         ])
         .chain(WINDOW_ERROR_IDS)
         .chain(DOWNLOAD_QUOTES)
@@ -223,11 +225,12 @@ fn every_message_formats_without_errors() {
         );
         for count in [0, 1, 4, 23] {
             assert!(translator.offers(count).contains(&count.to_string()));
-            assert_ne!(translator.uncertain(count), "");
-            let thin = translator.thin_trades(count);
+            let offers = translator.low_reliability_offers(count);
+            let trades = translator.low_reliability_trades(count);
             assert!(
-                count < 2 || thin.contains(&count.to_string()),
-                "{thin} in {language:?}"
+                count == 0
+                    || offers.contains(&count.to_string()) && trades.contains(&count.to_string()),
+                "{offers}, {trades} in {language:?}"
             );
         }
         assert!(translator.stack_of(7).contains('7'));
@@ -235,10 +238,18 @@ fn every_message_formats_without_errors() {
             assert!(translator.similar(count).contains(&count.to_string()));
         }
         for count in [1, 4] {
-            assert_ne!(translator.estimate_uncertain(count), "");
-            assert_ne!(translator.estimate_median(count, None), "");
+            assert!(
+                translator
+                    .low_reliability_similar(count)
+                    .contains(&count.to_string())
+            );
+            assert_ne!(translator.estimate_median(count, None, None), "");
         }
-        assert!(translator.estimate_median_cheapest(5, None).contains('5'));
+        assert!(
+            translator
+                .estimate_median_cheapest(5, None, None)
+                .contains('5')
+        );
         assert!(translator.show_stats(1).contains('1'));
         assert!(translator.show_stats(6).contains('6'));
         assert!(translator.affix_fill(3, 3).contains('3'));
@@ -417,16 +428,57 @@ fn a_mark_right_after_its_word_or_after_an_ordinary_space_is_found() {
 }
 
 #[test]
-fn no_offer_has_its_own_warning_in_every_language() {
+fn a_low_reliability_says_what_the_price_stands_on_and_no_offer_has_its_own_words() {
     // In French, the plural category "one" covers 0 too.
     let french = Translator::new(Language::French);
-    assert!(french.uncertain(0).starts_with("Aucune offre"));
-    assert!(french.uncertain(1).starts_with("Une seule offre"));
-    assert!(french.thin_trades(0).starts_with("Aucun échange"));
-    assert!(french.thin_trades(1).starts_with("Un seul échange"));
     let english = Translator::new(Language::English);
-    assert!(english.uncertain(0).starts_with("No offer"));
-    assert!(english.thin_trades(0).starts_with("No trade"));
+
+    assert_eq!(
+        [0, 1, 4].map(|count| french.low_reliability_offers(count)),
+        [
+            "Fiabilité faible\u{a0}: aucune offre récente",
+            "Fiabilité faible\u{a0}: 1 offre",
+            "Fiabilité faible\u{a0}: 4 offres",
+        ]
+    );
+    assert_eq!(
+        [0, 1, 3].map(|count| french.low_reliability_trades(count)),
+        [
+            "Fiabilité faible\u{a0}: aucun échange récent",
+            "Fiabilité faible\u{a0}: 1 échange",
+            "Fiabilité faible\u{a0}: 3 échanges",
+        ]
+    );
+    assert_eq!(
+        [1, 3].map(|counted| french.low_reliability_similar(counted)),
+        [
+            "Fiabilité faible\u{a0}: 1 offre similaire",
+            "Fiabilité faible\u{a0}: 3 offres similaires",
+        ]
+    );
+    assert_eq!(
+        [0, 1, 4].map(|count| english.low_reliability_offers(count)),
+        [
+            "Low reliability: no offer lately",
+            "Low reliability: 1 offer",
+            "Low reliability: 4 offers",
+        ]
+    );
+    assert_eq!(
+        [0, 1, 3].map(|count| english.low_reliability_trades(count)),
+        [
+            "Low reliability: no trade lately",
+            "Low reliability: 1 trade",
+            "Low reliability: 3 trades",
+        ]
+    );
+    assert_eq!(
+        [1, 3].map(|counted| english.low_reliability_similar(counted)),
+        [
+            "Low reliability: 1 similar offer",
+            "Low reliability: 3 similar offers",
+        ]
+    );
 }
 
 #[test]
@@ -434,14 +486,38 @@ fn an_estimate_from_one_offer_is_its_price() {
     for language in Language::ALL {
         let translator = Translator::new(language);
         assert!(
-            !translator.estimate_median(1, None).contains('1'),
+            !translator.estimate_median(1, None, None).contains('1'),
             "{language:?}"
         );
-        assert!(translator.estimate_median(3, None).contains('3'));
+        assert!(translator.estimate_median(3, None, None).contains('3'));
     }
+}
+
+#[test]
+fn the_note_of_an_estimate_ends_with_the_range_of_its_offers() {
+    let range = |cheapest: &str, dearest: &str, currency| WrittenRange {
+        cheapest: cheapest.to_owned(),
+        dearest: dearest.to_owned(),
+        currency,
+    };
+    let english = Translator::new(Language::English);
+    let french = Translator::new(Language::French);
+
     assert_eq!(
-        Translator::new(Language::English).estimate_uncertain(3),
-        "Only 3 similar offers: the estimate is uncertain"
+        english.estimate_median(3, None, Some(&range("40", "300", "ex"))),
+        "Median of the 3 similar offers, 40 to 300 ex."
+    );
+    assert_eq!(
+        english.estimate_median_cheapest(5, Some(Catalyst::Mana), Some(&range("2", "3", "div"))),
+        "Median of the 5 cheapest similar offers of mana quality, 2 to 3 div."
+    );
+    assert_eq!(
+        french.estimate_median_cheapest(5, None, Some(&range("2", "3", "div"))),
+        "Médiane des 5 offres similaires les moins chères, de 2 à 3 div."
+    );
+    assert_eq!(
+        french.estimate_median(3, None, Some(&range("40", "300", "ex"))),
+        "Médiane des 3 offres similaires, de 40 à 300 ex."
     );
 }
 
@@ -515,23 +591,23 @@ fn the_note_of_an_estimate_names_the_kind_of_quality_searched() {
     let french = Translator::new(Language::French);
 
     assert_eq!(
-        english.estimate_median_cheapest(5, Some(Catalyst::Mana)),
+        english.estimate_median_cheapest(5, Some(Catalyst::Mana), None),
         "Median of the 5 cheapest similar offers of mana quality."
     );
     assert_eq!(
-        english.estimate_median_cheapest(5, None),
+        english.estimate_median_cheapest(5, None, None),
         "Median of the 5 cheapest similar offers."
     );
     assert_eq!(
-        english.estimate_median(1, Some(Catalyst::Attack)),
+        english.estimate_median(1, Some(Catalyst::Attack), None),
         "Price of the only similar offer of attack quality."
     );
     assert_eq!(
-        french.estimate_median_cheapest(5, Some(Catalyst::Mana)),
+        french.estimate_median_cheapest(5, Some(Catalyst::Mana), None),
         "Médiane des 5 offres similaires les moins chères de qualité de mana."
     );
     assert_eq!(
-        french.estimate_median(3, Some(Catalyst::Attack)),
+        french.estimate_median(3, Some(Catalyst::Attack), None),
         "Médiane des 3 offres similaires de qualité d'attaque."
     );
     assert_eq!(
@@ -556,7 +632,7 @@ fn every_kind_of_catalyst_has_its_text_in_every_language() {
                 "{catalyst:?} in {language:?}: {text}"
             );
             // Not the default variants.
-            let note = translator.estimate_median(3, Some(catalyst));
+            let note = translator.estimate_median(3, Some(catalyst), None);
             let word = translator.offer_quality_kind(catalyst);
             assert!(
                 !["Other quality", "Autre qualité"].contains(&word.as_str())

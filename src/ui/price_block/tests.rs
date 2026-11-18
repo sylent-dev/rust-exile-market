@@ -84,18 +84,25 @@ fn a_skill_gem_has_no_market_price_either() {
     );
 }
 
-#[test]
-fn once_its_offers_are_searched_a_rare_item_has_an_estimated_price() {
-    let estimate = Estimate {
-        exalted: 1680.0,
-        counted: 5,
+/// An estimate of `exalted` Exalted Orbs from `counted` offers, from `cheapest` to `dearest`.
+fn estimate(exalted: f64, counted: usize, (cheapest, dearest): (f64, f64)) -> Estimate<'static> {
+    Estimate {
+        exalted,
+        counted,
+        cheapest,
+        dearest,
         total: 18,
         reference: Reference {
             exalted: 1925.0,
             worth: WORTH,
         },
         searched_catalyst: None,
-    };
+    }
+}
+
+#[test]
+fn once_its_offers_are_searched_a_rare_item_has_an_estimated_price() {
+    let estimate = estimate(1680.0, 5, (1500.0, 2250.0));
 
     assert_eq!(
         view(
@@ -105,6 +112,45 @@ fn once_its_offers_are_searched_a_rare_item_has_an_estimated_price() {
             STANDARD
         ),
         PriceView::Estimated(estimate)
+    );
+}
+
+#[test]
+fn the_range_of_an_estimate_is_in_the_currency_of_its_median() {
+    let written = |exalted, ends| {
+        written_range(&estimate(exalted, 3, ends))
+            .map(|range| (range.cheapest, range.dearest, range.currency))
+    };
+    let range = |cheapest: &str, dearest: &str, currency| {
+        Some((cheapest.to_owned(), dearest.to_owned(), currency))
+    };
+
+    // Under one Divine Orb, in Exalted Orbs.
+    assert_eq!(written(95.0, (40.0, 300.0)), range("40", "300", "ex"));
+    // From one Divine Orb, in Divine Orbs, the cheapest too though it is worth less.
+    assert_eq!(written(900.0, (600.0, 1500.0)), range("0.8", "2", "div"));
+    // The dearest reaches one Divine Orb, the median doesn't: in Exalted Orbs.
+    assert_eq!(written(700.0, (600.0, 1500.0)), range("600", "1.5K", "ex"));
+}
+
+#[test]
+fn a_range_whose_ends_are_written_the_same_isnt_shown() {
+    // One offer.
+    assert_eq!(written_range(&estimate(1500.0, 1, (1500.0, 1500.0))), None);
+    // 2.001 and 2.004 div are both written 2.
+    assert_eq!(written_range(&estimate(1501.0, 2, (1500.75, 1503.0))), None);
+}
+
+#[test]
+fn a_price_on_too_little_has_a_low_reliability_and_says_on_what() {
+    let low = |view: PriceView| low_reliability(&view);
+    let estimated = |counted| PriceView::Estimated(estimate(1680.0, counted, (1500.0, 2250.0)));
+
+    assert_eq!(low(estimated(4)), Some(LowReliability::SimilarOffers(4)));
+    assert_eq!(low(estimated(5)), None);
+    assert_eq!(
+        low(PriceView::Notice(Notice::NoMarketPrice(Rarity::Rare))),
+        None
     );
 }
 
@@ -215,6 +261,20 @@ fn a_fixed_price_on_too_little_is_told_uncertain() {
         PriceView::Priced(MarketPrice { of, .. }) => of,
         other => panic!("{other:?}"),
     };
+    let low = |fixed: FixedPrice| {
+        low_reliability(&view(&Ok((fixed, RATES)), None, Rarity::Unique, STANDARD))
+    };
+
+    assert_eq!(
+        low(FixedPrice::Currency(&currency(9))),
+        Some(LowReliability::Trades(9))
+    );
+    assert_eq!(low(FixedPrice::Currency(&currency(10))), None);
+    assert_eq!(
+        low(FixedPrice::Unique(&unique(4))),
+        Some(LowReliability::Offers(4))
+    );
+    assert_eq!(low(FixedPrice::Unique(&unique(5))), None);
 
     assert_eq!(
         of(FixedPrice::Currency(&currency(9))),

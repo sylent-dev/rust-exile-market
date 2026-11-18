@@ -91,6 +91,10 @@ pub struct Estimate<'a> {
     pub exalted: f64,
     /// The offers counted: [`COUNTED`], or fewer when there are fewer.
     pub counted: usize,
+    /// The cheapest and the dearest of the offers counted, in Exalted Orbs: how far apart they
+    /// are tells how sure the estimate is.
+    pub cheapest: f64,
+    pub dearest: f64,
     /// The similar offers found by the trade site.
     pub total: u64,
     /// The median of the first page of offers, which tells the suspicious ones.
@@ -134,6 +138,8 @@ impl<'a> Estimate<'a> {
         Some(Self {
             exalted: median(&counted)?,
             counted: counted.len(),
+            cheapest: *counted.first()?,
+            dearest: *counted.last()?,
             total,
             reference,
             searched_catalyst,

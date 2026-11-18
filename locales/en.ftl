@@ -312,39 +312,44 @@ unit-price = Unit price: { $prices }
 trend-rise = +{ $percent }% over the last { $days } days
 trend-fall = −{ $percent }% over the last { $days } days
 trend-stable = Stable over the last { $days } days
-uncertain = { $count ->
-    [0] No offer lately: the price is uncertain
-    [one] Only { $count } offer: the price is uncertain
-   *[other] Only { $count } offers: the price is uncertain
+# Under the title of the price of a unique on fewer than 5 offers, in yellow.
+low-reliability-offers = { $count ->
+    [0] Low reliability: no offer lately
+    [one] Low reliability: { $count } offer
+   *[other] Low reliability: { $count } offers
 }
-# Under the price of an item of the currency exchange whose price stands on fewer than 10 trades.
-thin-trades = { $count ->
-    [0] No trade lately: the price is uncertain
-    [one] Only { $count } trade: the price is uncertain
-   *[other] Only { $count } trades: the price is uncertain
+# Under the title of the price of an item of the currency exchange on fewer than 10 trades.
+low-reliability-trades = { $count ->
+    [0] Low reliability: no trade lately
+    [one] Low reliability: { $count } trade
+   *[other] Low reliability: { $count } trades
 }
 # On the right of the title of an estimated price: the similar offers found.
 similar = { $count ->
     [one] { $count } similar
    *[other] { $count } similar
 }
-# Under an estimated price from fewer than 5 offers, the suspicious ones left out.
-estimate-uncertain = { $count ->
-    [one] Only { $count } similar offer: the estimate is uncertain
-   *[other] Only { $count } similar offers: the estimate is uncertain
+# Under the title of an estimated price from fewer than 5 offers, the suspicious ones left out.
+low-reliability-similar = { $count ->
+    [one] Low reliability: { $count } similar offer
+   *[other] Low reliability: { $count } similar offers
 }
-# Under an estimated price: how it is made.
+# Under an estimated price: how it is made, without its final period (estimate-note).
 estimate-median = { $count ->
-    [one] Price of the only similar offer.
-   *[other] Median of the { $count } similar offers.
+    [one] Price of the only similar offer
+   *[other] Median of the { $count } similar offers
 }
-estimate-median-cheapest = Median of the { $count } cheapest similar offers.
+estimate-median-cheapest = Median of the { $count } cheapest similar offers
 # The same, when the quality of a catalyst is searched: the offers of another kind of quality ($quality, quality-of-kind) aren't counted.
 estimate-median-of = { $count ->
-    [one] Price of the only similar offer of { $quality }.
-   *[other] Median of the { $count } similar offers of { $quality }.
+    [one] Price of the only similar offer of { $quality }
+   *[other] Median of the { $count } similar offers of { $quality }
 }
-estimate-median-cheapest-of = Median of the { $count } cheapest similar offers of { $quality }.
+estimate-median-cheapest-of = Median of the { $count } cheapest similar offers of { $quality }
+# The note of an estimate ($note, one of the four above); with the range of the offers counted, from
+# the cheapest to the dearest, in one currency ($currency: div or ex): "…, 2 to 3 div."
+estimate-note = { $note }.
+estimate-note-range = { $note }, { $cheapest } to { $dearest } { $currency }.
 # The kind of the quality of a catalyst, within a sentence.
 quality-of-kind = { $kind ->
         [life] life quality
