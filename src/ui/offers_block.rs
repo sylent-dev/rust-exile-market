@@ -125,8 +125,8 @@ impl OffersBlock<'_> {
                 let head = Head::of(line, block(Block::Search, wait, busy));
                 self.title_row(ui, &head, hint.as_ref())
             }
-            &OffersState::Limited(reason) => {
-                let (line, hint) = limited_lines(i18n, reason, wait);
+            &OffersState::Limited(cause) => {
+                let (line, hint) = limited_lines(i18n, cause, wait);
                 let head = Head::of(line, block(Block::Search, wait, busy));
                 self.title_row(ui, &head, hint.as_ref())
             }

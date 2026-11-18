@@ -13,7 +13,7 @@ use crate::filters::Property;
 use crate::item::{Catalyst, Item};
 use crate::trade::offers::{ExchangeOffer, ItemOffer};
 use crate::trade::query::{Query, SearchKind};
-use crate::trade::search::{Answer, Failure, NextSearch, Order, Outcome, Rest, Search, Wait};
+use crate::trade::search::{Answer, Failure, NextSearch, Order, Outcome, Rest, Search, WaitCause};
 
 /// The offers shown at once, and added by each click on the double chevron.
 pub const PAGE: usize = 10;
@@ -39,7 +39,7 @@ pub enum OffersState {
     /// The search failed, for this reason.
     Failed(Failure),
     /// Nothing is sent before the end of a wait, for this reason.
-    Limited(Wait),
+    Limited(WaitCause),
 }
 
 /// The offers of a search of items, the cheapest first.
@@ -369,7 +369,7 @@ impl Offers {
                 })
             }
             (Outcome::Failed(failure), _) => OffersState::Failed(failure),
-            (Outcome::Limited { wait, .. }, _) => OffersState::Limited(wait),
+            (Outcome::Limited { cause, .. }, _) => OffersState::Limited(cause),
             (Outcome::More { .. }, state) => state,
         };
     }

@@ -1,4 +1,5 @@
-//! The warning band under the title bar: what doesn't work, one sentence per warning.
+//! The warning band under the title bar: what doesn't work, one line per warning, or one line
+//! per sentence of a warning too wide for one.
 
 use egui::{Frame, Label, Panel, RichText, Ui, vec2};
 

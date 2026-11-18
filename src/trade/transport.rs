@@ -12,6 +12,11 @@ use super::refusal::Refusal;
 use crate::http::{self, HttpError};
 use crate::logging;
 
+/// The status of a refusal that names no limit, for a cause not known yet.
+pub(super) const FORBIDDEN: u16 = 403;
+/// The status of a refusal for the limits of the trade site.
+pub(super) const TOO_MANY_REQUESTS: u16 = 429;
+
 /// A request to the trade site: a `GET`, or a `POST` of a JSON body.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct Request {
@@ -128,7 +133,7 @@ impl<T: Transport> Guarded<T> {
             Err(error) => return Attempt::Unanswered(error),
         };
         // A 403 too: the trade site turns the address away.
-        if matches!(answer.status, 403 | 429) {
+        if matches!(answer.status, FORBIDDEN | TOO_MANY_REQUESTS) {
             let until = Instant::now() + limits::refusal_wait(&answer.limits);
             self.refusal.extend(until);
             return Attempt::Refused { answer, until };

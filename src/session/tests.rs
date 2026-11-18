@@ -295,28 +295,34 @@ fn prices_that_cant_be_read_are_told_apart_from_prices_that_cant_be_reached() {
 }
 
 #[test]
-fn the_failure_of_the_prices_of_the_league_shown_comes_before_the_failure_of_the_leagues() {
-    let mut session = session();
-    session.apply_market(MarketEvent::Prices(prices("Forbidden Rites", now())), &[]);
-
-    session.apply_market(
-        MarketEvent::Failed(Source::Leagues, Failure::Unreachable),
-        &[],
-    );
-    session.apply_market(
+fn the_last_failure_received_tells_why_the_prices_are_old() {
+    let unreadable_prices = || {
         MarketEvent::Failed(
             Source::Prices(League::new("Forbidden Rites")),
             Failure::Unreadable,
-        ),
-        &[],
-    );
-
-    assert_eq!(
-        session.prices_state(now()),
-        PricesState::Known {
-            age: Duration::ZERO,
-            failure: Some(Failure::Unreadable)
+        )
+    };
+    let unreachable_leagues = || MarketEvent::Failed(Source::Leagues, Failure::Unreachable);
+    let failure = |events: [MarketEvent; 2]| {
+        let mut session = session();
+        session.apply_market(MarketEvent::Prices(prices("Forbidden Rites", now())), &[]);
+        for event in events {
+            session.apply_market(event, &[]);
         }
+        match session.prices_state(now()) {
+            PricesState::Known { failure, .. } => failure,
+            state => panic!("known prices: {state:?}"),
+        }
+    };
+
+    // The price database changed, then the network of the player went down.
+    assert_eq!(
+        failure([unreadable_prices(), unreachable_leagues()]),
+        Some(Failure::Unreachable)
+    );
+    assert_eq!(
+        failure([unreachable_leagues(), unreadable_prices()]),
+        Some(Failure::Unreadable)
     );
 }
 

@@ -11,7 +11,7 @@ use super::client::{FETCH_SIZE, TradeClient, TradeError};
 use super::offers::{ExchangeOffer, ItemOffer};
 use super::query::{Query, SearchKind};
 use super::refusal::Refusal;
-use super::transport::Transport;
+use super::transport::{self, Transport};
 use crate::http::HttpError;
 use crate::language::Language;
 use crate::league::League;
@@ -86,35 +86,32 @@ pub enum Outcome {
     /// The search or the fetch failed, for this reason.
     Failed(Failure),
     /// Nothing is sent before `until`, for this reason.
-    Limited { until: Instant, wait: Wait },
+    Limited { until: Instant, cause: WaitCause },
 }
 
-/// Why nothing is sent to the trade site before the end of a wait.
+/// Why nothing is sent to the trade site before the end of a wait: a wait is a duration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Wait {
+pub enum WaitCause {
     /// The limits the trade site announced didn't allow the request: it wasn't sent.
     Limits,
     /// The trade site refused the request for its limits (HTTP 429).
-    LimitReached,
+    TooManyRequests,
     /// The trade site refused the request without naming a limit (HTTP 403), for a cause not
     /// known yet.
     Forbidden,
 }
 
-impl Wait {
-    /// The wait of a refusal of the trade site with `status`.
+impl WaitCause {
+    /// The cause of the wait of a refusal of the trade site with `status`.
     #[must_use]
     pub fn of_refusal(status: u16) -> Self {
-        if status == TOO_MANY_REQUESTS {
-            Self::LimitReached
+        if status == transport::TOO_MANY_REQUESTS {
+            Self::TooManyRequests
         } else {
             Self::Forbidden
         }
     }
 }
-
-/// The status of a refusal for the limits of the trade site.
-const TOO_MANY_REQUESTS: u16 = 429;
 
 /// Why a search, or the fetch of its next offers, failed: told apart for the player, since
 /// trying again helps only when the trade site couldn't be reached.
@@ -255,11 +252,11 @@ impl<T: Transport> Searches<T> {
             match error {
                 TradeError::Wait(until) => Outcome::Limited {
                     until,
-                    wait: Wait::Limits,
+                    cause: WaitCause::Limits,
                 },
                 TradeError::Refused { until, status } => Outcome::Limited {
                     until,
-                    wait: Wait::of_refusal(status),
+                    cause: WaitCause::of_refusal(status),
                 },
                 TradeError::Http(error) => Outcome::Failed(Failure::of(&error)),
             }
@@ -458,7 +455,7 @@ mod tests {
 
         let Outcome::Limited {
             until,
-            wait: Wait::LimitReached,
+            cause: WaitCause::TooManyRequests,
         } = refused.outcome
         else {
             panic!("refused: {:?}", refused.outcome);
@@ -483,7 +480,7 @@ mod tests {
             matches!(
                 refused.outcome,
                 Outcome::Limited {
-                    wait: Wait::Forbidden,
+                    cause: WaitCause::Forbidden,
                     ..
                 }
             ),
@@ -548,7 +545,7 @@ mod tests {
             matches!(
                 answers[1],
                 Outcome::Limited {
-                    wait: Wait::Limits,
+                    cause: WaitCause::Limits,
                     ..
                 }
             ),

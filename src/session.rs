@@ -324,7 +324,12 @@ impl Session {
                 self.downloaded(&prices.league);
                 self.keep_prices(prices, None);
             }
-            MarketEvent::Failed(Source::Leagues, failure) => self.leagues_failure = Some(failure),
+            MarketEvent::Failed(Source::Leagues, failure) => {
+                self.leagues_failure = Some(failure);
+                // Newer than a failure of the prices, which aren't read again before the
+                // leagues are: the last failure received tells why.
+                self.prices_failure = None;
+            }
             MarketEvent::Failed(Source::Prices(league), failure) => {
                 self.prices_failure = Some((league, failure));
             }
@@ -532,8 +537,8 @@ impl Session {
     /// The state of the prices of the league shown, at `now`.
     #[must_use]
     pub fn prices_state(&self, now: SystemTime) -> PricesState {
-        // A failed download of another league says nothing of this one; it says more of this
-        // league than the leagues do.
+        // A failed download of another league says nothing of this one. The prices are read only
+        // after the leagues: a failure of the prices is newer than the leagues read.
         let prices_failure = self
             .prices_failure
             .as_ref()

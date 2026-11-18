@@ -17,7 +17,7 @@ use crate::offers_state::OffersState;
 use crate::price::{CurrencyPrice, Price, PriceList, Rates, UniquePrice};
 use crate::trade::offers::tests::{every_exchange_offer, every_item_offer};
 use crate::trade::query::Query;
-use crate::trade::search::{Answer, Failure, NextSearch, Outcome, Rest, Wait};
+use crate::trade::search::{Answer, Failure, NextSearch, Outcome, Rest, WaitCause};
 
 /// The default width of the window, and the narrowest the player can give it (`main.rs`).
 const WIDTHS: [f32; 2] = [420.0, 360.0];
@@ -364,7 +364,7 @@ fn draw_the_offers(scene: &mut Scene, ctx: &Context, drawn: &mut Drawn, kind: Se
     }
     scene.search_answered(failure(Outcome::Limited {
         until: Instant::now() + Duration::from_mins(5),
-        wait: Wait::Forbidden,
+        cause: WaitCause::Forbidden,
     }));
     scene.draw_each_way(ctx, drawn);
 }

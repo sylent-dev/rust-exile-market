@@ -15,7 +15,7 @@ use super::{
     overshoot,
 };
 use crate::i18n::{Linked, Message, Translator};
-use crate::trade::search::{Failure, Wait};
+use crate::trade::search::{Failure, WaitCause};
 use crate::ui::theme::{color, size, text};
 use crate::ui::{icons, widgets};
 
@@ -96,19 +96,21 @@ pub(super) fn failure_lines(
     }
 }
 
-/// The line of the title row while nothing may be sent for `reason`, `wait` left, and what to
+/// The line of the title row while nothing may be sent for `cause`, `wait` left, and what to
 /// do under the row: the line before the first search once the wait is over.
 pub(super) fn limited_lines(
     i18n: &Translator,
-    reason: Wait,
+    cause: WaitCause,
     wait: Duration,
 ) -> ((String, Color32), Option<Linked>) {
     if wait.is_zero() {
         return ((i18n.text(Message::OffersSearchHint), color::FAINT), None);
     }
-    match reason {
-        Wait::Limits | Wait::LimitReached => ((i18n.offers_limit(wait), color::WARNING), None),
-        Wait::Forbidden => (
+    match cause {
+        WaitCause::Limits | WaitCause::TooManyRequests => {
+            ((i18n.offers_limit(wait), color::WARNING), None)
+        }
+        WaitCause::Forbidden => (
             (i18n.offers_forbidden(wait), color::WARNING),
             Some(i18n.offers_forbidden_hint()),
         ),
