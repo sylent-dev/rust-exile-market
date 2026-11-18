@@ -440,17 +440,23 @@ fn a_log_that_fits_its_budget_is_read_whole() {
 }
 
 #[test]
-fn a_longer_log_keeps_its_last_whole_lines() {
+fn a_longer_log_keeps_its_last_whole_lines_under_a_line_that_says_so() {
     let log = "aaa\nbbb\nccc\n";
 
     // From a line break: the line after it is whole.
     assert_eq!(
         read_end(io::Cursor::new(log), 8).expect("read"),
-        "bbb\nccc\n"
+        "… (first lines left out)\nbbb\nccc\n"
     );
     // Inside a line: the line cut is left out.
-    assert_eq!(read_end(io::Cursor::new(log), 7).expect("read"), "ccc\n");
-    assert_eq!(read_end(io::Cursor::new(log), 2).expect("read"), "");
+    assert_eq!(
+        read_end(io::Cursor::new(log), 7).expect("read"),
+        "… (first lines left out)\nccc\n"
+    );
+    assert_eq!(
+        read_end(io::Cursor::new(log), 2).expect("read"),
+        "… (first lines left out)\n"
+    );
 }
 
 #[test]
@@ -458,5 +464,8 @@ fn a_character_cut_by_the_budget_is_left_out_with_its_line() {
     let log = "été\nok";
 
     // Its last byte alone is read: the line break and what follows it fit.
-    assert_eq!(read_end(io::Cursor::new(log), 3).expect("read"), "ok");
+    assert_eq!(
+        read_end(io::Cursor::new(log), 3).expect("read"),
+        "… (first lines left out)\nok"
+    );
 }
