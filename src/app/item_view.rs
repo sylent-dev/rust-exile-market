@@ -156,8 +156,9 @@ impl ItemView<'_> {
 }
 
 /// The price of one item that tells a suspicious offer: the price of a fixed-name item, with
-/// the `worth` of the currencies of its prices; none for an item of the currency exchange
-/// whose price stands on too few trades, which would tell honest offers. Both come from the
+/// the `worth` of the currencies of its prices; none for a price of low reliability, a unique
+/// on too few offers or an item of the currency exchange on too few trades, which would tell
+/// honest offers. Both come from the
 /// prices of the league shown: the rates beside the fixed price are those of `worth`, which
 /// also prices the other currencies.
 fn reference<'a>(
@@ -166,7 +167,7 @@ fn reference<'a>(
 ) -> Option<Reference<'a>> {
     let exalted = match fixed_price {
         Ok((FixedPrice::Currency(currency), _)) => currency.trusted_exalted()?,
-        Ok((FixedPrice::Unique(unique), _)) => unique.price.exalted,
+        Ok((FixedPrice::Unique(unique), _)) => unique.trusted_exalted()?,
         Ok((FixedPrice::Uniques(_), _)) | Err(_) => return None,
     };
     Some(Reference {

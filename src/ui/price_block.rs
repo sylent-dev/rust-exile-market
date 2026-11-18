@@ -49,8 +49,6 @@ const ROW_PADDING_Y: f32 = 4.0;
 const ROW_HEIGHT: f32 = LIST_ORB_SIZE + 2.0 * ROW_PADDING_Y;
 /// The least space between the name of a possible unique and its price.
 const NAME_GAP: f32 = 12.0;
-/// Fewer offers make the price of a unique uncertain.
-const ENOUGH_OFFERS: u32 = 5;
 /// The currencies of the amounts, in their order.
 const CURRENCIES: [Orb; 3] = [Orb::Divine, Orb::Chaos, Orb::Exalted];
 /// Under this many Divine or Chaos Orbs, an amount is too small to matter and isn't shown.
@@ -83,7 +81,7 @@ struct MarketPrice<'a> {
 /// What a fixed price is the price of, and whether it stands on too little to be sure.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Fixed {
-    /// A unique, on fewer than [`ENOUGH_OFFERS`] offers when `uncertain`.
+    /// A unique, on fewer than [`crate::price::MIN_OFFERS`] offers when `uncertain`.
     Unique { uncertain: bool },
     /// An item of the currency exchange, on fewer than [`crate::price::MIN_TRADES`] trades
     /// when `thin`.
@@ -94,7 +92,7 @@ enum Fixed {
 /// said of a reliable price, which a price of the trade site can't promise.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LowReliability {
-    /// A unique on fewer than [`ENOUGH_OFFERS`] offers.
+    /// A unique on fewer than [`crate::price::MIN_OFFERS`] offers.
     Offers(u32),
     /// An item of the currency exchange on fewer than [`crate::price::MIN_TRADES`] trades.
     Trades(u32),
@@ -279,7 +277,7 @@ fn view<'a>(
             price: &unique.price,
             rates: *rates,
             of: Fixed::Unique {
-                uncertain: unique.price.quantity < ENOUGH_OFFERS,
+                uncertain: unique.is_thin(),
             },
         }),
         Ok((FixedPrice::Uniques(candidates), rates)) => PriceView::Candidates {

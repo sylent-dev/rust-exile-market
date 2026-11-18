@@ -309,6 +309,34 @@ fn a_price_of_the_currency_exchange_on_few_trades_tells_no_suspicious_offer() {
 }
 
 #[test]
+fn a_price_of_a_unique_on_few_offers_tells_no_suspicious_offer() {
+    use crate::game_data::UniqueModifiers;
+    use crate::price::{MIN_OFFERS, Price, UniquePrice};
+
+    // A unique priced 150 ex on few offers, its market fallen since: an offer at 30 ex is
+    // honest.
+    let coil = |quantity| UniquePrice {
+        name: "Ryslatha's Coil".to_owned(),
+        base_type: "Wide Belt".to_owned(),
+        price: Price {
+            exalted: 150.0,
+            quantity,
+            history: Vec::new(),
+        },
+        modifiers: UniqueModifiers::default(),
+    };
+    let thin = coil(MIN_OFFERS - 1);
+    let offered = coil(MIN_OFFERS);
+
+    assert_eq!(
+        reference(&Ok((FixedPrice::Unique(&thin), RATES)), Some(WORTH)),
+        None
+    );
+    let offered = reference(&Ok((FixedPrice::Unique(&offered), RATES)), Some(WORTH)).unwrap();
+    assert!(offered.suspicious(30.0, "exalted"));
+}
+
+#[test]
 fn a_rare_or_magic_item_searched_without_its_stats_has_no_estimate() {
     use crate::trade::query::Query;
 
