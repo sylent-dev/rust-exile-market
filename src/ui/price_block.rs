@@ -6,16 +6,19 @@
 //! What the block shows is decided apart from the drawing ([`view`]), and tested.
 
 use egui::{
-    Align, Frame, Image, ImageSource, Label, Layout, Rect, RichText, Sense, Ui, Vec2, pos2, vec2,
+    Align, Frame, Image, ImageSource, Label, Layout, Rect, Response, RichText, Sense, Ui, Vec2,
+    pos2, vec2,
 };
 
 use super::images;
 use super::theme::{color, size, text};
 use super::widgets;
+use crate::exchange_currencies;
 use crate::filters::{Filter, FilterKey};
 use crate::format;
 use crate::i18n::{Message, Translator, WrittenRange};
 use crate::item::{Item, Rarity};
+use crate::language::Language;
 use crate::market::Failure;
 use crate::price::Orb;
 use crate::price::estimate::{COUNTED, Estimate, NoEstimate};
@@ -46,8 +49,6 @@ const ROW_PADDING_Y: f32 = 4.0;
 const ROW_HEIGHT: f32 = LIST_ORB_SIZE + 2.0 * ROW_PADDING_Y;
 /// The least space between the name of a possible unique and its price.
 const NAME_GAP: f32 = 12.0;
-/// The currencies of the amounts, in their order.
-const CURRENCIES: [Orb; 3] = [Orb::Divine, Orb::Chaos, Orb::Exalted];
 /// Under this many Divine or Chaos Orbs, an amount is too small to matter and isn't shown.
 const SMALL_AMOUNT: f64 = 0.1;
 
@@ -366,7 +367,12 @@ impl PriceBlock<'_> {
     fn priced(&self, ui: &mut Ui, market_price: MarketPrice) {
         let MarketPrice { price, rates, .. } = market_price;
         let stack = self.stack_size();
-        amounts(ui, price.exalted * f64::from(stack.unwrap_or(1)), rates);
+        amounts(
+            ui,
+            price.exalted * f64::from(stack.unwrap_or(1)),
+            rates,
+            self.i18n,
+        );
         if stack.is_some() {
             ui.add_space(LINE_GAP);
             line(
@@ -393,7 +399,12 @@ impl PriceBlock<'_> {
     /// The estimated price in the three currencies, then how it is made, with the range of its
     /// offers.
     fn estimated(&self, ui: &mut Ui, estimate: Estimate) {
-        amounts(ui, estimate.exalted, estimate.reference.worth.rates);
+        amounts(
+            ui,
+            estimate.exalted,
+            estimate.reference.worth.rates,
+            self.i18n,
+        );
         let counted = estimate.counted;
         let range = written_range(&estimate);
         let note = if counted == COUNTED {
@@ -500,34 +511,72 @@ impl PriceBlock<'_> {
 }
 
 /// The amounts in the three currencies, side by side, each with its orb, a third of the width
-/// each. An amount too small to matter is left out, and the currencies after it move to the
-/// left.
-fn amounts(ui: &mut Ui, exalted: f64, rates: Rates) {
+/// each, and its tooltip ([`orb_tooltip`]). An amount too small to matter is left out, and the
+/// currencies after it move to the left.
+fn amounts(ui: &mut Ui, exalted: f64, rates: Rates, i18n: &Translator) {
     let width = ui.available_width() / 3.0;
     ui.horizontal(|ui| {
-        for currency in CURRENCIES {
+        for currency in Orb::ALL {
             let Some((amount, _)) = shown_amount(exalted, currency, rates) else {
                 continue;
             };
-            ui.allocate_ui_with_layout(
+            let shown = ui.allocate_ui_with_layout(
                 vec2(width, ORB_SIZE),
                 Layout::left_to_right(Align::Center),
                 |ui| {
                     // A third of the width each, whatever the length of the amount.
                     ui.set_min_width(width);
                     ui.spacing_mut().item_spacing.x = ORB_GAP;
-                    ui.add(orb(currency, ORB_SIZE));
-                    ui.label(RichText::new(amount).font(text::price()).color(color::TEXT));
+                    let icon = ui.add(orb(currency, ORB_SIZE));
+                    let amount =
+                        ui.label(RichText::new(amount).font(text::price()).color(color::TEXT));
+                    icon.union(amount)
                 },
             );
+            orb_tooltip(&shown.inner, currency, rates, i18n);
         }
     });
+}
+
+/// Under the pointer over an orb or its amount, the name of the orb in the language of the
+/// interface, then in gray what one is worth in the others ([`orb_rate`]).
+fn orb_tooltip(response: &Response, currency: Orb, rates: Rates, i18n: &Translator) {
+    response.clone().on_hover_ui(|ui| {
+        ui.label(RichText::new(orb_name(currency, i18n.language())).color(color::TEXT));
+        ui.label(RichText::new(orb_rate(currency, rates, i18n)).color(color::WEAK));
+    });
+}
+
+/// The name of `currency` in `language`, as the trade site writes it: "Divine Orb", "Orbe
+/// divin".
+fn orb_name(currency: Orb, language: Language) -> &'static str {
+    exchange_currencies::shown(currency.id())
+        .expect("the three orbs are among the currencies of the exchange")
+        .name(language)
+}
+
+/// What one orb of `currency` is worth in the others, by the `rates` every price of the block
+/// is converted with: a Divine or a Chaos Orb in Exalted Orbs, an Exalted Orb by how many make
+/// a Divine Orb; each amount written as the prices, its plural chosen by the value written (two
+/// decimals at most, as [`format::amount`] under 10, where the plural can change).
+fn orb_rate(currency: Orb, rates: Rates, i18n: &Translator) -> String {
+    let in_exalted = |value: f64| {
+        i18n.orb_rate_in_exalted(
+            &format::amount(value, Orb::Exalted),
+            format::rounded(value, 2),
+        )
+    };
+    match currency {
+        Orb::Divine => in_exalted(rates.divine),
+        Orb::Chaos => in_exalted(rates.chaos),
+        Orb::Exalted => i18n.orb_rate_for_divine(&format::amount(rates.divine, Orb::Exalted)),
+    }
 }
 
 /// The unit price of a stack on one line, e.g. `0.27 c · 20 ex`, without the amounts too
 /// small to matter.
 fn unit_amounts(exalted: f64, rates: Rates) -> String {
-    CURRENCIES
+    Orb::ALL
         .into_iter()
         .filter_map(|currency| shown_amount(exalted, currency, rates))
         .map(|(amount, abbreviation)| format!("{amount} {abbreviation}"))

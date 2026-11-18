@@ -23,14 +23,22 @@ pub enum Orb {
 }
 
 impl Orb {
+    /// The orbs, from the most worth.
+    pub const ALL: [Self; 3] = [Self::Divine, Self::Chaos, Self::Exalted];
+
     /// The orb whose id on the trade site is `id`; `None` for another currency.
     #[must_use]
     pub fn of(id: &str) -> Option<Self> {
-        match id {
-            "exalted" => Some(Self::Exalted),
-            "divine" => Some(Self::Divine),
-            "chaos" => Some(Self::Chaos),
-            _ => None,
+        Self::ALL.into_iter().find(|orb| orb.id() == id)
+    }
+
+    /// Its id on the trade site, e.g. `divine`.
+    #[must_use]
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::Divine => "divine",
+            Self::Chaos => "chaos",
+            Self::Exalted => "exalted",
         }
     }
 }
@@ -225,6 +233,14 @@ impl PriceList {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_orb_is_read_back_from_its_id_on_the_trade_site() {
+        for orb in Orb::ALL {
+            assert_eq!(Orb::of(orb.id()), Some(orb));
+        }
+        assert_eq!(Orb::of("mirror"), None);
+    }
 
     fn price(exalted: f64, history: &[Option<f64>]) -> Price {
         Price {

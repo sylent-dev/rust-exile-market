@@ -1,11 +1,11 @@
 // Section Orb names (22f): the name of an orb under the pointer in the price block, so that a new player knows which
-// orb they see (owner, 2026-11-06); the Greater and Perfect Orbs share the icon of their orb. In the language of the
-// item, as the names of the currencies in the offers. The zone under the pointer: the icon and its amount.
+// orb they see (owner, 2026-11-06); the Greater and Perfect Orbs share the icon of their orb. The zone under the
+// pointer: the icon and its amount.
 // 1. What the tooltip says. A, the name alone; B, the name, then what one orb is worth in the others, from the rates
 //    of the price database the block already uses ("1 = 70 Exalted Orbs"): the rate a player looks up elsewhere
 //    today. The owner chose B on 2026-11-18, with "=": "≈", tried to say that the rate is that of the price database
 //    over the last hour, not the ratio of the instant at the exchange of the game, drew too small a sign. The language
-//    of the item, Claude Code's recommendation, unanswered.
+//    of the interface (owner, 2026-11-18): the rate needs its plural.
 // 2. The list of the possible uniques of an unidentified item: the same tooltip over the orb of a price.
 // 3. The class searched under an unchecked base, cut with "…" past its column: its whole text under the pointer, as
 //    the other lines cut. No class known is cut today ("Masses à deux mains", the longest, fits): a class longer than

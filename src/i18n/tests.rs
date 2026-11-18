@@ -93,6 +93,8 @@ fn the_code_and_every_file_have_the_same_messages() {
             OFFERS,
             STACK_OF,
             UNIT_PRICE,
+            ORB_RATE_IN_EXALTED,
+            ORB_RATE_FOR_DIVINE,
             TREND_RISE,
             TREND_FALL,
             TREND_STABLE,
