@@ -55,6 +55,14 @@ const upBow = (p, rows = UP_BOW_ROWS) => win(topBar(), item(BOW_RARE),
 const lowMark = (html, words, tip, hovered = false) => html.replace(/<span class="label">([^<]*)<\/span>/,
   `<span class="title-stack"><span class="label">$1</span><span class="age warn app-reliability${hovered ? " is-hovered" : ""}">${words}<span class="app-tip">${tip}</span></span></span>`);
 
+// The other lead (2026-11-18): the reason written in the small line, no tooltip, nothing hidden under the pointer.
+const lowLine = (html, words) => html.replace(/<span class="label">([^<]*)<\/span>/,
+  `<span class="title-stack"><span class="label">$1</span><span class="age warn">${words}</span></span>`);
+// The bow of 6 similar offers, 2 of them suspicious: the line counts the 4 of the median, the title the 6 found.
+const UP_BOW_FOUR = [
+  { v: "300", k: "ex", when: "1h ago", sus: true }, { v: "350", k: "ex", when: "3h ago", sus: true }, { v: "2", k: "div", when: "20min ago" },
+  { v: "2.2", k: "div", when: "4h ago" }, { v: "2.4", k: "div", when: "1d ago", away: true }, { v: "2.5", k: "div", when: "2h ago" }];
+
 // 2. The bow, two of its offers paid in a currency the estimate doesn't count: a Lesser Charging Rune priced on one
 // trade (40,156 ex), and a Banded Wombgift, without price.
 const UP_NOT_COUNTED = [
@@ -123,6 +131,13 @@ SECTIONS.unshift(["Uncertain prices (22b): how sure an estimate is, the offers n
   ["1 · How sure · Chosen · en français", lowMark(upRing({ note: UP_TEXT.fr.median3Range }, { fr: true }), UP_TEXT.fr.low, UP_TEXT.fr.uncertain3)],
   ["1 · How sure · Chosen · a unique on 3 offers", upUnique(false, true)],
   ["1 · How sure · Chosen · a currency on 1 trade", thinWin(RUNE, lowMark(price(RUNE_PRICE), UP_TEXT.en.low, UP_TEXT.en.thin), offers(RUNE_OFFERS()))],
+  ["1 · How sure · Other lead · the reason in the line, no tooltip", lowLine(upRing({ note: UP_TEXT.en.median3Range }), "Low reliability: 3 similar offers")],
+  ["1 · How sure · Other lead · 6 found, 2 suspicious: the line counts the 4 of the median", lowLine(upBow({ values: ["2.3", "23", "1.6K"], offers: "6 similar",
+    note: "Median of the 4 similar offers, 2 to 2.5 div." }, UP_BOW_FOUR).replace("10 of 18 online", "6 of 6 online"), "Low reliability: 4 similar offers")],
+  ["1 · How sure · Other lead · en français", lowLine(upRing({ note: UP_TEXT.fr.median3Range }, { fr: true }), "Fiabilité faible : 3 offres similaires")],
+  ["1 · How sure · Other lead · a unique on 3 offers", lowLine(upUnique(false, false).replace(/<div class="line warn">[^<]*<\/div>/, ""), "Low reliability: 3 offers")],
+  ["1 · How sure · Other lead · a currency on 1 trade", thinWin(RUNE, lowLine(price(RUNE_PRICE), "Low reliability: 1 trade"), offers(RUNE_OFFERS()))],
+  ["1 · How sure · Other lead · a currency without trade lately", thinWin(RUNE, lowLine(price(RUNE_PRICE), "Low reliability: no trade lately"), offers(RUNE_OFFERS()))],
   ["2 · Offers not counted · Today: shown as any other", upNotCounted("today")],
   ["2 · Offers not counted · A · faint, why in the tooltip of the icon", upNotCounted("A", { hovered: 1 })],
   ["2 · Offers not counted · Recommended · B · faint, \"not counted\" after the name", upNotCounted("B")],
