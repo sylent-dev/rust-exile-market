@@ -11,7 +11,7 @@ use super::query::{
 };
 use crate::game_data;
 use crate::http;
-use crate::item::{Item, ItemState, Rarity};
+use crate::item::{self, Item, ItemState, Rarity};
 use crate::item_names::ItemNames;
 use crate::language::Language;
 use crate::league::League;
@@ -112,7 +112,8 @@ impl<'a> TradeTarget<'a> {
 
 /// The search of `item` for `target`: its states as [`states`] says, a unique with the stats
 /// of its `filters` the player checked, the other items with all their filters, the category
-/// of their base type when the player unchecked it (a bow among all the bows); any base type
+/// of their base type when the player unchecked it (a bow among all the bows), and always for a
+/// waystone searched by its tier ([`searched_tier`]); any base type
 /// for a base the game data doesn't know, when another filter narrows the search (never a
 /// search of every item of the league).
 #[must_use]
@@ -123,7 +124,10 @@ pub fn query(item: &Item, target: &TradeTarget, filters: SearchFilters) -> Query
         match *target {
             TradeTarget::Unique { .. } => items.stats = filters.stats,
             TradeTarget::Base { base_type } => {
-                if filters.any_base {
+                // A waystone searched by its tier has no filter of its base: its tier narrows
+                // its category, which finds as many offers as its base type did (checked on
+                // the trade site on 2026-11-18).
+                if filters.any_base || searched_tier(item, base_type).is_some() {
                     if let Some(category) = searched_category(item, base_type) {
                         items.base = SearchedBase::Category(category);
                     } else if filters.narrows() {
@@ -180,6 +184,17 @@ fn craftable(item: &Item) -> bool {
 #[must_use]
 pub fn searched_category(item: &Item, base_type: &str) -> Option<&'static str> {
     game_data::trade_category(item.language(), base_type)
+}
+
+/// The tier `item` is searched by in place of its `base_type`: a waystone whose base type
+/// holds its tier ("Waystone (Tier 12)"); none for another item, or a waystone whose tier
+/// can't be read, searched by its base type.
+#[must_use]
+pub fn searched_tier(item: &Item, base_type: &str) -> Option<u32> {
+    if !item.is_waystone() {
+        return None;
+    }
+    item::base_and_tier(item.language(), base_type).map(|(_, tier)| tier)
 }
 
 /// The link of the search `query` in `league`, on the trade site of `language`.

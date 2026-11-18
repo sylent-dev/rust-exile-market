@@ -7,9 +7,10 @@
 //! field stays within them; under the last line of its modifier, its tier and the range of that
 //! tier.
 //!
-//! A waystone has the filters of its properties in a group of their own, the item rarity and
-//! the drop chance checked, its modifiers unchecked: a buyer pays for its bonuses, not for its
-//! monsters; the filter of its base shows a bar of its tier, and the tier, in its color.
+//! A waystone has the filters of its tier and of its properties in a group of their own, and no
+//! filter of its base: its tier checked, from that tier to that tier, a bar of the tier under
+//! it, and the tier, in its color; the item rarity and the drop chance checked, its modifiers
+//! unchecked: a buyer pays for its bonuses, not for its monsters.
 //!
 //! A stat that is a filter of the search starts with its checkbox and keeps the column of its
 //! range field on the right, also when it has no limit; a stat of a unique that never varies
@@ -156,7 +157,16 @@ pub(super) fn property_value(property: Property, value: f64) -> String {
         Property::Waystone(waystone) if waystone.is_percent() && value > 0.0 => {
             format!("+{}", format::number(value))
         }
-        _ => format::number(value),
+        Property::Waystone(_)
+        | Property::WaystoneTier
+        | Property::ItemLevel
+        | Property::Sockets
+        | Property::Quality
+        | Property::RequiredLevel
+        | Property::PhysicalDps
+        | Property::ElementalDps
+        | Property::GemLevel
+        | Property::GemSockets => format::number(value),
     }
 }
 
@@ -177,7 +187,11 @@ fn rows<'a>(
     let mut rows = Vec::new();
     let mut dps = if item.rarity().has_item_filters() {
         push_group(&mut rows, Group::Item, item_filters(item, base_type));
-        push_group(&mut rows, Group::Waystone, waystone_filters(item));
+        push_group(
+            &mut rows,
+            Group::Waystone,
+            waystone_filters(item, base_type),
+        );
         dps_filters(item, line_stats)
     } else {
         push_group(&mut rows, Group::Gem, gem_filters(item));

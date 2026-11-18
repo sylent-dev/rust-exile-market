@@ -8,6 +8,7 @@ use crate::settings::PseudoTotals;
 use crate::ui::item_stats::fixtures::{
     base_type, default_checks, default_checks_with, limit, parse, row_texts, rows, rows_with, texts,
 };
+use crate::ui::item_stats::model::Filled;
 
 #[test]
 fn the_pseudo_totals_are_checked_and_the_lines_they_add_up_unchecked() {
@@ -278,7 +279,7 @@ fn a_line_better_lower_is_searched_with_a_maximum() {
         ]
     );
     let lower = limit(&rows(&unique)[2]);
-    assert_eq!(lower.half, Half::Maximum);
+    assert_eq!(lower.filled, Filled::Half(Half::Maximum));
     assert_eq!(
         StatFilter {
             checked: true,

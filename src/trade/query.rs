@@ -177,8 +177,9 @@ impl PropertyFilter {
             Property::RequiredLevel => ("req_filters", "lvl"),
             Property::PhysicalDps => ("equipment_filters", "pdps"),
             Property::ElementalDps => ("equipment_filters", "edps"),
-            // The trade site names `map_rare_monsters` "Monster Rarity" and
-            // `map_magic_monsters` "Monster Effectiveness" (`/data/filters`, 2026-10-31).
+            // `minMax` in `/data/filters`, a minimum and a maximum taken together (checked on
+            // 2026-11-18).
+            Property::WaystoneTier => ("map_filters", "map_tier"),
             Property::GemLevel => ("misc_filters", "gem_level"),
             Property::GemSockets => ("misc_filters", "gem_sockets"),
             Property::Waystone(property) => (
@@ -187,6 +188,9 @@ impl PropertyFilter {
                     WaystoneProperty::Revives => "map_revives",
                     WaystoneProperty::ItemRarity => "map_iir",
                     WaystoneProperty::PackSize => "map_packsize",
+                    // The trade site names `map_rare_monsters` "Monster Rarity" and
+                    // `map_magic_monsters` "Monster Effectiveness" (`/data/filters`,
+                    // 2026-10-31).
                     WaystoneProperty::MonsterRarity => "map_rare_monsters",
                     WaystoneProperty::MonsterEffectiveness => "map_magic_monsters",
                     WaystoneProperty::DropChance => "map_bonus",

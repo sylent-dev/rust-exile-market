@@ -145,7 +145,7 @@ pub(super) enum StatRoll<'a> {
         rows: Vec<TierRow<'a>>,
         origin: Option<Origin>,
     },
-    /// Under the filter of the base of a waystone: a bar of its tier over every tier, then the
+    /// Under the filter of the tier of a waystone: a bar of its tier over every tier, then the
     /// tier, both in the color of the tier, which tells how dangerous the map is.
     WaystoneTier(u32),
 }
@@ -321,13 +321,12 @@ pub(super) struct StatFilter {
     pub(super) limit: Option<Limit>,
 }
 
-/// The limit of a filter at first: its value, the half of the range field it fills, and the
+/// The limit of a filter at first: its value, the halves of the range field it fills, and the
 /// range it stays in, when known.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(super) struct Limit {
     pub(super) value: f64,
-    /// The maximum for a line better lower, the minimum otherwise.
-    pub(super) half: Half,
+    pub(super) filled: Filled,
     pub(super) bounds: Option<Range>,
     /// The rolls the tooltip of the field tells: the range of today of a line with one
     /// number; the field of a line with several holds their average, not a roll.
@@ -335,6 +334,15 @@ pub(super) struct Limit {
     /// The tiers of the lowest and of the highest of `rolls`, for a prefix or a suffix, which
     /// the tooltip writes under them: "T13–T1".
     pub(super) tiers: Option<TierSpan>,
+}
+
+/// The halves of the range field a limit fills at first.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum Filled {
+    /// One half: the maximum for a line better lower, the minimum otherwise.
+    Half(Half),
+    /// Both, at the same value: the tier of a waystone, "12 – 12", which the player widens.
+    Both,
 }
 
 /// The characters a number of a stat reaches for its range field to hold four a side.
@@ -345,7 +353,7 @@ impl Limit {
     pub(super) fn minimum(value: f64) -> Self {
         Self {
             value,
-            half: Half::Minimum,
+            filled: Filled::Half(Half::Minimum),
             bounds: None,
             rolls: None,
             tiers: None,
@@ -355,7 +363,15 @@ impl Limit {
     /// A maximum of `value`, with no range to stay in.
     pub(super) fn maximum(value: f64) -> Self {
         Self {
-            half: Half::Maximum,
+            filled: Filled::Half(Half::Maximum),
+            ..Self::minimum(value)
+        }
+    }
+
+    /// Exactly `value`, a minimum and a maximum, with no range to stay in.
+    pub(super) fn exactly(value: f64) -> Self {
+        Self {
+            filled: Filled::Both,
             ..Self::minimum(value)
         }
     }
@@ -366,7 +382,7 @@ impl Limit {
     pub(super) fn new(copied: f64, half: Half, range: Option<Range>, line: &StatLine) -> Self {
         Self {
             value: copied,
-            half,
+            filled: Filled::Half(half),
             bounds: range.map(|range| range.holding(copied)),
             rolls: range.filter(|_| line.rolls.len() == 1),
             tiers: None,
@@ -415,7 +431,14 @@ impl StatFilter {
             bounds: self.limit.and_then(|limit| limit.bounds),
         };
         if let Some(limit) = self.limit {
-            *filter.text_mut(limit.half) = filters::limit_text(limit.value);
+            let text = filters::limit_text(limit.value);
+            match limit.filled {
+                Filled::Half(half) => *filter.text_mut(half) = text,
+                Filled::Both => {
+                    filter.minimum.clone_from(&text);
+                    filter.maximum = text;
+                }
+            }
         }
         filter
     }

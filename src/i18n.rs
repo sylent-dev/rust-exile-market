@@ -343,6 +343,7 @@ impl Translator {
             Property::RequiredLevel => FILTER_REQUIRED_LEVEL,
             Property::PhysicalDps => FILTER_PHYSICAL_DPS,
             Property::ElementalDps => FILTER_ELEMENTAL_DPS,
+            Property::WaystoneTier => FILTER_WAYSTONE_TIER,
             Property::Waystone(property) => match property {
                 WaystoneProperty::Revives => FILTER_WAYSTONE_REVIVES,
                 WaystoneProperty::ItemRarity => FILTER_WAYSTONE_ITEM_RARITY,

@@ -75,6 +75,7 @@ fn the_code_and_every_file_have_the_same_messages() {
             FILTER_REQUIRED_LEVEL,
             FILTER_PHYSICAL_DPS,
             FILTER_ELEMENTAL_DPS,
+            FILTER_WAYSTONE_TIER,
             FILTER_WAYSTONE_REVIVES,
             FILTER_WAYSTONE_ITEM_RARITY,
             FILTER_WAYSTONE_PACK_SIZE,
@@ -727,6 +728,20 @@ fn the_level_and_the_sockets_of_a_gem_are_named_in_each_language() {
     );
     assert_eq!(english.gem_level(21), "Level\u{a0}21");
     assert_eq!(french.gem_level(21), "Niveau\u{a0}21");
+}
+
+#[test]
+fn the_tier_of_a_waystone_is_named_in_each_language() {
+    let english = Translator::new(Language::English);
+    let french = Translator::new(Language::French);
+    assert_eq!(
+        english.filter_property(Property::WaystoneTier, "12"),
+        "Tier: 12"
+    );
+    assert_eq!(
+        french.filter_property(Property::WaystoneTier, "12"),
+        "Palier\u{a0}: 12"
+    );
 }
 
 #[test]
