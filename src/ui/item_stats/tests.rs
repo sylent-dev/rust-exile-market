@@ -122,6 +122,40 @@ fn a_value_no_modifier_holds_says_no_tier_found_with_its_tooltip() {
 }
 
 #[test]
+fn a_crafted_line_no_modifier_holds_shows_its_origin_alone() {
+    let helmet = |lines| read_again(rare_item("Ancestral Tiara", "Helmets", "", lines));
+    let texts_of = |lines| texts(&helmet(lines));
+
+    // The game data hold the crafts of the alloys only: "Crafted" says why no tier is found.
+    let unheld = texts_of("+99% to Cold Resistance (crafted)");
+    assert_eq!(
+        unheld[unheld.len() - 2..],
+        ["Explicit", "□ +99% to Cold Resistance ≥89 [Crafted]"]
+    );
+    // An ordinary modifier a craft added finds its tier.
+    let found = texts_of("+38% to Cold Resistance (crafted)");
+    assert_eq!(
+        found[found.len() - 3..],
+        [
+            "Suffixes 1/3",
+            "□ +38% to Cold Resistance ≥34 [0.82 T2 36–40 Crafted]",
+            "Trade copy note",
+        ]
+    );
+    // Crafted lines in doubt, two pure prefixes or their hybrid, still say so.
+    let in_doubt = texts_of("30% increased Energy Shield (crafted)\n+30 to maximum Life (crafted)");
+    assert_eq!(
+        in_doubt[in_doubt.len() - 4..],
+        [
+            "□ 30% increased Energy Shield ≥27 [TierUncertain Crafted]",
+            "□ +30 to maximum Life ≥27 [TierUncertain Crafted]",
+            "Trade copy note",
+            "Uncertain tier note",
+        ]
+    );
+}
+
+#[test]
 fn the_open_places_are_a_most_while_a_line_has_no_affix() {
     let resistances =
         "+38% to Fire Resistance\n+38% to Cold Resistance\n+38% to Lightning Resistance";

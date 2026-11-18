@@ -15,7 +15,9 @@
 //    uncertain prices, 22b); C repeats a long text on two to four lines; D is far from the lines, under
 //    the fold on a long item.
 // 2. A value no modifier of the game data holds (an item copied before a patch, a stat the tables don't know):
-//    nothing today either. "No tier found", its tooltip saying why: rare, so not in the note.
+//    nothing today either. "No tier found", its tooltip saying why: rare, so not in the note. Not under a line
+//    marked crafted (owner, 2026-11-18): the game data hold the crafts of the alloys only, and "Crafted", already
+//    under the line, says why its tier isn't found; a crafted line in doubt keeps "Uncertain tier".
 // 3. A sanctified item, whose values can each have left their tier: no tier at all, and no note (owner, 2026-11-11).
 //    A note under the stats, since every line is concerned.
 // The owner chose 1 B, 2 and 3 on 2026-11-18.
@@ -95,6 +97,8 @@ const TL_CHOSEN_2 = { ...TL_CHOSEN, fill: "1 of 3 · up to 2 open", suffixFill: 
 
 // A fire resistance above its tier 1 (41–45), as a patch may leave it: no modifier holds it.
 const tlNoTier = word => ({ mod: "+48% to Fire Resistance", check: false, min: 43, after: word });
+// A craft the game data don't hold: its origin alone.
+const TL_CRAFT = { mod: "Allies in your Presence deal 82% increased Damage", check: false, min: 74, origin: "crafted" };
 
 // The owner's sanctified sceptre as the in-game trade copies it: no tier is found from its values.
 const tlSceptreStats = (lines, base, level, group) => note => [
@@ -135,6 +139,7 @@ SECTIONS.unshift(["Lines without tier (22d): 1 B, 2, 3 and 4 B chosen", [
   ["1 · Not chosen · D · nothing on the lines, a second sentence in the note", tlTiaraWin({ notes: [DEDUCED_NOTE.note, TL_TEXT.en.noteOnly] })],
   ["2 · Today · a value no modifier holds: nothing", tlTiaraWin({ ...TL_CHOSEN_2, cold: tlNoTier() })],
   ["2 · Chosen · “No tier found”, why in its tooltip (open)", tlTiaraWin({ ...TL_CHOSEN_2, cold: tlNoTier({ label: TL_TEXT.en.none, tip: TL_TEXT.en.noneWhy, hover: true }) })],
+  ["2 · Chosen · a crafted line no table holds: “Crafted” alone", tlTiaraWin({ ...TL_CHOSEN_2, cold: TL_CRAFT })],
   ["3 · Today · a sanctified item: no tier, no note", tlSceptreWin(TL_SCEPTRE, tlSceptre())],
   ["3 · Chosen · a note under the stats", tlSceptreWin(TL_SCEPTRE, tlSceptre(TL_TEXT.en.sanctified))],
   ["3 · Chosen · en français", tlSceptreWin(TL_SCEPTRE_FR, tlSceptreFr(TL_TEXT.fr.sanctified))],

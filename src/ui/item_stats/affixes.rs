@@ -13,7 +13,9 @@ use super::push_group;
 use super::rolls::{bar, copied_ranges, magnitudes, value_bounds, varying_share};
 use super::split_lines::{hybrid_tier_row, other_lines, split_tier_rows};
 use crate::filters::{FilterKey, StatKey};
-use crate::item::{Affix, Item, Modifier, ModifierKind, Range, StatLine, TierDoubt};
+use crate::item::{
+    Affix, Item, Modifier, ModifierKind, ModifierOrigin, NoTier, Range, StatLine, TierDoubt,
+};
 use crate::tier_rolls::LineRolls;
 
 /// The rows of a rare, magic or normal item: its enchantments, its runes, its implicit
@@ -110,7 +112,8 @@ fn affix_count(modifier: &Modifier, affix: Affix) -> u32 {
         Some(TierDoubt::Split { whole, added, .. }) => {
             u32::from(whole.affix == affix) + u32::from(added.affix == affix)
         }
-        // The affix its kind tells: none for a prefix or a suffix, nor for a line without tier.
+        // The affix its kind tells: none while it may be either affix, explicit without affix,
+        // nor for a line without tier.
         Some(TierDoubt::EitherAffix { .. } | TierDoubt::NoTier(_)) | None => {
             u32::from(modifier.kind == ModifierKind::Explicit(Some(affix)))
         }
@@ -229,7 +232,7 @@ fn unrevealed_stat<'a>(index: usize, affix: Affix) -> Stat<'a> {
 
 /// The tier under the line of the prefix or suffix `index`, `modifier`, that holds it: the tier
 /// of the hybrid of a line that adds up two modifiers; why a line searched from its values has
-/// no tier; else its tier and the ranges of that tier, or of a modifier of one tier only the
+/// no tier, but a crafted line no modifier holds; else its tier and the ranges of that tier, or of a modifier of one tier only the
 /// ranges without its number, also when the copy writes no tier; nothing when its value is
 /// fixed.
 fn modifier_tier_row<'a>(
@@ -241,6 +244,13 @@ fn modifier_tier_row<'a>(
         Some(TierDoubt::Split {
             line, whole, added, ..
         }) => return hybrid_tier_row(modifier, *line, whole, added),
+        // The game data hold the crafts of the alloys only: under a crafted line no modifier
+        // holds, its origin alone says why its tier isn't found.
+        Some(TierDoubt::NoTier(NoTier::NoModifier))
+            if modifier.origin == Some(ModifierOrigin::Crafted) =>
+        {
+            return None;
+        }
         Some(TierDoubt::NoTier(why)) => return Some(TierRow::no_tier(*why)),
         // The tier of each affix is under its last line, in place of its roll.
         Some(TierDoubt::EitherAffix { .. }) | None => {}
