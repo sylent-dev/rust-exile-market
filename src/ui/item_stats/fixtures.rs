@@ -105,91 +105,96 @@ pub(super) fn row_texts<'a>(rows: impl IntoIterator<Item = Row<'a>>) -> Vec<Stri
             Row::UnrevealedNote => "Unrevealed note".to_owned(),
             Row::TradeCopyNote => "Trade copy note".to_owned(),
             Row::UncertainTierNote => "Uncertain tier note".to_owned(),
+            Row::SanctifiedNote => "Sanctified note".to_owned(),
             Row::UniqueRollsNote => "Unique rolls note".to_owned(),
-            Row::Stat(Stat {
-                text,
-                filter,
-                is_unsearchable,
-                roll,
-                ..
-            }) => {
-                let check = match filter {
-                    _ if is_unsearchable => "⊘ ",
-                    Some(StatFilter { checked: true, .. }) => "■ ",
-                    Some(StatFilter { checked: false, .. }) => "□ ",
-                    None => "",
-                };
-                let limit = filter
-                    .and_then(|filter| filter.limit)
-                    .map(|limit| {
-                        let sign = match limit.half {
-                            Half::Minimum => '≥',
-                            Half::Maximum => '≤',
-                        };
-                        format!(" {sign}{}", format::number(limit.value))
-                    })
-                    .unwrap_or_default();
-                let roll = match roll {
-                    None => String::new(),
-                    Some(StatRoll::Bar {
-                        share,
-                        ranges,
-                        origin,
-                    }) => {
-                        let origin = origin
-                            .map(|origin| format!(" {origin:?}"))
-                            .unwrap_or_default();
-                        format!(" [{} {share:.2}{origin}]", ranges_text(&ranges))
-                    }
-                    Some(StatRoll::Affix {
-                        share,
-                        tier,
-                        origin,
-                    }) => {
-                        let share = share.map(|share| format!("{share:.2}"));
-                        let tier = tier.as_deref().map(tier_row_text);
-                        let origin = origin.map(|origin| format!("{origin:?}"));
-                        let parts: Vec<String> =
-                            [share, tier, origin].into_iter().flatten().collect();
-                        format!(" [{}]", parts.join(" "))
-                    }
-                    Some(StatRoll::Tiers { rows, origin }) => {
-                        // The origin on a line of its own, after the tiers.
-                        let rows: Vec<String> = rows
-                            .iter()
-                            .map(tier_row_text)
-                            .chain(origin.map(|origin| format!("{origin:?}")))
-                            .collect();
-                        format!(" [{}]", rows.join(" / "))
-                    }
-                    Some(StatRoll::WaystoneTier(tier)) => format!(" [Waystone T{tier}]"),
-                };
-                let radius = text
-                    .radius_skills()
-                    .map(|skills| format!(" <{skills:?}>"))
-                    .unwrap_or_default();
-                let text = match text {
-                    StatText::Line(line) | StatText::RadiusLine { line, .. } => line.to_owned(),
-                    StatText::Lines(lines) => lines_text(lines),
-                    StatText::BaseType { base_type, .. } => format!("Base: {base_type}"),
-                    StatText::Property(property, value) => {
-                        format!("{property:?}: {}", format::number(value))
-                    }
-                    StatText::CatalystQuality(kind, value) => {
-                        let kind = kind
-                            .catalyst
-                            .map_or_else(|| kind.words.clone(), |catalyst| format!("{catalyst:?}"));
-                        format!("{kind} quality: {}", format::number(value))
-                    }
-                    StatText::Pseudo(pseudo, value) => {
-                        format!("{pseudo:?}: {}", format::number(value))
-                    }
-                    StatText::Unrevealed(affix) => format!("Unrevealed {affix:?}"),
-                };
-                format!("{check}{text}{limit}{roll}{radius}")
-            }
+            Row::Stat(stat) => stat_text(stat),
         })
         .collect()
+}
+
+/// A stat as [`row_texts`] writes it: its check, its text, its limit, its roll and the tag of
+/// its radius.
+fn stat_text(stat: Stat<'_>) -> String {
+    let Stat {
+        text,
+        filter,
+        is_unsearchable,
+        roll,
+        ..
+    } = stat;
+    let check = match filter {
+        _ if is_unsearchable => "⊘ ",
+        Some(StatFilter { checked: true, .. }) => "■ ",
+        Some(StatFilter { checked: false, .. }) => "□ ",
+        None => "",
+    };
+    let limit = filter
+        .and_then(|filter| filter.limit)
+        .map(|limit| {
+            let sign = match limit.half {
+                Half::Minimum => '≥',
+                Half::Maximum => '≤',
+            };
+            format!(" {sign}{}", format::number(limit.value))
+        })
+        .unwrap_or_default();
+    let roll = match roll {
+        None => String::new(),
+        Some(StatRoll::Bar {
+            share,
+            ranges,
+            origin,
+        }) => {
+            let origin = origin
+                .map(|origin| format!(" {origin:?}"))
+                .unwrap_or_default();
+            format!(" [{} {share:.2}{origin}]", ranges_text(&ranges))
+        }
+        Some(StatRoll::Affix {
+            share,
+            tier,
+            origin,
+        }) => {
+            let share = share.map(|share| format!("{share:.2}"));
+            let tier = tier.as_deref().map(tier_row_text);
+            let origin = origin.map(|origin| format!("{origin:?}"));
+            let parts: Vec<String> = [share, tier, origin].into_iter().flatten().collect();
+            format!(" [{}]", parts.join(" "))
+        }
+        Some(StatRoll::Tiers { rows, origin }) => {
+            // The origin on a line of its own, after the tiers.
+            let rows: Vec<String> = rows
+                .iter()
+                .map(tier_row_text)
+                .chain(origin.map(|origin| format!("{origin:?}")))
+                .collect();
+            format!(" [{}]", rows.join(" / "))
+        }
+        Some(StatRoll::WaystoneTier(tier)) => format!(" [Waystone T{tier}]"),
+    };
+    let radius = text
+        .radius_skills()
+        .map(|skills| format!(" <{skills:?}>"))
+        .unwrap_or_default();
+    let text = match text {
+        StatText::Line(line) | StatText::RadiusLine { line, .. } => line.to_owned(),
+        StatText::Lines(lines) => lines_text(lines),
+        StatText::BaseType { base_type, .. } => format!("Base: {base_type}"),
+        StatText::Property(property, value) => {
+            format!("{property:?}: {}", format::number(value))
+        }
+        StatText::CatalystQuality(kind, value) => {
+            let kind = kind
+                .catalyst
+                .map_or_else(|| kind.words.clone(), |catalyst| format!("{catalyst:?}"));
+            format!("{kind} quality: {}", format::number(value))
+        }
+        StatText::Pseudo(pseudo, value) => {
+            format!("{pseudo:?}: {}", format::number(value))
+        }
+        StatText::Unrevealed(affix) => format!("Unrevealed {affix:?}"),
+    };
+    format!("{check}{text}{limit}{roll}{radius}")
 }
 
 /// A tier under a line as [`row_texts`] writes it: `T1/T2 155–179`, then its word and its

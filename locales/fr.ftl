@@ -286,6 +286,8 @@ tier-uncertain = Palier incertain
 # De même pour une valeur qu'aucun modificateur des données du jeu ne contient (un objet copié avant un patch), et son info-bulle.
 tier-not-found = Aucun palier trouvé
 tier-not-found-why = Aucun modificateur connu ne contient cette valeur.
+# Sous les stats d'un objet sanctifié copié depuis l'échange du jeu, à la place de la note des paliers : la sanctification déplace chaque valeur, peut-être hors de son palier, donc aucun palier n'est cherché.
+sanctified-note = Les valeurs d'un objet sanctifié peuvent sortir de leur palier : aucun n'est trouvé.
 # Sous les stats d'un objet unique copié depuis l'échange du jeu, sans les plages de la copie avancée : ses jets viennent de la base de prix.
 unique-rolls-note = Les jets sont ceux de poe2scout.
 # Après la plage d'une ligne d'un joyau perdu dans le temps, sur un petit bloc gris : les talents du rayon qui reçoivent la ligne. La ligne est affichée sans les mots du jeu qui les nomment.

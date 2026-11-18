@@ -174,6 +174,9 @@ messages! {
     /// second sentence once a line is in doubt.
     TradeCopyNote => "trade-copy-note",
     UncertainTierNote => "uncertain-tier-note",
+    /// The note under the stats of a sanctified item copied from the in-game trade, in place
+    /// of the one above.
+    SanctifiedNote => "sanctified-note",
     /// The note under the stats of a unique copied from the in-game trade.
     UniqueRollsNote => "unique-rolls-note",
     /// After the range of a line of a Time-Lost jewel, the passive skills in its radius it is

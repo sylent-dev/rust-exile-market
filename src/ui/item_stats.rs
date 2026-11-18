@@ -49,7 +49,7 @@ use uniques::unique_rows;
 
 use crate::filters::{Filter, FilterKey, Filters, Property};
 use crate::format;
-use crate::item::{Item, ModifierKind, NoTier, Rarity, TierDoubt};
+use crate::item::{Item, ItemState, ModifierKind, NoTier, Rarity, TierDoubt};
 use crate::roll_difference::CopiedLines;
 use crate::settings::PseudoTotals;
 use crate::tier_rolls::TierRolls;
@@ -247,23 +247,37 @@ fn remove_unsearchable_filters(rows: &mut [Row<'_>], line_stats: &LineStats) {
     }
 }
 
-/// The notes under the stats of `item`: its modifiers not revealed yet; its tiers found from
-/// its values, once one is ([`has_tier_found`]) or a line is in doubt, which adds when a tier
-/// is uncertain; its ranges from the prices, once one comes: none before they arrive.
+/// The notes under the stats of `item`: its modifiers not revealed yet; the tiers of its
+/// values ([`value_tier_notes`]); its ranges from the prices, once one comes: none before
+/// they arrive.
 fn notes(item: &Item) -> Vec<Row<'static>> {
     let unrevealed = item
         .has_unrevealed_modifiers()
         .then_some(Row::UnrevealedNote);
-    let in_doubt = has_line_in_doubt(item);
-    let trade_copy = (item.has_tiers_from_values() && (has_tier_found(item) || in_doubt))
-        .then_some(Row::TradeCopyNote);
-    let uncertain_tier = in_doubt.then_some(Row::UncertainTierNote);
     let unique_rolls =
         (item.has_rolls_from_prices() && has_range(item)).then_some(Row::UniqueRollsNote);
-    [unrevealed, trade_copy, uncertain_tier, unique_rolls]
+    unrevealed
         .into_iter()
-        .flatten()
+        .chain(value_tier_notes(item))
+        .chain(unique_rolls)
         .collect()
+}
+
+/// The notes of an item copied from the in-game trade whose tiers are found from its values,
+/// none for another item: sanctified, why none is found, its values being able to leave their
+/// tier; otherwise that they are found so, once one is ([`has_tier_found`]) or a line is in
+/// doubt, which adds when a tier is uncertain.
+fn value_tier_notes(item: &Item) -> Vec<Row<'static>> {
+    if !item.has_tiers_from_values() {
+        return Vec::new();
+    }
+    if item.has_state(ItemState::Sanctified) {
+        return vec![Row::SanctifiedNote];
+    }
+    let in_doubt = has_line_in_doubt(item);
+    let trade_copy = (has_tier_found(item) || in_doubt).then_some(Row::TradeCopyNote);
+    let uncertain_tier = in_doubt.then_some(Row::UncertainTierNote);
+    trade_copy.into_iter().chain(uncertain_tier).collect()
 }
 
 /// A line of `item`, searched from its values, is left without tier in doubt: modifiers hold

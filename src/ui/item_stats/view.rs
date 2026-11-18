@@ -138,6 +138,7 @@ impl Stats<'_> {
                 Row::UnrevealedNote => note(ui, i18n.text(Message::UnrevealedNote)),
                 Row::TradeCopyNote => note(ui, i18n.text(Message::TradeCopyNote)),
                 Row::UncertainTierNote => note(ui, i18n.text(Message::UncertainTierNote)),
+                Row::SanctifiedNote => note(ui, i18n.text(Message::SanctifiedNote)),
                 Row::UniqueRollsNote => note(ui, i18n.text(Message::UniqueRollsNote)),
             }
         }

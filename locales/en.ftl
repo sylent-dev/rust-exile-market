@@ -283,6 +283,8 @@ tier-uncertain = Uncertain tier
 # The same for a value no modifier of the game data holds (an item copied before a patch), and its tooltip.
 tier-not-found = No tier found
 tier-not-found-why = No known modifier holds this value.
+# Under the stats of a sanctified item copied from the trade of the game, in place of the note of the tiers: the sanctification moves each value, maybe out of its tier, so no tier is searched.
+sanctified-note = The values of a sanctified item can leave their tier: none is found.
 # Under the stats of a unique copied from the trade of the game, without the ranges of the advanced copy: its rolls come from the price database.
 unique-rolls-note = The rolls are those of poe2scout.
 # After the range of a line of a Time-Lost jewel, on a small gray block: the passive skills in its radius that receive the line. The line is shown without the words of the game that name them.

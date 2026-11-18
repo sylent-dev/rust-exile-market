@@ -32,7 +32,7 @@ fn the_note_shows_also_when_the_only_tiers_found_are_those_of_a_line_in_doubt() 
 }
 
 #[test]
-fn a_sanctified_item_copied_from_the_in_game_trade_shows_no_tier_nor_the_note() {
+fn a_sanctified_item_copied_from_the_in_game_trade_shows_no_tier_and_a_note_of_its_own() {
     let text = include_str!("../../item/test-items/en-owner-trade-rare-helmet-fractured.txt");
     let tiara = read_again(parse(&format!(
         "{}\n--------\nSanctified\n",
@@ -40,8 +40,9 @@ fn a_sanctified_item_copied_from_the_in_game_trade_shows_no_tier_nor_the_note() 
     )));
     assert!(tiara.has_state(crate::item::ItemState::Sanctified));
 
-    // Its values can each have left their tier: every line as copied, without affix, tier
-    // nor bar, and no note, no tier being found.
+    // Its values can each have left their tier: every line as copied, without affix, tier,
+    // bar nor word, its lines not being searched, and a note saying why, in place of the note
+    // of the tiers.
     let texts = texts(&tiara);
     let explicit = texts
         .iter()
@@ -58,8 +59,15 @@ fn a_sanctified_item_copied_from_the_in_game_trade_shows_no_tier_nor_the_note() 
             "□ +43% to Fire Resistance ≥39",
             "□ +40% to Cold Resistance ≥36",
             "□ +69 to maximum Energy Shield ≥62 [Desecrated]",
+            "Sanctified note",
         ]
     );
+    // The advanced copy of a sanctified item writes its tiers: no note.
+    let sceptre = parse(include_str!(
+        "../../item/test-items/en-owner-rare-sceptre-sanctified.txt"
+    ));
+    assert!(sceptre.has_state(crate::item::ItemState::Sanctified));
+    assert!(!rows(&sceptre).contains(&Row::SanctifiedNote));
 }
 
 #[test]

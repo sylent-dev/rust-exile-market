@@ -534,6 +534,9 @@ pub(super) enum Row<'a> {
     TradeCopyNote,
     /// Under that note, once a line of the item is in doubt: when a tier is uncertain.
     UncertainTierNote,
+    /// Under the stats of a sanctified item copied from the in-game trade, in place of both:
+    /// why no tier is found.
+    SanctifiedNote,
     /// Under the stats of a unique copied from the in-game trade, whose rolls come from the
     /// price database.
     UniqueRollsNote,
