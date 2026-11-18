@@ -418,8 +418,9 @@ impl PriceBlock<'_> {
         line(ui, &note, color::WEAK);
     }
 
-    /// The uniques an unidentified item can be, each with its price in its own currency; a
-    /// name too long is cut with "…", and shown whole under the pointer.
+    /// The uniques an unidentified item can be, each with its price in its own currency and the
+    /// tooltip of its orb ([`orb_tooltip`]); a name too long is cut with "…", and shown whole
+    /// under the pointer.
     fn candidates(&self, ui: &mut Ui, candidates: &[Candidate], rates: Rates) {
         message(ui, &self.i18n.text(Message::IdentifyToPrice), color::TEXT);
         ui.add_space(LINE_GAP);
@@ -437,23 +438,31 @@ impl PriceBlock<'_> {
             let listed = candidate
                 .price
                 .map(|unique| list_price(unique.price.exalted, rates));
-            let price_width = self.candidate_price(ui, rect, listed);
+            let currency = listed.as_ref().map(|&(_, currency)| currency);
+            let price = self.candidate_price(ui, rect, listed);
+            let is_price_hovered = currency.is_some_and(|currency| {
+                let id = response.id.with("price");
+                let hovered = ui.interact(price, id, Sense::hover());
+                orb_tooltip(&hovered, currency, rates, self.i18n);
+                hovered.hovered()
+            });
             let name = &candidate.names.of(language).name;
-            let name_width = (rect.width() - price_width - NAME_GAP).max(0.0);
+            let name_width = (rect.width() - price.width() - NAME_GAP).max(0.0);
             let galley = widgets::truncated_line(ui, name.as_str(), text::body(), name_width);
             let cut = galley.elided;
             let top = rect.center().y - galley.size().y / 2.0;
             ui.painter()
                 .galley(pos2(rect.left(), top), galley, color::UNIQUE);
-            if cut {
+            // Not over the price, which has a tooltip of its own.
+            if cut && !is_price_hovered {
                 response.on_hover_text(name.as_str());
             }
         }
     }
 
-    /// Draws the price of a possible unique at the right of its row, as [`list_price`] writes
-    /// it, or that it has no offers; its width.
-    fn candidate_price(&self, ui: &Ui, row: Rect, listed: Option<(String, Orb)>) -> f32 {
+    /// Draws the price of a possible unique at the right of its `row`, as [`list_price`] writes
+    /// it, or that it has no offers; the part of the row it takes, the whole height of the row.
+    fn candidate_price(&self, ui: &Ui, row: Rect, listed: Option<(String, Orb)>) -> Rect {
         let painter = ui.painter();
         let Some((amount, currency)) = listed else {
             let label = self.i18n.text(Message::NoOffers);
@@ -464,7 +473,7 @@ impl PriceBlock<'_> {
                 galley,
                 color::WEAK,
             );
-            return size.x;
+            return price_part(row, size.x);
         };
         let orb_rect = Rect::from_center_size(
             pos2(row.right() - LIST_ORB_SIZE / 2.0, row.center().y),
@@ -479,7 +488,7 @@ impl PriceBlock<'_> {
             galley,
             color::TEXT,
         );
-        row.right() - left
+        price_part(row, row.right() - left)
     }
 
     /// Why the item has no price.
@@ -614,6 +623,11 @@ fn value_in(exalted: f64, currency: Orb, rates: Rates) -> f64 {
         Orb::Chaos => exalted / rates.chaos,
         Orb::Exalted => exalted,
     }
+}
+
+/// The part of a `row` of a list its price takes, `width` across on its right.
+fn price_part(row: Rect, width: f32) -> Rect {
+    Rect::from_min_max(pos2(row.right() - width, row.top()), row.max)
 }
 
 /// The price of a row of a list, in one currency ([`list_currency`]).

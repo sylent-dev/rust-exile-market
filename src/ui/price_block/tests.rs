@@ -344,3 +344,13 @@ fn the_plural_of_a_rate_follows_the_amount_written() {
     assert_eq!(chaos(1.5, Language::French), "1 = 1.5 Orbe exalté");
     assert_eq!(chaos(1.996, Language::French), "1 = 2 Orbes exaltés");
 }
+
+#[test]
+fn the_price_of_a_possible_unique_takes_the_right_of_its_row_its_whole_height() {
+    let row = Rect::from_min_max(pos2(10.0, 20.0), pos2(400.0, 46.0));
+
+    assert_eq!(
+        price_part(row, 60.0),
+        Rect::from_min_max(pos2(340.0, 20.0), pos2(400.0, 46.0))
+    );
+}
