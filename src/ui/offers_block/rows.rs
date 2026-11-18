@@ -147,12 +147,9 @@ pub(super) fn item_rows(offers: &[ItemOffer], counting: Counting, now: SystemTim
                 .searched_catalyst
                 .and_then(|catalyst| offer.other_quality(catalyst));
             let uncounted_currency = || {
-                counting.estimate_worth.is_some_and(|worth| {
-                    offer
-                        .price
-                        .as_ref()
-                        .is_some_and(|price| !worth.counts(price.amount, &price.currency))
-                })
+                counting
+                    .estimate_worth
+                    .is_some_and(|worth| worth.leaves_out_price_of(offer))
             };
             let not_counted = other_quality
                 .map(NotCounted::OtherQuality)

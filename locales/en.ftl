@@ -382,6 +382,8 @@ search-to-estimate = Search similar offers to estimate it.
 # A rare or magic item whose filters compare none of its stats: the offers of any item of its
 # base would say nothing of its price.
 check-to-estimate = Check a stat that sets this item apart to estimate it.
+# After a search whose offers none is counted, some paid in a currency without price, or priced on fewer than 10 trades.
+no-offer-counted-to-estimate = No similar offer is paid in a currency with a reliable price.
 # A fixed-name item whose price isn't known yet, or missing.
 prices-downloading = The prices of { $league } are downloading…
 # Before the league is known, at the first launch.

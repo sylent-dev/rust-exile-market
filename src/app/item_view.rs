@@ -15,8 +15,8 @@ use crate::session::{ItemTrade, PricesState, Session, ShownItem};
 use crate::settings::PseudoTotals;
 use crate::trade::query::{SearchFilters, SearchKind};
 use crate::ui::{
-    ItemBlock, ItemBlockAction, LineFacts, OffersAction, OffersBlock, PriceBlock, ShownLeague,
-    StatChecks, Stats,
+    EstimateSearch, ItemBlock, ItemBlockAction, LineFacts, OffersAction, OffersBlock, PriceBlock,
+    ShownLeague, StatChecks, Stats,
 };
 
 /// The filters of the search of the item of `trade`, the item `shown`: as the player set
@@ -114,6 +114,7 @@ impl ItemView<'_> {
         // With the filters as the player just left them.
         let (all, searched) = every_filter(&trade, shown, filters, pseudo_totals);
         let checks = StatChecks::of(&searched, shown.stats(), &all);
+        let search = EstimateSearch::of(offers, item, estimate_worth);
         if action == Some(ItemBlockAction::CheckOnTrade)
             && let Some(url) = trade.url(searched)
         {
@@ -124,6 +125,7 @@ impl ItemView<'_> {
             price: fixed_price,
             estimate,
             checks,
+            search,
             league: ShownLeague {
                 name: session.league().map(League::name),
                 prices,

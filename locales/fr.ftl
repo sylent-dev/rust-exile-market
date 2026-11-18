@@ -391,6 +391,8 @@ search-to-estimate = Cherchez des offres similaires pour l'estimer.
 # Un objet rare ou magique dont aucun filtre ne compare les statistiques : les offres de tout
 # objet de sa base ne diraient rien de son prix.
 check-to-estimate = Cochez une statistique qui distingue cet objet pour l'estimer.
+# Après une recherche dont aucune offre n'est comptée, certaines payées dans une devise sans prix, ou cotée sur moins de 10 échanges.
+no-offer-counted-to-estimate = Aucune offre similaire n'est payée dans une devise au prix fiable.
 # Un objet à nom fixe dont le prix n'est pas encore connu, ou manquant.
 prices-downloading = Les prix de { $league } sont en cours de téléchargement…
 # Avant que la ligue soit connue, au premier lancement.

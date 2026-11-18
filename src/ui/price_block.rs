@@ -16,8 +16,9 @@ use crate::filters::{Filter, FilterKey};
 use crate::format;
 use crate::i18n::{Message, Translator, WrittenRange};
 use crate::item::{Item, Rarity};
+use crate::offers_state::{Offers, OffersState};
 use crate::price::Orb;
-use crate::price::estimate::{COUNTED, Estimate};
+use crate::price::estimate::{COUNTED, Estimate, Worth};
 use crate::price::fixed::{Candidate, FixedPrice, NoFixedPrice};
 use crate::price::{Direction, Price, Rates};
 use crate::session::PricesState;
@@ -171,18 +172,63 @@ impl StatChecks {
     }
 }
 
-/// The line under "No market price…" of an item without estimate, given the `checks` of its
-/// filters: an item priced by its stats ([`Item::is_priced_by_stats`]) is estimated only from a
-/// search that compares some, so that it asks for one to be checked, and says nothing when
-/// none can be (the offers of any item of its base would say nothing of its price).
-fn estimate_hint(is_priced_by_stats: bool, checks: StatChecks) -> Option<Message> {
-    if !is_priced_by_stats {
-        return Some(Message::SearchToEstimate);
+/// Where the search of an item without estimate stands.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EstimateSearch {
+    /// Not searched yet, searching, failed or refused; or the prices of the league, which
+    /// count the offers, not known yet.
+    Pending,
+    /// Searched, its offers, if any, not counted for another reason than their currency: none,
+    /// all of another kind of quality, or listed without a price; the offers block says it.
+    NothingCounted,
+    /// Searched, some of its offers paid in a currency the estimate doesn't count.
+    CurrenciesNotCounted,
+}
+
+impl EstimateSearch {
+    /// Where the search of `item`, priced by its `offers`, stands without estimate, with the
+    /// `estimate_worth` of the currencies, none until it is priced by them.
+    #[must_use]
+    pub fn of(offers: &Offers, item: &Item, estimate_worth: Option<Worth>) -> Self {
+        let (Some(worth), OffersState::Items(items)) = (estimate_worth, offers.state()) else {
+            return Self::Pending;
+        };
+        let searched_catalyst = offers.searched_catalyst(item);
+        // The first page, which the estimate counts.
+        let page = items.offers.get(..items.first_page).unwrap_or_default();
+        let in_uncounted_currency = page.iter().any(|offer| {
+            searched_catalyst.is_none_or(|catalyst| !offer.has_other_quality(catalyst))
+                && worth.leaves_out_price_of(offer)
+        });
+        if in_uncounted_currency {
+            Self::CurrenciesNotCounted
+        } else {
+            Self::NothingCounted
+        }
     }
-    match checks {
-        StatChecks::Checked => Some(Message::SearchToEstimate),
-        StatChecks::Unchecked => Some(Message::CheckToEstimate),
-        StatChecks::NoneToCheck => None,
+}
+
+/// The line under "No market price…" of an item without estimate, given the `checks` of its
+/// filters and its `search`: an item priced by its stats ([`Item::is_priced_by_stats`]) is
+/// estimated only from a search that compares some, so that it asks for one to be checked, and
+/// says nothing when none can be (the offers of any item of its base would say nothing of its
+/// price); once searched, why no offer is counted, or nothing when the offers block says it.
+fn estimate_hint(
+    is_priced_by_stats: bool,
+    checks: StatChecks,
+    search: EstimateSearch,
+) -> Option<Message> {
+    if is_priced_by_stats {
+        match checks {
+            StatChecks::Checked => {}
+            StatChecks::Unchecked => return Some(Message::CheckToEstimate),
+            StatChecks::NoneToCheck => return None,
+        }
+    }
+    match search {
+        EstimateSearch::Pending => Some(Message::SearchToEstimate),
+        EstimateSearch::NothingCounted => None,
+        EstimateSearch::CurrenciesNotCounted => Some(Message::NoOfferCountedToEstimate),
     }
 }
 
@@ -265,6 +311,8 @@ pub struct PriceBlock<'a> {
     pub estimate: Option<Estimate<'a>>,
     /// Whether the filters of the item, as the player left them, compare its stats.
     pub checks: StatChecks,
+    /// Where its search stands, when it gave no estimate.
+    pub search: EstimateSearch,
     pub league: ShownLeague<'a>,
     pub i18n: &'a Translator,
 }
@@ -477,7 +525,8 @@ impl PriceBlock<'_> {
         };
         message(ui, &first, color::TEXT);
         if let Notice::NoMarketPrice(_) = notice
-            && let Some(second) = estimate_hint(self.item.is_priced_by_stats(), self.checks)
+            && let Some(second) =
+                estimate_hint(self.item.is_priced_by_stats(), self.checks, self.search)
         {
             ui.add_space(MESSAGE_GAP);
             message(ui, &i18n.text(second), color::WEAK);

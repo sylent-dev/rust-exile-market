@@ -51,27 +51,50 @@ fn a_rare_item_has_no_market_price() {
 
 #[test]
 fn a_rare_or_magic_item_asks_for_a_stat_to_estimate_it_and_says_nothing_when_none_can_be() {
+    use EstimateSearch::Pending;
     use StatChecks::{Checked, NoneToCheck, Unchecked};
 
     // A rare or magic item.
     assert_eq!(
-        estimate_hint(true, Checked),
+        estimate_hint(true, Checked, Pending),
         Some(Message::SearchToEstimate)
     );
     assert_eq!(
-        estimate_hint(true, Unchecked),
+        estimate_hint(true, Unchecked, Pending),
         Some(Message::CheckToEstimate)
     );
-    assert_eq!(estimate_hint(true, NoneToCheck), None);
+    assert_eq!(estimate_hint(true, NoneToCheck, Pending), None);
     // A normal item, a gem or a waystone: priced by its base, its quality, its level or
     // its tier, not by modifiers.
     for checks in [Checked, Unchecked, NoneToCheck] {
         assert_eq!(
-            estimate_hint(false, checks),
+            estimate_hint(false, checks, Pending),
             Some(Message::SearchToEstimate),
             "{checks:?}"
         );
     }
+}
+
+#[test]
+fn after_a_search_without_estimate_the_hint_says_why_or_leaves_it_to_the_offers() {
+    use EstimateSearch::{CurrenciesNotCounted, NothingCounted};
+    use StatChecks::{Checked, Unchecked};
+
+    for is_priced_by_stats in [true, false] {
+        assert_eq!(
+            estimate_hint(is_priced_by_stats, Checked, CurrenciesNotCounted),
+            Some(Message::NoOfferCountedToEstimate)
+        );
+        assert_eq!(
+            estimate_hint(is_priced_by_stats, Checked, NothingCounted),
+            None
+        );
+    }
+    // Its stats unchecked since: what to do first.
+    assert_eq!(
+        estimate_hint(true, Unchecked, CurrenciesNotCounted),
+        Some(Message::CheckToEstimate)
+    );
 }
 
 #[test]

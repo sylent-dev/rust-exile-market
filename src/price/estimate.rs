@@ -44,11 +44,14 @@ impl<'a> Worth<'a> {
         }
     }
 
-    /// Whether an offer of `amount` of the currency `id` of the trade site is counted in an
-    /// estimate: not in a currency without price, or whose price stands on too few trades.
+    /// Whether an estimate leaves `offer` out for its price: in a currency without price, or
+    /// whose price stands on too few trades. An offer listed without a price isn't.
     #[must_use]
-    pub fn counts(self, amount: f64, id: &str) -> bool {
-        self.in_exalted(amount, id).is_some()
+    pub fn leaves_out_price_of(self, offer: &ItemOffer) -> bool {
+        offer
+            .price
+            .as_ref()
+            .is_some_and(|price| self.in_exalted(price.amount, &price.currency).is_none())
     }
 
     /// `amount` of the currency `id` of the trade site, in Exalted Orbs; `None` for a

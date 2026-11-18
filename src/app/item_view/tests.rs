@@ -389,3 +389,39 @@ fn the_estimate_leaves_out_another_kind_of_quality_only_when_the_quality_is_sear
         assert_eq!(estimate.counted, counted);
     }
 }
+
+#[test]
+fn a_search_without_estimate_tells_whether_currencies_werent_counted() {
+    use crate::trade::offers::fixtures::item_offer;
+
+    let amulet = amulet();
+    let now = Instant::now();
+    let search_of = |page: Vec<crate::trade::offers::ItemOffer>, worth| {
+        let mut offers = Offers::default();
+        let _ = offers.search(searched(Vec::new()), now);
+        let total = page.len() as u64;
+        offers.apply(answer(page, total, false, now), SystemTime::now());
+        EstimateSearch::of(&offers, &amulet, worth)
+    };
+
+    assert_eq!(
+        EstimateSearch::of(&Offers::default(), &amulet, Some(WORTH)),
+        EstimateSearch::Pending,
+        "not searched yet"
+    );
+    // A Wombgift has no price.
+    let wombgift = || vec![item_offer(3.0, "banded-wombgift")];
+    assert_eq!(
+        search_of(wombgift(), Some(WORTH)),
+        EstimateSearch::CurrenciesNotCounted
+    );
+    assert_eq!(
+        search_of(wombgift(), None),
+        EstimateSearch::Pending,
+        "the prices of the league not known yet"
+    );
+    assert_eq!(
+        search_of(Vec::new(), Some(WORTH)),
+        EstimateSearch::NothingCounted
+    );
+}

@@ -135,6 +135,7 @@ messages! {
     NoOffers => "no-offers",
     SearchToEstimate => "search-to-estimate",
     CheckToEstimate => "check-to-estimate",
+    NoOfferCountedToEstimate => "no-offer-counted-to-estimate",
     NoMarketPriceRare => "no-market-price-rare",
     NoMarketPriceSkillGem => "no-market-price-skill-gem",
     NoMarketPriceMagic => "no-market-price-magic",
