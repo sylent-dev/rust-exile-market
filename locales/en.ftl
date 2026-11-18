@@ -325,7 +325,7 @@ stack-of = Stack of { $size }
 # Under the price of a stack: "Unit price: 0.25 div · 2.49 c · 182 ex".
 unit-price = Unit price: { $prices }
 # The tooltip of an orb of the price block, under its name: what one Divine or Chaos Orb is worth in Exalted
-# Orbs, from the rates of the price database ($amount written as the prices; $count, its value, for the plural).
+# Orbs, from the rates of the price database ($amount; $count, the same number, for the plural).
 orb-rate-in-exalted = 1 = { $amount } { $count ->
     [one] Exalted Orb
    *[other] Exalted Orbs

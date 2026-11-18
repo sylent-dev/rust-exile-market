@@ -412,13 +412,13 @@ impl Translator {
     }
 
     /// What one Divine or Chaos Orb is worth in Exalted Orbs, under its name in its tooltip:
-    /// "1 = 712 Exalted Orbs"; `amount` as the price block writes it, `count` its value, for
-    /// the plural.
+    /// "1 = 712 Exalted Orbs"; `amount` as the price block writes it, its plural chosen by the
+    /// number written.
     #[must_use]
-    pub fn orb_rate_in_exalted(&self, amount: &str, count: f64) -> String {
+    pub fn orb_rate_in_exalted(&self, amount: &str) -> String {
         let mut args = FluentArgs::new();
         args.set("amount", amount);
-        args.set("count", count);
+        args.set("count", FluentValue::try_number(amount));
         self.format(ORB_RATE_IN_EXALTED, Some(&args))
     }
 

@@ -337,7 +337,7 @@ stack-of = Pile de { $size }
 # Sous le prix d'une pile : « Prix unitaire : 0.25 div · 2.49 c · 182 ex ».
 unit-price = Prix unitaire : { $prices }
 # L'infobulle d'une orbe du bloc prix, sous son nom : ce que vaut un Orbe divin ou un Orbe du chaos en Orbes
-# exaltés, d'après les taux de la base de prix ($amount écrit comme les prix ; $count, sa valeur, pour le pluriel).
+# exaltés, d'après les taux de la base de prix ($amount ; $count, le même nombre, pour le pluriel).
 orb-rate-in-exalted = 1 = { $amount } { $count ->
     [one] Orbe exalté
    *[other] Orbes exaltés

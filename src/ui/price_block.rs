@@ -442,9 +442,13 @@ impl PriceBlock<'_> {
             let price = self.candidate_price(ui, rect, listed);
             let is_price_hovered = currency.is_some_and(|currency| {
                 let id = response.id.with("price");
-                let hovered = ui.interact(price, id, Sense::hover());
-                orb_tooltip(&hovered, currency, rates, self.i18n);
-                hovered.hovered()
+                orb_tooltip(
+                    ui.interact(price, id, Sense::hover()),
+                    currency,
+                    rates,
+                    self.i18n,
+                )
+                .hovered()
             });
             let name = &candidate.names.of(language).name;
             let name_width = (rect.width() - price.width() - NAME_GAP).max(0.0);
@@ -542,18 +546,18 @@ fn amounts(ui: &mut Ui, exalted: f64, rates: Rates, i18n: &Translator) {
                     icon.union(amount)
                 },
             );
-            orb_tooltip(&shown.inner, currency, rates, i18n);
+            orb_tooltip(shown.inner, currency, rates, i18n);
         }
     });
 }
 
 /// Under the pointer over an orb or its amount, the name of the orb in the language of the
 /// interface, then in gray what one is worth in the others ([`orb_rate`]).
-fn orb_tooltip(response: &Response, currency: Orb, rates: Rates, i18n: &Translator) {
-    response.clone().on_hover_ui(|ui| {
+fn orb_tooltip(response: Response, currency: Orb, rates: Rates, i18n: &Translator) -> Response {
+    response.on_hover_ui(|ui| {
         ui.label(RichText::new(orb_name(currency, i18n.language())).color(color::TEXT));
         ui.label(RichText::new(orb_rate(currency, rates, i18n)).color(color::WEAK));
-    });
+    })
 }
 
 /// The name of `currency` in `language`, as the trade site writes it: "Divine Orb", "Orbe
@@ -566,20 +570,20 @@ fn orb_name(currency: Orb, language: Language) -> &'static str {
 
 /// What one orb of `currency` is worth in the others, by the `rates` every price of the block
 /// is converted with: a Divine or a Chaos Orb in Exalted Orbs, an Exalted Orb by how many make
-/// a Divine Orb; each amount written as the prices, its plural chosen by the value written (two
-/// decimals at most, as [`format::amount`] under 10, where the plural can change).
+/// a Divine Orb; each amount as [`written_rate`] writes it.
 fn orb_rate(currency: Orb, rates: Rates, i18n: &Translator) -> String {
-    let in_exalted = |value: f64| {
-        i18n.orb_rate_in_exalted(
-            &format::amount(value, Orb::Exalted),
-            format::rounded(value, 2),
-        )
-    };
     match currency {
-        Orb::Divine => in_exalted(rates.divine),
-        Orb::Chaos => in_exalted(rates.chaos),
-        Orb::Exalted => i18n.orb_rate_for_divine(&format::amount(rates.divine, Orb::Exalted)),
+        Orb::Divine => i18n.orb_rate_in_exalted(&written_rate(rates.divine)),
+        Orb::Chaos => i18n.orb_rate_in_exalted(&written_rate(rates.chaos)),
+        Orb::Exalted => i18n.orb_rate_for_divine(&written_rate(rates.divine)),
     }
+}
+
+/// A rate in Exalted Orbs, whole from 10 and with two decimals at most under it, never cut
+/// short with `K` as the prices are: a rate is read for its precision ("1049", not "1K").
+fn written_rate(exalted: f64) -> String {
+    let decimals = if exalted >= 10.0 { 0 } else { 2 };
+    format::number(format::rounded(exalted, decimals))
 }
 
 /// The unit price of a stack on one line, e.g. `0.27 c · 20 ex`, without the amounts too

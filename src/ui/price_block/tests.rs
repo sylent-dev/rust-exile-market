@@ -339,6 +339,8 @@ fn the_plural_of_a_rate_follows_the_amount_written() {
     };
 
     assert_eq!(chaos(1.0, Language::English), "1 = 1 Exalted Orb");
+    // 0.996 is written 1, in the singular.
+    assert_eq!(chaos(0.996, Language::English), "1 = 1 Exalted Orb");
     assert_eq!(chaos(1.5, Language::English), "1 = 1.5 Exalted Orbs");
     // French puts a number under 2 in the singular; 1.996 is written 2, in the plural.
     assert_eq!(chaos(1.5, Language::French), "1 = 1.5 Orbe exalté");
@@ -352,5 +354,22 @@ fn the_price_of_a_possible_unique_takes_the_right_of_its_row_its_whole_height() 
     assert_eq!(
         price_part(row, 60.0),
         Rect::from_min_max(pos2(340.0, 20.0), pos2(400.0, 46.0))
+    );
+}
+
+#[test]
+fn a_rate_is_written_whole_never_cut_short_with_k() {
+    let rates = Rates {
+        chaos: 70.0,
+        divine: 1049.4,
+    };
+    let english = Translator::new(Language::English);
+
+    assert_eq!(
+        [
+            orb_rate(Orb::Divine, rates, &english),
+            orb_rate(Orb::Exalted, rates, &english)
+        ],
+        ["1 = 1049 Exalted Orbs", "1049 = 1 Divine Orb"]
     );
 }
