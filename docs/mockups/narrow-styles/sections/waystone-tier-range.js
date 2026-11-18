@@ -10,6 +10,7 @@
 // B, a row "Tier: 12" of its own at the top of the Waystone group (French "Palier : 12"), with the bar of the
 //    tier under it, and no row of the base: checked or not, it would search the same category. The tier is then
 //    a filter like the other properties of the waystone, `map_filters` all of them (Claude Code's recommendation).
+// Chosen by the owner on 2026-11-18: B.
 // An estimate over several tiers mixes their values: the player's choice; the tier of each offer is in its
 // tooltip ("Waystone · T11").
 
@@ -52,10 +53,10 @@ const wtrStatsBFr = (min, max) => waystonePropertyStatsFr
 const wtrWin = (stats, filters = "3 filters") => waystoneWin({ ...WAYSTONE_PROPS, filters }, stats);
 
 SECTIONS.unshift(["Waystone tier range (22g): the tier of a waystone searched between a minimum and a maximum", [
-  ["A · the range on the row of the base · by default, 12 – 12", wtrWin(wtrStatsA(12, 12))],
-  ["A · widened by the player, 11 –", wtrWin(wtrStatsA(11, ""))],
-  ["A · the base unchecked: every tier, as an empty range", wtrWin(wtrStatsA(12, 12, false), "2 filters")],
-  ["B (recommended) · a row Tier of its own, no row of the base · by default, 12 – 12", wtrWin(wtrStatsB(12, 12))],
-  ["B · widened by the player, 11 –", wtrWin(wtrStatsB(11, ""))],
-  ["B · en français, 11 – 13", win(topBar(), item({ ...WAYSTONE_PROPS_FR, stats: wtrStatsBFr(11, 13) }, true), price(RARE_ESTIMATE_BEFORE), foot())],
+  ["Not chosen · A · the range on the row of the base · by default, 12 – 12", wtrWin(wtrStatsA(12, 12))],
+  ["Not chosen · A · widened by the player, 11 –", wtrWin(wtrStatsA(11, ""))],
+  ["Not chosen · A · the base unchecked: every tier, as an empty range", wtrWin(wtrStatsA(12, 12, false), "2 filters")],
+  ["Chosen · B · a row Tier of its own, no row of the base · by default, 12 – 12", wtrWin(wtrStatsB(12, 12))],
+  ["Chosen · B · widened by the player, 11 –", wtrWin(wtrStatsB(11, ""))],
+  ["Chosen · B · en français, 11 – 13", win(topBar(), item({ ...WAYSTONE_PROPS_FR, stats: wtrStatsBFr(11, 13) }, true), price(RARE_ESTIMATE_BEFORE), foot())],
 ]]);
