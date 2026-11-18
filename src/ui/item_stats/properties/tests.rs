@@ -513,9 +513,10 @@ fn the_quality_of_a_charm_counts_from_10_and_of_a_flask_from_20() {
 
 #[test]
 fn a_waystone_is_searched_by_its_properties_and_its_tier() {
-    // The owner's waystones of tier 12: the base without its tier, a bar of the tier under it;
-    // the properties in a group of their own, the item rarity and the drop chance checked, a
-    // percentage from 90 % of its value, rounded down, the revives from their number.
+    // The owner's waystones of tier 12: no filter of the base, the tier first in the group of
+    // the waystone, checked, from 12 to 12, a bar of the tier under it; then the properties,
+    // the item rarity and the drop chance checked, a percentage from 90 % of its value,
+    // rounded down, the revives from their number.
     let english = parse(include_str!(
         "../../../item/test-items/en-owner-rare-waystone.txt"
     ));
@@ -533,9 +534,9 @@ fn a_waystone_is_searched_by_its_properties_and_its_tier() {
         properties(texts(&english)),
         [
             "Item",
-            "■ Base: Waystone [Waystone T12]",
             "□ ItemLevel: 80 ≥80",
             "Waystone",
+            "■ WaystoneTier: 12 =12 [Waystone T12]",
             "□ Waystone(Revives): 3 ≥3",
             "■ Waystone(ItemRarity): 11 ≥9",
             "□ Waystone(MonsterRarity): 25 ≥22",
@@ -547,9 +548,9 @@ fn a_waystone_is_searched_by_its_properties_and_its_tier() {
         properties(texts(&french)),
         [
             "Item",
-            "■ Base: Pierre de téléportation [Waystone T12]",
             "□ ItemLevel: 78 ≥78",
             "Waystone",
+            "■ WaystoneTier: 12 =12 [Waystone T12]",
             "□ Waystone(Revives): 2 ≥2",
             "■ Waystone(ItemRarity): 25 ≥22",
             "□ Waystone(PackSize): 9 ≥8",
@@ -569,17 +570,73 @@ fn a_waystone_is_searched_by_its_properties_and_its_tier() {
         properties(texts(&corrupted)),
         [
             "Item",
-            "■ Base: Waystone [Waystone T16]",
             "■ ItemLevel: 82 ≥82",
             "Waystone",
+            "■ WaystoneTier: 16 =16 [Waystone T16]",
             "■ Waystone(ItemRarity): 38 ≥34",
         ]
     );
 }
 
+/// The query sent for the waystone copied as `text`, of `base_type`, its filter of the tier
+/// set by the player to `tier` (its minimum, its maximum, checked) when given.
+fn waystone_query(
+    text: &str,
+    base_type: &str,
+    tier: Option<(&str, &str, bool)>,
+) -> serde_json::Value {
+    let item = parse(text);
+    let lines = CopiedLines::new(
+        item.language(),
+        item.modifiers(),
+        &LineStats::default(),
+        None,
+    );
+    let line_stats = LineStats::new(&item, item.modifiers(), None);
+    let tiers = TierRolls::new(
+        item.language(),
+        item.modifiers(),
+        Some(base_type),
+        item.item_level(),
+    );
+    let stats = Stats::new(
+        &item,
+        LineFacts {
+            copied_lines: &lines,
+            line_stats: &line_stats,
+            tier_rolls: &tiers,
+        },
+        Some(base_type),
+        crate::settings::PseudoTotals::Shown,
+    );
+    let mut filters = Filters::default();
+    if let Some((minimum, maximum, checked)) = tier {
+        let key = FilterKey::Property(Property::WaystoneTier);
+        let (_, mut filter) = stats
+            .filters(&filters)
+            .into_iter()
+            .find(|(filter, _)| *filter == key)
+            .expect("the filter of the tier");
+        minimum.clone_into(&mut filter.minimum);
+        maximum.clone_into(&mut filter.maximum);
+        filter.checked = checked;
+        filters.set(key, filter);
+    }
+    let target = link::target(&item, None, None).expect("a target");
+    match link::query(
+        &item,
+        &target,
+        line_stats.search_filters(&stats.filters(&filters)),
+    ) {
+        crate::trade::query::Query::Items(items) => items.to_json(),
+        crate::trade::query::Query::Exchange(_) => panic!("an item search"),
+    }
+}
+
 #[test]
-fn a_waystone_searches_its_base_and_its_checked_properties() {
-    // From the copied waystone to the query sent: the whole base type, with its tier; the
+fn a_waystone_searches_its_tier_and_its_checked_properties() {
+    // From the copied waystone to the query sent: the category of the waystones, its tier from
+    // 12 to 12, as many offers as its base type (checked on the trade site on 2026-11-18); the
     // item rarity and the drop chance among the endgame filters; no modifier.
     for (text, base_type, item_rarity, drop_chance) in [
         (
@@ -595,67 +652,59 @@ fn a_waystone_searches_its_base_and_its_checked_properties() {
             58.0,
         ),
     ] {
-        let item = parse(text);
-        let lines = CopiedLines::new(
-            item.language(),
-            item.modifiers(),
-            &LineStats::default(),
-            None,
-        );
-        let line_stats = LineStats::new(&item, item.modifiers(), None);
-        let tiers = TierRolls::new(
-            item.language(),
-            item.modifiers(),
-            Some(base_type),
-            item.item_level(),
-        );
-        let stats = Stats::new(
-            &item,
-            LineFacts {
-                copied_lines: &lines,
-                line_stats: &line_stats,
-                tier_rolls: &tiers,
-            },
-            Some(base_type),
-            crate::settings::PseudoTotals::Shown,
-        );
-        let target = link::target(&item, None, None).expect("a target");
-        let query = |filters: &Filters| match link::query(
-            &item,
-            &target,
-            line_stats.search_filters(&stats.filters(filters)),
-        ) {
-            crate::trade::query::Query::Items(items) => items.to_json(),
-            crate::trade::query::Query::Exchange(_) => panic!("an item search"),
-        };
-        let mut filters = Filters::default();
-
-        let json = query(&filters);
-        assert_eq!(json["query"]["type"], base_type);
-        assert_eq!(
-            json["query"]["filters"]["map_filters"],
-            serde_json::json!({ "filters": {
-                "map_iir": { "min": item_rarity },
-                "map_bonus": { "min": drop_chance }
-            } })
-        );
-        assert!(json["query"].get("stats").is_none(), "{json}");
-
-        // The base unchecked: any waystone, of any tier.
-        let (_, mut base) = stats
-            .filters(&filters)
-            .into_iter()
-            .find(|(key, _)| *key == FilterKey::BaseType)
-            .expect("the filter of the base");
-        base.checked = false;
-        filters.set(FilterKey::BaseType, base);
-        let json = query(&filters);
+        let json = waystone_query(text, base_type, None);
         assert!(json["query"].get("type").is_none(), "{json}");
         assert_eq!(
             json["query"]["filters"]["type_filters"]["filters"]["category"],
             serde_json::json!({ "option": "map.waystone" })
         );
+        assert_eq!(
+            json["query"]["filters"]["map_filters"],
+            serde_json::json!({ "filters": {
+                "map_tier": { "min": 12.0, "max": 12.0 },
+                "map_iir": { "min": item_rarity },
+                "map_bonus": { "min": drop_chance }
+            } })
+        );
+        assert!(json["query"].get("stats").is_none(), "{json}");
     }
+}
+
+#[test]
+fn the_tier_of_a_waystone_is_searched_as_the_player_widens_it() {
+    let query = |minimum, maximum, checked| {
+        waystone_query(
+            include_str!("../../../item/test-items/en-owner-rare-waystone.txt"),
+            "Waystone (Tier 12)",
+            Some((minimum, maximum, checked)),
+        )
+    };
+    let map_filters = |tier: Option<serde_json::Value>| {
+        let mut filters =
+            serde_json::json!({ "map_iir": { "min": 9.0 }, "map_bonus": { "min": 45.0 } });
+        if let Some(tier) = tier {
+            filters["map_tier"] = tier;
+        }
+        serde_json::json!({ "filters": filters })
+    };
+
+    // From 11, of any tier above.
+    assert_eq!(
+        query("11", "", true)["query"]["filters"]["map_filters"],
+        map_filters(Some(serde_json::json!({ "min": 11.0 })))
+    );
+    // A tier beyond the highest, brought back to it.
+    assert_eq!(
+        query("11", "20", true)["query"]["filters"]["map_filters"],
+        map_filters(Some(serde_json::json!({ "min": 11.0, "max": 16.0 })))
+    );
+    // Unchecked: any waystone, of any tier.
+    let json = query("12", "12", false);
+    assert_eq!(json["query"]["filters"]["map_filters"], map_filters(None));
+    assert_eq!(
+        json["query"]["filters"]["type_filters"]["filters"]["category"],
+        serde_json::json!({ "option": "map.waystone" })
+    );
 }
 
 #[test]

@@ -112,7 +112,8 @@ impl<'a> TradeTarget<'a> {
 
 /// The search of `item` for `target`: its states as [`states`] says, a unique with the stats
 /// of its `filters` the player checked, the other items with all their filters, the category
-/// of their base type when the player unchecked it (a bow among all the bows); any base type
+/// of their base type when the player unchecked it (a bow among all the bows), and always for a
+/// waystone, searched by its tier ([`crate::filters::Property::WaystoneTier`]); any base type
 /// for a base the game data doesn't know, when another filter narrows the search (never a
 /// search of every item of the league).
 #[must_use]
@@ -123,7 +124,9 @@ pub fn query(item: &Item, target: &TradeTarget, filters: SearchFilters) -> Query
         match *target {
             TradeTarget::Unique { .. } => items.stats = filters.stats,
             TradeTarget::Base { base_type } => {
-                if filters.any_base {
+                // A waystone is searched by its tier, whose filter has no base type: as many
+                // offers as by its base type (checked on the trade site on 2026-11-18).
+                if filters.any_base || item.is_waystone() {
                     if let Some(category) = searched_category(item, base_type) {
                         items.base = SearchedBase::Category(category);
                     } else if filters.narrows() {

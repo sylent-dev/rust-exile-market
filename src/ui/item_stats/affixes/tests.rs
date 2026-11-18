@@ -13,7 +13,7 @@ use crate::ui::item_stats::LineFacts;
 use crate::ui::item_stats::fixtures::{
     explicit_rows, limit, parse, part, read_again, row_texts, rows, rows_of, texts,
 };
-use crate::ui::item_stats::model::Limit;
+use crate::ui::item_stats::model::{Filled, Limit};
 
 #[test]
 fn an_item_copied_from_the_in_game_trade_shows_its_tiers_found_and_a_note() {
@@ -547,7 +547,7 @@ fn a_prefix_or_suffix_rolls_over_every_tier_of_its_modifier_on_the_base() {
         limit_of("+86 to maximum Life"),
         Limit {
             value: 77.0,
-            half: Half::Minimum,
+            filled: Filled::Half(Half::Minimum),
             bounds: Some(life),
             rolls: Some(life),
             tiers: Some(TierSpan {
@@ -720,7 +720,7 @@ fn a_limit_stays_within_the_range_of_its_stat() {
         limit(&rows(&ring)[1]),
         Limit {
             value: 28.0,
-            half: Half::Minimum,
+            filled: Filled::Half(Half::Minimum),
             bounds: Some(Range {
                 min: 25.5,
                 max: 30.5
@@ -738,7 +738,7 @@ fn a_limit_stays_within_the_range_of_its_stat() {
         limit(rows(&boots).last().expect("its implicit")),
         Limit {
             value: 10.0,
-            half: Half::Minimum,
+            filled: Filled::Half(Half::Minimum),
             bounds: range,
             rolls: range,
             tiers: None,

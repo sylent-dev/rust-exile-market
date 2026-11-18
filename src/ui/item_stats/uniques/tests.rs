@@ -4,6 +4,7 @@ use super::*;
 use crate::filters::Half;
 use crate::item::Range;
 use crate::ui::item_stats::fixtures::{parse, rows, texts, with_soul_tether_rolls};
+use crate::ui::item_stats::model::Filled;
 
 #[test]
 fn a_line_of_a_unique_without_range_never_varies() {
@@ -234,7 +235,7 @@ fn a_legacy_unique_keeps_its_value_out_of_the_range_of_today() {
                 checked: true,
                 limit: Some(Limit {
                     value: 65.0,
-                    half: Half::Minimum,
+                    filled: Filled::Half(Half::Minimum),
                     bounds: Some(Range {
                         min: 40.0,
                         max: 65.0

@@ -34,7 +34,7 @@ fn the_tooltip_of_a_range_field_tells_its_rolls_and_its_better_side() {
     let tooltip = |half, rolls, tiers| {
         let limit = Limit {
             value: 18.0,
-            half,
+            filled: Filled::Half(half),
             bounds: range,
             rolls,
             tiers,

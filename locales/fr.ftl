@@ -246,7 +246,8 @@ filter-catalyst-quality = { $kind ->
 filter-required-level = Niveau requis : { $value }
 filter-physical-dps = DPS physique : { $value }
 filter-elemental-dps = DPS élémentaire : { $value }
-# Les filtres des propriétés d'une pierre de téléportation ; $value a son signe pour un pourcentage (« +11 »).
+# Les filtres du palier et des propriétés d'une pierre de téléportation ; $value a son signe pour un pourcentage (« +11 »).
+filter-waystone-tier = Palier : { $value }
 filter-waystone-revives = Résurrections disponibles : { $value }
 filter-waystone-item-rarity = Rareté des objets : { $value }%
 filter-waystone-pack-size = Taille des groupes : { $value }%

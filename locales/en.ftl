@@ -240,7 +240,8 @@ filter-catalyst-quality = { $kind ->
 filter-required-level = Required level: { $value }
 filter-physical-dps = Physical DPS: { $value }
 filter-elemental-dps = Elemental DPS: { $value }
-# The filters of the properties of a waystone; $value has its sign for a percentage ("+11").
+# The filters of the tier and the properties of a waystone; $value has its sign for a percentage ("+11").
+filter-waystone-tier = Tier: { $value }
 filter-waystone-revives = Revives available: { $value }
 filter-waystone-item-rarity = Item rarity: { $value }%
 filter-waystone-pack-size = Pack size: { $value }%

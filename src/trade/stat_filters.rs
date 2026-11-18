@@ -513,6 +513,7 @@ impl LineStats {
                 | Property::Sockets
                 | Property::Quality
                 | Property::RequiredLevel
+                | Property::WaystoneTier
                 | Property::Waystone(_)
                 | Property::GemLevel
                 | Property::GemSockets,
@@ -643,7 +644,8 @@ impl LineStats {
                     Property::ItemLevel
                     | Property::Sockets
                     | Property::Quality
-                    | Property::RequiredLevel => RulesOut::OfTheLeague,
+                    | Property::RequiredLevel
+                    | Property::WaystoneTier => RulesOut::OfTheLeague,
                 }
             }
         }

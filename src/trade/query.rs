@@ -179,6 +179,9 @@ impl PropertyFilter {
             Property::ElementalDps => ("equipment_filters", "edps"),
             // The trade site names `map_rare_monsters` "Monster Rarity" and
             // `map_magic_monsters` "Monster Effectiveness" (`/data/filters`, 2026-10-31).
+            // `minMax` in `/data/filters`, a minimum and a maximum taken together (checked on
+            // 2026-11-18).
+            Property::WaystoneTier => ("map_filters", "map_tier"),
             Property::GemLevel => ("misc_filters", "gem_level"),
             Property::GemSockets => ("misc_filters", "gem_sockets"),
             Property::Waystone(property) => (

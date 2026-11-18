@@ -328,6 +328,7 @@ pub(super) const FILTER_CATALYST_QUALITY: &str = "filter-catalyst-quality";
 pub(super) const FILTER_REQUIRED_LEVEL: &str = "filter-required-level";
 pub(super) const FILTER_PHYSICAL_DPS: &str = "filter-physical-dps";
 pub(super) const FILTER_ELEMENTAL_DPS: &str = "filter-elemental-dps";
+pub(super) const FILTER_WAYSTONE_TIER: &str = "filter-waystone-tier";
 pub(super) const FILTER_WAYSTONE_REVIVES: &str = "filter-waystone-revives";
 pub(super) const FILTER_WAYSTONE_ITEM_RARITY: &str = "filter-waystone-item-rarity";
 pub(super) const FILTER_WAYSTONE_PACK_SIZE: &str = "filter-waystone-pack-size";

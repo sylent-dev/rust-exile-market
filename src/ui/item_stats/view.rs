@@ -9,8 +9,8 @@ use egui::{
 
 use super::Stats;
 use super::model::{
-    AffixFill, AffixRoom, Group, Limit, ModifierTier, Origin, Row, Stat, StatFilter, StatRoll,
-    StatText, TierRow, WordTip, radius_word, tier_word,
+    AffixFill, AffixRoom, Filled, Group, Limit, ModifierTier, Origin, Row, Stat, StatFilter,
+    StatRoll, StatText, TierRow, WordTip, radius_word, tier_word,
 };
 use super::rolls::ranges_text;
 use crate::filters::{Filter, FilterKey, Filters, Half, Window};
@@ -503,7 +503,7 @@ fn tooltip_lines(limit: Limit, i18n: &Translator) -> Vec<TooltipLine> {
         tint: color::FAINT,
         is_small: true,
     });
-    let lower = (limit.half == Half::Maximum)
+    let lower = (limit.filled == Filled::Half(Half::Maximum))
         .then(|| TooltipLine::new(i18n.text(Message::FilterLowerBetter), color::WEAK));
     [rolls, tiers, lower].into_iter().flatten().collect()
 }

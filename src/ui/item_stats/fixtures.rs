@@ -2,8 +2,8 @@
 //! texts these rows are compared with.
 
 use super::model::{
-    AffixFill, AffixRoom, Group, Limit, ModifierTier, Row, Stat, StatFilter, StatRoll, StatText,
-    TierRow, WordTip,
+    AffixFill, AffixRoom, Filled, Group, Limit, ModifierTier, Row, Stat, StatFilter, StatRoll,
+    StatText, TierRow, WordTip,
 };
 use super::rolls::ranges_text;
 use super::{LineFacts, Stats};
@@ -139,9 +139,10 @@ fn stat_text(stat: Stat<'_>) -> String {
     let limit = filter
         .and_then(|filter| filter.limit)
         .map(|limit| {
-            let sign = match limit.half {
-                Half::Minimum => '≥',
-                Half::Maximum => '≤',
+            let sign = match limit.filled {
+                Filled::Half(Half::Minimum) => '≥',
+                Filled::Half(Half::Maximum) => '≤',
+                Filled::Both => '=',
             };
             format!(" {sign}{}", format::number(limit.value))
         })

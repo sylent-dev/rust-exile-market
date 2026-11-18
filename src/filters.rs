@@ -1,6 +1,6 @@
 //! The filters of the offers search, as the player sets them: whether each stat of the item,
-//! or its base type, item level, sockets, quality, required level, DPS, the properties of a
-//! waystone or of a gem, or pseudo totals, is searched, its minimum and its maximum, and the
+//! or its base type, item level, sockets, quality, required level, DPS, the tier and the
+//! properties of a waystone or of a gem, or pseudo totals, is searched, its minimum and its maximum, and the
 //! state tags the player lit. They belong to the item copied, and are remembered with it when
 //! another item is copied ([`crate::recent_items`]); a stat the player didn't touch keeps the
 //! choice made for it by default.
@@ -47,6 +47,8 @@ pub enum Property {
     PhysicalDps,
     /// Fire, cold and lightning together.
     ElementalDps,
+    /// The tier of a waystone, searched between a minimum and a maximum.
+    WaystoneTier,
     Waystone(WaystoneProperty),
     /// The level of a gem.
     GemLevel,
