@@ -24,7 +24,8 @@
 //    or a suffix) take some of that room. B, "up to": each affix has at most the places it has left, and at most the
 //    places both have left less one, the lines of Explicit making one modifier at least (the tiara: two places left,
 //    one of them taken, "up to 1 open"; nothing after the count once none can be open); C, no count of the open
-//    places while a line has no affix. Recommended: B, which stays true and still tells the room.
+//    places while a line has no affix. Recommended: B, which stays true and still tells the room. The owner chose
+//    B on 2026-11-18 ("transparency is a good thing"); the samples of the other sections follow it.
 // Left out: the readings a line in doubt may be ("T6 or hybrid T3", the backlog entry of a tier among several), the
 // lines a doubt ties together named in a tooltip (the search would keep the parts of the item), and an item whose
 // base the game data doesn't know (no tier, no note, as today).
@@ -44,13 +45,14 @@ const TL_TEXT = {
 // hybrid (T3), two prefixes open either way.
 const TL_TIARA = { rarity: "rare", name: "Chimeric Visage", base: "Ancestral Tiara", cls: "Helmets", tags: ["Q 20%", "2 sockets", "ilvl 82"],
   props: [["Energy Shield", "342"]], req: "Requires Level 80 · 115 Int", statsLabel: "Stats (6)", filters: "5 filters" };
-// Its stats: `word` under each line in doubt, `notes` under the stats, its cold resistance as `cold`, and the fill
-// of its prefixes as `fill`.
-const tlTiaraStats = ({ word, notes = [DEDUCED_NOTE.note], cold, fill = "1 of 3 · 2 open" } = {}) => [
+// Its stats: `word` under each line in doubt, `notes` under the stats, its cold resistance as `cold` (a line without
+// affix, in Explicit: a suffix place less is taken), and the fill of its prefixes as `fill`, of its suffixes with
+// that line as `suffixFill`.
+const tlTiaraStats = ({ word, notes = [DEDUCED_NOTE.note], cold, fill = "1 of 3 · 2 open", suffixFill = "2 of 3 · 1 open" } = {}) => [
   ...itemFilters({ base: "Ancestral Tiara", level: { value: 82, check: false }, sockets: { value: 2, check: true } }),
   { group: "Prefixes", fill },
   { mod: "+69 to maximum Energy Shield", check: true, min: 62, tier: 1, range: "61–73", over: { share: .94 } },
-  { group: "Suffixes", fill: cold ? "2 of 3 · 1 open" : "3 of 3" },
+  { group: "Suffixes", fill: cold ? suffixFill : "3 of 3" },
   { mod: "18% increased Rarity of Items found", check: true, min: 16, tier: 1, range: "15–18", over: { share: 1 } },
   { mod: "+43% to Fire Resistance", check: false, min: 39, tier: 1, range: "41–45", over: { share: .95 } },
   ...(cold ? [] : [{ mod: "+40% to Cold Resistance", check: false, min: 36, tier: 2, range: "36–40", over: { share: .87 } }]),
@@ -83,9 +85,13 @@ const tlTiaraStatsFr = (word, notes, fill = "1 sur 3 · 2 libres") => [
   ...notes.map(note => ({ note })),
 ];
 const tlTiaraWinFr = (word, notes, fill) => win(topBar(), item({ ...TL_TIARA_FR, stats: tlTiaraStatsFr(word, notes, fill) }, true), price(RARE_ESTIMATE_BEFORE), foot());
-// The tiara as chosen in 1, the fill of its prefixes as `fill`.
-const TL_CHOSEN = { word: { label: TL_TEXT.en.uncertain }, notes: [DEDUCED_NOTE.note, TL_TEXT.en.noteWhy] };
-const TL_CHOSEN_FR = [{ label: TL_TEXT.fr.uncertain }, [DEDUCED_NOTE_FR.note, TL_TEXT.fr.noteWhy]];
+// The tiara as chosen in 1, with the fill of today, then as chosen in 4: two places left, the lines of Explicit
+// take one at least.
+const TL_CHOSEN_1 = { word: { label: TL_TEXT.en.uncertain }, notes: [DEDUCED_NOTE.note, TL_TEXT.en.noteWhy] };
+const TL_CHOSEN = { ...TL_CHOSEN_1, fill: "1 of 3 · up to 1 open" };
+const TL_CHOSEN_FR = [{ label: TL_TEXT.fr.uncertain }, [DEDUCED_NOTE_FR.note, TL_TEXT.fr.noteWhy], "1 sur 3 · jusqu'à 1 libre"];
+// With a third line in Explicit, a suffix place open: three places left, one of them taken at least.
+const TL_CHOSEN_2 = { ...TL_CHOSEN, fill: "1 of 3 · up to 2 open", suffixFill: "2 of 3 · up to 1 open" };
 
 // A fire resistance above its tier 1 (41–45), as a patch may leave it: no modifier holds it.
 const tlNoTier = word => ({ mod: "+48% to Fire Resistance", check: false, min: 43, after: word });
@@ -115,11 +121,11 @@ const TL_SCEPTRE_FR = { ...TL_SCEPTRE, name: "Glas d'entropie", base: "Sceptre c
   tradeLabel: "Voir sur l'échange", tradeTitle: "Ouvrir la recherche sur le site d'échange" };
 const tlSceptreWin = (it, stats) => win(topBar(), item({ ...it, stats }, true), price(RARE_ESTIMATE_BEFORE), foot());
 
-SECTIONS.unshift(["Lines without tier (22d): 1 B, 2 and 3 chosen; 4, the open places, to decide", [
-  ["4 · Today · “2 open”, while the two lines of Explicit take one or two prefixes", tlTiaraWin(TL_CHOSEN)],
-  ["4 · Recommended · B · “up to 1 open”: two places left, the lines of Explicit take one at least", tlTiaraWin({ ...TL_CHOSEN, fill: "1 of 3 · up to 1 open" })],
-  ["4 · Recommended · B · en français", tlTiaraWinFr(...TL_CHOSEN_FR, "1 sur 3 · jusqu'à 1 libre")],
-  ["4 · C · no open places told while a line has no affix", tlTiaraWin({ ...TL_CHOSEN, fill: "1 of 3" })],
+SECTIONS.unshift(["Lines without tier (22d): 1 B, 2, 3 and 4 B chosen", [
+  ["4 · Today · “2 open”, while the two lines of Explicit take one or two prefixes", tlTiaraWin(TL_CHOSEN_1)],
+  ["4 · Chosen · B · “up to 1 open”: two places left, the lines of Explicit take one at least", tlTiaraWin(TL_CHOSEN)],
+  ["4 · Chosen · B · en français", tlTiaraWinFr(...TL_CHOSEN_FR)],
+  ["4 · Not chosen · C · no open places told while a line has no affix", tlTiaraWin({ ...TL_CHOSEN, fill: "1 of 3" })],
   ["1 · Today · two lines in doubt: no tier, no word", tlTiaraWin()],
   ["1 · Chosen · B · “Uncertain tier”, why once in the note", tlTiaraWin(TL_CHOSEN)],
   ["1 · Chosen · B · en français", tlTiaraWinFr(...TL_CHOSEN_FR)],
@@ -127,8 +133,8 @@ SECTIONS.unshift(["Lines without tier (22d): 1 B, 2 and 3 chosen; 4, the open pl
   ["1 · Not chosen · C · the reason under each line, no tooltip", tlTiaraWin({ word: { label: TL_TEXT.en.reason } })],
   ["1 · Not chosen · C · en français", tlTiaraWinFr({ label: TL_TEXT.fr.reason }, [DEDUCED_NOTE_FR.note])],
   ["1 · Not chosen · D · nothing on the lines, a second sentence in the note", tlTiaraWin({ notes: [DEDUCED_NOTE.note, TL_TEXT.en.noteOnly] })],
-  ["2 · Today · a value no modifier holds: nothing", tlTiaraWin({ ...TL_CHOSEN, cold: tlNoTier() })],
-  ["2 · Chosen · “No tier found”, why in its tooltip (open)", tlTiaraWin({ ...TL_CHOSEN, cold: tlNoTier({ label: TL_TEXT.en.none, tip: TL_TEXT.en.noneWhy, hover: true }) })],
+  ["2 · Today · a value no modifier holds: nothing", tlTiaraWin({ ...TL_CHOSEN_2, cold: tlNoTier() })],
+  ["2 · Chosen · “No tier found”, why in its tooltip (open)", tlTiaraWin({ ...TL_CHOSEN_2, cold: tlNoTier({ label: TL_TEXT.en.none, tip: TL_TEXT.en.noneWhy, hover: true }) })],
   ["3 · Today · a sanctified item: no tier, no note", tlSceptreWin(TL_SCEPTRE, tlSceptre())],
   ["3 · Chosen · a note under the stats", tlSceptreWin(TL_SCEPTRE, tlSceptre(TL_TEXT.en.sanctified))],
   ["3 · Chosen · en français", tlSceptreWin(TL_SCEPTRE_FR, tlSceptreFr(TL_TEXT.fr.sanctified))],

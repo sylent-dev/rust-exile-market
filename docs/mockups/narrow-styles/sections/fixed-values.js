@@ -77,7 +77,7 @@ const FIXED_CANNON = { rarity: "rare", name: "Havoc Roar", base: "Trarthan Canno
   statsLabel: "Stats (4)", filters: "2 filters" };
 const fixedCannon = affixes => [
   ...itemFilters({ base: "Trarthan Cannon", level: { value: 82, check: false } }),
-  { group: "Suffixes", fill: "1 of 3" },
+  { group: "Suffixes", fill: "1 of 3 · up to 2 open" },
   { mod: "15% increased Attack Speed", check: false, min: 14, tier: 2, range: "14–16", over: { share: .71 } },
   { group: "Explicit" },
   { mod: "Grenade Skills have +1 Cooldown Use", check: true, min: 1, origin: "desecrated", affixes },

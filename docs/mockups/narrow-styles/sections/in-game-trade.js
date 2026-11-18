@@ -63,15 +63,16 @@ const tiaraTradeStats = [
 
 // The same tiara with an open prefix (made from the owner's copy): the rarity could be a prefix or a
 // suffix, so it goes into Explicit, with the tier and range of both, one under the other (owner,
-// 2026-10-29, against "Prefix or suffix" and a tooltip).
+// 2026-10-29, against "Prefix or suffix" and a tooltip); one place is open, a prefix or a suffix, so "up to 1 open"
+// on both (owner, 2026-11-18, section Lines without tier, 22d).
 const tiaraOpenStats = [
   ...tiaraTop,
-  { group: "Prefixes", fill: "2 of 3 · 1 open" },
+  { group: "Prefixes", fill: "2 of 3 · up to 1 open" },
   { mod: "41% increased Energy Shield", check: true, min: 37, over: { share: .97 }, origin: "fractured" },
   { mod: "+34 to maximum Mana", check: false, min: 31, over: { share: .85 }, origin: "fractured" },
   { rollOnly: true, tier: 1, range: "39–42 · 33–39", origin: "fractured" },
   { mod: "98% increased Energy Shield", check: true, min: 88, tier: 1, range: "92–100", over: { share: .98 } },
-  { group: "Suffixes", fill: "2 of 3 · 1 open" },
+  { group: "Suffixes", fill: "2 of 3 · up to 1 open" },
   { mod: "+43% to Fire Resistance", check: false, min: 39, tier: 1, range: "41–45", over: { share: .95 } },
   { mod: "+40% to Cold Resistance", check: false, min: 36, tier: 2, range: "36–40", over: { share: .87 } },
   { group: "Explicit" },
@@ -85,12 +86,12 @@ const tiaraOpenStats = [
 // origin of the suffix only; after the text of the line, it wrapped it more and was unlike every other).
 const tiaraOpenDesecratedStats = [
   ...tiaraTop,
-  { group: "Prefixes", fill: "2 of 3 · 1 open" },
+  { group: "Prefixes", fill: "2 of 3 · up to 1 open" },
   { mod: "41% increased Energy Shield", check: true, min: 37, over: { share: .97 }, origin: "fractured" },
   { mod: "+34 to maximum Mana", check: false, min: 31, over: { share: .85 }, origin: "fractured" },
   { rollOnly: true, tier: 1, range: "39–42 · 33–39", origin: "fractured" },
   { mod: "98% increased Energy Shield", check: true, min: 88, tier: 1, range: "92–100", over: { share: .98 } },
-  { group: "Suffixes", fill: "2 of 3 · 1 open" },
+  { group: "Suffixes", fill: "2 of 3 · up to 1 open" },
   { mod: "+43% to Fire Resistance", check: false, min: 39, tier: 1, range: "41–45", over: { share: .95 } },
   { mod: "+40% to Cold Resistance", check: false, min: 36, tier: 2, range: "36–40", over: { share: .87 } },
   { group: "Explicit" },
