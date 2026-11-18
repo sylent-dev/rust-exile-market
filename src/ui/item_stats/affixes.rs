@@ -3,8 +3,8 @@
 //! and the ranges of that tier.
 
 use super::model::{
-    AffixFill, Group, Limit, ModifierTier, Origin, Row, Stat, StatFilter, StatRoll, StatText,
-    TierRow,
+    AffixFill, AffixRoom, Group, Limit, ModifierTier, Origin, Row, Stat, StatFilter, StatRoll,
+    StatText, TierRow,
 };
 use super::modifier_stats::{
     LineContext, added_stat, is_enchant, is_implicit, is_rune, limit_of_line, stats_of_kind, varies,
@@ -78,12 +78,14 @@ fn affix_fills(item: &Item, context: &LineContext<'_>) -> (AffixFill, AffixFill)
     let (prefixes, suffixes) = (filled(Affix::Prefix), filled(Affix::Suffix));
     let prefixes_left = limits.prefixes.saturating_sub(prefixes);
     let suffixes_left = limits.suffixes.saturating_sub(suffixes);
-    let is_room_shared = !limits.counted_only && item.modifiers().iter().any(takes_uncounted_place);
+    let is_room_shared = item.modifiers().iter().any(takes_uncounted_place);
     let left_for_one = (prefixes_left + suffixes_left).saturating_sub(1);
     let fill = |filled: u32, limit: u32, left: u32| AffixFill {
         filled,
-        max: (!limits.counted_only).then_some(limit),
-        open_at_most: is_room_shared.then_some(left.min(left_for_one)),
+        room: (!limits.counted_only).then_some(AffixRoom {
+            max: limit,
+            open_at_most: is_room_shared.then_some(left.min(left_for_one)),
+        }),
     };
     (
         fill(prefixes, limits.prefixes, prefixes_left),
@@ -104,12 +106,14 @@ fn takes_uncounted_place(modifier: &Modifier) -> bool {
 /// its affix, two for a line that adds up two modifiers of that affix, one for a line that adds
 /// up a prefix and a suffix; none for a modifier whose affix is unknown.
 fn affix_count(modifier: &Modifier, affix: Affix) -> u32 {
-    match (&modifier.doubt, modifier.kind) {
-        (Some(TierDoubt::Split { whole, added, .. }), _) => {
+    match &modifier.doubt {
+        Some(TierDoubt::Split { whole, added, .. }) => {
             u32::from(whole.affix == affix) + u32::from(added.affix == affix)
         }
-        (_, ModifierKind::Explicit(Some(kind))) => u32::from(kind == affix),
-        _ => 0,
+        // The affix its kind tells: none for a prefix or a suffix, nor for a line without tier.
+        Some(TierDoubt::EitherAffix { .. } | TierDoubt::NoTier(_)) | None => {
+            u32::from(modifier.kind == ModifierKind::Explicit(Some(affix)))
+        }
     }
 }
 
@@ -181,7 +185,7 @@ fn stats_of_modifier<'a>(
                 .next_back()
                 .map(|(index, _)| index),
         ),
-        _ => (last, Some(last)),
+        Some(TierDoubt::EitherAffix { .. } | TierDoubt::NoTier(_)) | None => (last, Some(last)),
     };
     modifier
         .lines

@@ -117,7 +117,8 @@ pub struct AffixTier {
     pub lord: Option<Lord>,
 }
 
-/// What the values of a modifier copied from the in-game trade leave in doubt about its tier.
+/// What the values of a modifier copied from the in-game trade tell of its tier when they
+/// don't tell one tier of one affix: the tiers it may be, or why it has none.
 #[derive(Debug, Clone, PartialEq)]
 pub enum TierDoubt {
     /// The tier of each affix, the item having room for either (the `18% increased Rarity of
@@ -153,8 +154,9 @@ pub enum NoTier {
     /// maximum Life` of a helmet, two pure modifiers or their hybrid), or the search can't
     /// vouch for the one it would show.
     InDoubt,
-    /// No modifier of the tables holds its values on the base of the item: an item copied
-    /// before a patch, a line whose stat the tables don't know.
+    /// No modifier of the tables holds its values on the base of the item, in any reading the
+    /// item has room for: an item copied before a patch, a line whose stat the tables don't
+    /// know.
     NoModifier,
 }
 
@@ -191,7 +193,8 @@ pub struct Modifier {
     /// none.
     pub is_unrevealed: bool,
     pub lines: Vec<StatLine>,
-    /// What its values leave in doubt about its tier, when it was found from them.
+    /// What its values tell of its tier short of one tier of one affix, when it was searched
+    /// from them: the tiers it may be, or why it has none.
     pub doubt: Option<TierDoubt>,
 }
 

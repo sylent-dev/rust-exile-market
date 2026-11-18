@@ -9,8 +9,8 @@ use egui::{
 
 use super::Stats;
 use super::model::{
-    AffixFill, Group, Limit, ModifierTier, Origin, Row, Stat, StatFilter, StatRoll, StatText,
-    TierRow, WordTip, radius_word, tier_word,
+    AffixFill, AffixRoom, Group, Limit, ModifierTier, Origin, Row, Stat, StatFilter, StatRoll,
+    StatText, TierRow, WordTip, radius_word, tier_word,
 };
 use super::rolls::ranges_text;
 use crate::filters::{Filter, FilterKey, Filters, Half, Window};
@@ -184,15 +184,13 @@ fn group_title(ui: &mut Ui, group: Group, i18n: &Translator) {
 /// up to 1 open" while modifiers without affix known take places it doesn't count; the count
 /// alone without most.
 fn fill_words(fill: AffixFill, i18n: &Translator) -> (String, bool) {
-    let AffixFill {
-        filled,
-        max,
-        open_at_most,
-    } = fill;
-    match (max, open_at_most) {
-        (None, _) => (filled.to_string(), false),
-        (Some(max), None) => (i18n.affix_fill(filled, max), filled < max),
-        (Some(max), Some(open)) => (i18n.affix_fill_up_to(filled, max, open), open > 0),
+    let AffixFill { filled, room } = fill;
+    let Some(AffixRoom { max, open_at_most }) = room else {
+        return (filled.to_string(), false);
+    };
+    match open_at_most {
+        None => (i18n.affix_fill(filled, max), filled < max),
+        Some(open) => (i18n.affix_fill_up_to(filled, max, open), open > 0),
     }
 }
 

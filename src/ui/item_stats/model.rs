@@ -46,11 +46,18 @@ pub(super) enum Group {
 pub(super) struct AffixFill {
     /// How many the item has, their affix known.
     pub(super) filled: u32,
-    /// The most it can have; none for a corrupted waystone, its count alone
+    /// The room they fill; none for a corrupted waystone, its count alone
     /// ([`crate::game_data::AffixLimits::counted_only`]).
-    pub(super) max: Option<u32>,
+    pub(super) room: Option<AffixRoom>,
+}
+
+/// The room an item has for its prefixes, or for its suffixes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct AffixRoom {
+    /// The most it can have.
+    pub(super) max: u32,
     /// The most places open while modifiers of the item have no affix known, in **Explicit**,
-    /// which take places `filled` doesn't count; none when every modifier has its affix, the
+    /// which take places the fill doesn't count; none when every modifier has its affix, the
     /// places left being then all open.
     pub(super) open_at_most: Option<u32>,
 }

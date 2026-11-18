@@ -260,9 +260,11 @@ fn lines_without_tier(
 /// those of a test, so that the search is tested on tables a patch of the game doesn't change;
 /// with what the search took.
 ///
-/// A line left without tier is in doubt when a candidate holds it or another reading leaves it
-/// so, and every line to read is when the search stops at a bound or doesn't meet its best
-/// reading; a line no candidate holds and no other reading reads is held by no modifier.
+/// A line left without tier is in doubt when a candidate holds it, also one the room of the
+/// item rules out, or another reading leaves it so, and every line to read is when the search
+/// stops at a bound or doesn't meet its best reading; a line no candidate holds and no reading
+/// in the room of the item reads is held by no modifier, as far as the search tells: a hybrid
+/// whose lines are apart is no candidate, and no reading when the item has no room for it.
 fn trade_tiers_in(
     tables: &ItemTables<'_>,
     language: Language,

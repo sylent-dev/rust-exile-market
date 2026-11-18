@@ -998,6 +998,23 @@ fn a_corrupted_waystone_shows_the_count_of_its_affixes_alone() {
             "Trade copy note",
         ]
     );
+    // With a line no modifier holds, in Explicit: still the count alone, without open places,
+    // nothing being able to change the item.
+    let unheld = texts(&read_again(parse(
+        "Item Class: Waystones\nRarity: Rare\nGrim Path\nWaystone (Tier 15)\n--------\n\
+             Item Level: 82\n--------\n\
+             Monsters are Evasive\n99% less effect of Curses on Monsters\n--------\nCorrupted",
+    )));
+    assert_eq!(
+        explicit_rows(unheld),
+        [
+            "Suffixes 1",
+            "□ Monsters are Evasive",
+            "Explicit",
+            "□ 99% less effect of Curses on Monsters ≥89 [TierNotFound TierNotFoundWhy]",
+            "Trade copy note",
+        ]
+    );
 }
 
 #[test]

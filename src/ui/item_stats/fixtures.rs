@@ -2,8 +2,8 @@
 //! texts these rows are compared with.
 
 use super::model::{
-    AffixFill, Group, Limit, ModifierTier, Row, Stat, StatFilter, StatRoll, StatText, TierRow,
-    WordTip,
+    AffixFill, AffixRoom, Group, Limit, ModifierTier, Row, Stat, StatFilter, StatRoll, StatText,
+    TierRow, WordTip,
 };
 use super::rolls::ranges_text;
 use super::{LineFacts, Stats};
@@ -92,13 +92,17 @@ pub(super) fn row_texts<'a>(rows: impl IntoIterator<Item = Row<'a>>) -> Vec<Stri
     // `2/3`, the count alone, `6`, or with the most places open while modifiers without affix
     // take some: `1/3 ≤1`.
     let fill = |fill: AffixFill| {
-        let count = match fill.max {
-            Some(max) => format!("{}/{max}", fill.filled),
-            None => fill.filled.to_string(),
-        };
-        match fill.open_at_most {
-            Some(open) => format!("{count} ≤{open}"),
-            None => count,
+        let AffixFill { filled, room } = fill;
+        match room {
+            None => filled.to_string(),
+            Some(AffixRoom {
+                max,
+                open_at_most: None,
+            }) => format!("{filled}/{max}"),
+            Some(AffixRoom {
+                max,
+                open_at_most: Some(open),
+            }) => format!("{filled}/{max} ≤{open}"),
         }
     };
     rows.into_iter()

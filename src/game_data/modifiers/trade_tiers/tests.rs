@@ -400,6 +400,40 @@ fn a_line_left_without_tier_is_in_doubt_or_held_by_no_modifier() {
 }
 
 #[test]
+fn a_line_only_a_modifier_out_of_the_room_holds_is_in_doubt_when_it_is_a_candidate() {
+    use NoTier::{InDoubt, NoModifier};
+    // The life alone is a suffix; the energy shield has no tier but in their hybrid, a prefix.
+    let tables = read_tables(&[
+        table_json("Life", "suffix", &[LIFE], &[(1, &[(21, 30)])]),
+        table_json(
+            "Hybrid",
+            "prefix",
+            &[ENERGY_SHIELD, LIFE],
+            &[(1, &[(10, 19), (20, 29)])],
+        ),
+        table_json("Rarity", "suffix", &[RARITY], &[(1, &[(10, 20)])]),
+    ]);
+    let (shield, life, rarity) = (
+        "15% increased Energy Shield",
+        "+25 to maximum Life",
+        "15% increased Rarity of Items found",
+    );
+
+    // No prefix: the life is read alone, and the hybrid, a candidate, stays out of the room.
+    // It holds the energy shield all the same, which no other reading reads: in doubt.
+    assert_eq!(
+        left_without_tier(&tables, &[shield, life], (0, 1)),
+        [(0, InDoubt)]
+    );
+    // Its lines apart, the hybrid is no candidate, and no reading in the room reads the energy
+    // shield: held by no modifier, as far as the search tells.
+    assert_eq!(
+        left_without_tier(&tables, &[shield, rarity, life], (0, 2)),
+        [(0, NoModifier)]
+    );
+}
+
+#[test]
 fn a_modifier_that_isnt_searched_isnt_told_without_tier() {
     let tables = pure_and_hybrid_tables();
     let life = "+35 to maximum Life";
