@@ -40,7 +40,7 @@ date: 2026-11-20
 - The French note addresses the player with « vous », as the interface does, and names the items, the currencies and the windows with the words of the interface and of the game in French.
 - Never the name of a competitor (`CLAUDE.md`, Interface design).
 
-The Release workflow stops, building nothing, when the notes of the version of `Cargo.toml` (`docs/release-notes/` and both patch notes) are missing, run by hand as well as at the tag: the run by hand of step 3 tells it before the tag.
+The Release workflow stops, building nothing, when the notes of the version of `Cargo.toml` (`docs/release-notes/` and both patch notes) are missing, or when a patch note doesn't say this version in its header (a copy of the previous one), run by hand as well as at the tag: the run by hand of step 3 tells it before the tag.
 
 ## What an archive holds
 
