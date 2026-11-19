@@ -1,0 +1,56 @@
+/* Soft relief (22i): the unchecked checkboxes and the min–max fields drawn on the color of the title bar and of
+   the status bar (--bg-a), in the windows of the section only (.app-soft), after the lead of the tab "Relief"
+   (html[data-relief]) or the lead of a board that shows them all (.app-soft[data-lead]). The checked box stays
+   as it is. The shadows follow the sliders: --soft-depth (their offset), --soft-blur, --soft-dark-a and
+   --soft-light-a (the opacity of the dark one and of the light one).
+   1 today: no change.
+   2 flat: the fill of the bars, the line of today.
+   3 raised: the fill of the bars, no line, a light shadow up left and a dark one down right, cast outside, as
+     egui draws a Shadow (epaint 0.37: a box shadow, outside the shape only).
+   4 pressed in: the fill of the bars, no line, a dark shadow inside along the top and the left and a light one
+     inside along the bottom and the right; egui has no inset shadow, so the application would paint the
+     shadows of rectangles lying just outside the field, clipped to the field, which spill into it (to probe).
+   5 bevel: the fill of the bars, a line of 1 px dark on the top and the left and light on the bottom and the
+     right, no blur: four lines, the cheapest for egui.
+   6 pressed in, with its line: 4 keeping the line of today (the checkbox in --weak), which 3 to 5 lose: a box
+     told by its relief alone is hard to see at 15 px on a near-black background. */
+:root { --soft-depth: 1.5px; --soft-blur: 3px; --soft-dark-a: .6; --soft-light-a: .06; }
+.app-soft {
+  --soft-dark: rgba(0, 0, 0, var(--soft-dark-a));
+  --soft-light: rgba(255, 255, 255, var(--soft-light-a));
+  --soft-raised: calc(-1 * var(--soft-depth)) calc(-1 * var(--soft-depth)) var(--soft-blur) var(--soft-light),
+    var(--soft-depth) var(--soft-depth) var(--soft-blur) var(--soft-dark);
+  --soft-pressed: inset var(--soft-depth) var(--soft-depth) var(--soft-blur) var(--soft-dark),
+    inset calc(-1 * var(--soft-depth)) calc(-1 * var(--soft-depth)) var(--soft-blur) var(--soft-light);
+}
+.app-soft .check:not(.on), .app-soft .input, .app-soft .app-range { transition: none; }
+
+/* 2 to 6: the fill of the bars. */
+:is(html:is([data-relief="2"], [data-relief="3"], [data-relief="4"], [data-relief="5"], [data-relief="6"]) .app-soft:not([data-lead]),
+  .app-soft:is([data-lead="2"], [data-lead="3"], [data-lead="4"], [data-lead="5"], [data-lead="6"]))
+  :is(.check:not(.on), .input, .app-range) { background: var(--bg-a); }
+
+/* 3 and 4: no line but the focus, kept transparent so that nothing moves. */
+:is(html:is([data-relief="3"], [data-relief="4"]) .app-soft:not([data-lead]), .app-soft:is([data-lead="3"], [data-lead="4"]))
+  :is(.check:not(.on), .input, .app-range) { border-color: transparent; }
+:is(html[data-relief="3"] .app-soft:not([data-lead]), .app-soft[data-lead="3"])
+  :is(.check:not(.on), .input, .app-range) { box-shadow: var(--soft-raised); }
+:is(html:is([data-relief="4"], [data-relief="6"]) .app-soft:not([data-lead]), .app-soft:is([data-lead="4"], [data-lead="6"]))
+  :is(.check:not(.on), .input, .app-range) { box-shadow: var(--soft-pressed); }
+
+/* 5: the bevel. */
+:is(html[data-relief="5"] .app-soft:not([data-lead]), .app-soft[data-lead="5"]) :is(.check:not(.on), .input, .app-range) {
+  border-color: var(--soft-dark) var(--soft-light) var(--soft-light) var(--soft-dark);
+}
+
+/* The field being typed in keeps the line of the accent, in every lead. */
+/* !important: the rules of the leads are more specific. */
+.app-soft :is(.input:focus, .app-range:focus-within, .app-range.is-focused) { border-color: var(--accent) !important; }
+
+/* The board of the states: one row per lead, on the item block's background. */
+.app-soft-board { display: flex; flex-direction: column; gap: 14px; padding: 16px 14px; background: var(--bg-b);
+  color: var(--text); font: var(--body-size)/1.3 var(--font-body); }
+.app-soft-row { display: grid; grid-template-columns: 96px 15px 15px 62px 62px 62px; gap: 18px; align-items: center; }
+.app-soft-row > b { font-weight: 600; color: var(--weak); font-size: 11px; letter-spacing: .04em; }
+.app-soft-head > span { color: var(--faint); font-size: 10.5px; }
+.app-soft-row .app-range { display: flex; position: relative; width: 62px; }

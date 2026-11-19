@@ -7,9 +7,23 @@ const THEMES = {
 const VARIANTS = {
   theme: { label: "Style", options: Object.fromEntries(Object.entries(THEMES).map(([k, v]) => [k, v.title])), fallback: "slate" },
   league: { label: "League", options: { softcore: "Softcore", hardcore: "Hardcore" }, fallback: "softcore" },
+  // Soft relief (22i): the lead drawn on the windows of its section.
+  relief: { label: "Relief (22i)", options: { 1: "1 today", 2: "2 flat", 3: "3 raised", 4: "4 pressed in", 5: "5 bevel", 6: "6 pressed in, its line" }, fallback: "4" },
+};
+// Values tuned by eye, each a slider of the header that sets a CSS variable of the page (`scale` divides the
+// value shown, so that a percent sets an opacity); the address keeps them too.
+const SLIDERS = {
+  depth: { label: "Depth", min: 0, max: 4, step: 0.5, fallback: 1.5, unit: "px", variable: "--soft-depth" },
+  softness: { label: "Softness", min: 0, max: 8, step: 0.5, fallback: 3, unit: "px", variable: "--soft-blur" },
+  dark: { label: "Dark", min: 0, max: 100, step: 5, fallback: 60, unit: "%", variable: "--soft-dark-a", scale: 100 },
+  light: { label: "Light", min: 0, max: 30, step: 1, fallback: 6, unit: "%", variable: "--soft-light-a", scale: 100 },
 };
 const params = new URLSearchParams(location.search);
 const chosen = Object.fromEntries(Object.entries(VARIANTS).map(([key, v]) => [key, params.get(key) in v.options ? params.get(key) : v.fallback]));
+for (const [key, v] of Object.entries(SLIDERS)) {
+  const value = Number(params.get(key));
+  chosen[key] = params.has(key) && value >= v.min && value <= v.max ? value : v.fallback;
+}
 let theme = chosen.theme;
 
 const ORB = { div: "divine-orb", chaos: "chaos-orb", ex: "exalted-orb" };

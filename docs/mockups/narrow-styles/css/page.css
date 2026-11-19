@@ -31,3 +31,6 @@ body { margin: 0; width: max-content; min-width: 100vw; background: var(--page);
 .row { display: flex; gap: 40px; align-items: flex-start; }
 .slot { display: grid; gap: 8px; width: 420px; }
 .slot > span { font-size: 13px; }
+/* A slider of the header and its value. */
+.styles input[type="range"] { width: 110px; accent-color: #f2f5f9; }
+.styles output { min-width: 42px; color: #aab0b6; font: 500 12px/1 system-ui, sans-serif; }

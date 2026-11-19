@@ -3,10 +3,14 @@
 function render() {
   theme = chosen.theme;
   for (const key of Object.keys(VARIANTS)) document.documentElement.dataset[key] = chosen[key];
+  for (const key of Object.keys(SLIDERS)) setSlider(key, chosen[key]);
   const t = THEMES[theme];
   document.getElementById("styles").innerHTML = Object.entries(VARIANTS).map(([key, v]) =>
     `<div class="group"><span>${v.label}</span>${Object.entries(v.options).map(([value, label]) =>
-      `<button type="button" data-variant="${key}" data-value="${value}" aria-pressed="${chosen[key] === value}">${label}</button>`).join("")}</div>`).join("");
+      `<button type="button" data-variant="${key}" data-value="${value}" aria-pressed="${chosen[key] === value}">${label}</button>`).join("")}</div>`).join("")
+    + Object.entries(SLIDERS).map(([key, v]) =>
+      `<label class="group"><span>${v.label}</span><input type="range" data-slider="${key}" min="${v.min}" max="${v.max}" step="${v.step}" value="${chosen[key]}">` +
+      `<output>${chosen[key]} ${v.unit}</output></label>`).join("");
   // Past ten sections, a table of contents under the header links to each, so that the owner sees them
   // all at once: the title of each section up to its colon.
   const contents = SECTIONS.length > 10
@@ -18,12 +22,26 @@ function render() {
     ${SECTIONS.map(([title, slots], index) => `<section class="section" id="section-${index + 1}"><h2>${title}</h2><div class="row">${slots.map(([label, html]) => `<div class="slot"><span>${label}</span>${html}</div>`).join("")}</div></section>`).join("")}`;
 }
 
+// A slider sets its CSS variable at once, without drawing the sheet again.
+function setSlider(key, value) {
+  const v = SLIDERS[key];
+  document.documentElement.style.setProperty(v.variable, v.scale ? value / v.scale : `${value}${v.unit}`);
+}
+const saveAddress = () => history.replaceState(null, "", "?" + new URLSearchParams(chosen) + location.hash);
 document.getElementById("styles").addEventListener("click", event => {
   const { variant, value } = event.target.dataset;
   if (!variant) return;
   chosen[variant] = value;
-  history.replaceState(null, "", "?" + new URLSearchParams(chosen));
+  saveAddress();
   render();
+});
+document.getElementById("styles").addEventListener("input", event => {
+  const key = event.target.dataset.slider;
+  if (!key) return;
+  chosen[key] = Number(event.target.value);
+  setSlider(key, chosen[key]);
+  event.target.nextElementSibling.textContent = `${chosen[key]} ${SLIDERS[key].unit}`;
+  saveAddress();
 });
 // The league list works: the league block opens and closes it, a league chooses it; a click elsewhere or
 // Escape closes it.
