@@ -7,18 +7,12 @@ const THEMES = {
 const VARIANTS = {
   theme: { label: "Style", options: Object.fromEntries(Object.entries(THEMES).map(([k, v]) => [k, v.title])), fallback: "slate" },
   league: { label: "League", options: { softcore: "Softcore", hardcore: "Hardcore" }, fallback: "softcore" },
-  // Soft relief (22i): the lead drawn on the windows of its section.
-  relief: { label: "Relief (22i)", options: { 1: "1 today", 2: "2 flat", 3: "3 raised", 4: "4 pressed in", 5: "5 bevel", 6: "6 pressed in, its line" }, fallback: "4" },
-  // Soft relief (22i): a discreet sign of the field being typed in, on the leads 2 to 6 (owner, 2026-11-19).
-  typing: { label: "Typing (22i)", options: { 7: "7 nothing", 8: "8 lighter fill", 9: "9 underline", 10: "10 gray line" }, fallback: "7" },
 };
 // Values tuned by eye, each a slider of the header that sets a CSS variable of the page (`scale` divides the
 // value shown, so that a percent sets an opacity); the address keeps them too.
 const SLIDERS = {
-  depth: { label: "Depth", min: 0, max: 4, step: 0.5, fallback: 1.5, unit: "px", variable: "--soft-depth" },
-  softness: { label: "Softness", min: 0, max: 8, step: 0.5, fallback: 3, unit: "px", variable: "--soft-blur" },
-  dark: { label: "Dark", min: 0, max: 100, step: 5, fallback: 60, unit: "%", variable: "--soft-dark-a", scale: 100 },
-  light: { label: "Light", min: 0, max: 30, step: 1, fallback: 6, unit: "%", variable: "--soft-light-a", scale: 100 },
+  // None open: the depth, the softness and the opacities of the relief of the controls were settled by the owner
+  // on 2026-11-19 (css/soft-relief.css).
 };
 const params = new URLSearchParams(location.search);
 const chosen = Object.fromEntries(Object.entries(VARIANTS).map(([key, v]) => [key, params.get(key) in v.options ? params.get(key) : v.fallback]));

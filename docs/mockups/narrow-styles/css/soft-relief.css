@@ -1,68 +1,48 @@
-/* Soft relief (22i): the unchecked checkboxes and the min–max fields drawn on the color of the title bar and of
-   the status bar (--bg-a), in the windows of the section only (.app-soft), after the lead of the tab "Relief"
-   (html[data-relief]) or the lead of a board that shows them all (.app-soft[data-lead]). The checked box stays
-   as it is. The shadows follow the sliders: --soft-depth (their offset), --soft-blur, --soft-dark-a and
-   --soft-light-a (the opacity of the dark one and of the light one).
-   1 today: no change.
-   2 flat: the fill of the bars, the line of today.
-   3 raised: the fill of the bars, no line, a light shadow up left and a dark one down right, cast outside, as
-     egui draws a Shadow (epaint 0.37: a box shadow, outside the shape only).
-   4 pressed in: the fill of the bars, no line, a dark shadow inside along the top and the left and a light one
-     inside along the bottom and the right; egui has no inset shadow, so the application would paint the
-     shadows of rectangles lying just outside the field, clipped to the field, which spill into it (to probe).
-   5 bevel: the fill of the bars, a line of 1 px dark on the top and the left and light on the bottom and the
-     right, no blur: four lines, the cheapest for egui.
-   6 pressed in, with its line: 4 keeping the line of today (the checkbox in --weak), which 3 to 5 lose: a box
-     told by its relief alone is hard to see at 15 px on a near-black background. */
-:root { --soft-depth: 1.5px; --soft-blur: 3px; --soft-dark-a: .6; --soft-light-a: .06; }
-.app-soft {
-  --soft-dark: rgba(0, 0, 0, var(--soft-dark-a));
-  --soft-light: rgba(255, 255, 255, var(--soft-light-a));
-  --soft-raised: calc(-1 * var(--soft-depth)) calc(-1 * var(--soft-depth)) var(--soft-blur) var(--soft-light),
-    var(--soft-depth) var(--soft-depth) var(--soft-blur) var(--soft-dark);
+/* The relief of the controls (22i; the owner's choice on 2026-11-19, lead 4 of the section Soft relief): an
+   unchecked checkbox, an unchecked radio and a min–max field pressed into their block, on the fill of the bars
+   (--bg-a), with no line: a dark shadow inside along the top and the left, a light one inside along the bottom and
+   the right. The checked box and radio stay as they are. A field being typed in takes the lighter fill of the
+   controls (--control), with no line of the accent (variant 8); the caret tells where the keys go, and over the
+   game the status bar says it (14b2).
+   egui has no shadow inside a shape (epaint 0.37: a Shadow is cast outside): the application paints the shape in
+   the dark of the shadow, then the fill blurred over it, moved down right (a RectShape with a blur_width; a radio
+   is a rectangle rounded by half its size), to settle in a probe at the start of 22i2. */
+:root {
+  --soft-depth: 1px; --soft-blur: 2.5px; --soft-dark: rgba(0, 0, 0, .7); --soft-light: rgba(255, 255, 255, .03);
   --soft-pressed: inset var(--soft-depth) var(--soft-depth) var(--soft-blur) var(--soft-dark),
     inset calc(-1 * var(--soft-depth)) calc(-1 * var(--soft-depth)) var(--soft-blur) var(--soft-light);
 }
-.app-soft .check:not(.on), .app-soft .input, .app-soft .app-range { transition: none; }
+:is(.check:not(.on), .input, .app-range, .radio:not(.on) i) { background: var(--bg-a); border-color: transparent; box-shadow: var(--soft-pressed); }
+:is(.input:focus, .app-range:focus-within, .app-range.is-focused, .app-range.kb-typing) { background: var(--control); border-color: transparent; }
 
-/* 2 to 6: the fill of the bars. */
-:is(html:is([data-relief="2"], [data-relief="3"], [data-relief="4"], [data-relief="5"], [data-relief="6"]) .app-soft:not([data-lead]),
-  .app-soft:is([data-lead="2"], [data-lead="3"], [data-lead="4"], [data-lead="5"], [data-lead="6"]))
-  :is(.check:not(.on), .input, .app-range) { background: var(--bg-a); }
-
-/* 3 and 4: no line but the focus, kept transparent so that nothing moves. */
-:is(html:is([data-relief="3"], [data-relief="4"]) .app-soft:not([data-lead]), .app-soft:is([data-lead="3"], [data-lead="4"]))
-  :is(.check:not(.on), .input, .app-range) { border-color: transparent; }
-:is(html[data-relief="3"] .app-soft:not([data-lead]), .app-soft[data-lead="3"])
-  :is(.check:not(.on), .input, .app-range) { box-shadow: var(--soft-raised); }
-:is(html:is([data-relief="4"], [data-relief="6"]) .app-soft:not([data-lead]), .app-soft:is([data-lead="4"], [data-lead="6"]))
-  :is(.check:not(.on), .input, .app-range) { box-shadow: var(--soft-pressed); }
-
-/* 5: the bevel. */
-:is(html[data-relief="5"] .app-soft:not([data-lead]), .app-soft[data-lead="5"]) :is(.check:not(.on), .input, .app-range) {
-  border-color: var(--soft-dark) var(--soft-light) var(--soft-light) var(--soft-dark);
+/* The leads set aside, on the board of the section, each on its row (.app-soft[data-lead]). */
+.app-soft {
+  --soft-raised: calc(-1 * var(--soft-depth)) calc(-1 * var(--soft-depth)) var(--soft-blur) rgba(255, 255, 255, .06),
+    var(--soft-depth) var(--soft-depth) var(--soft-blur) var(--soft-dark);
 }
-
-/* The field being typed in: the line of the accent in the lead of today only; in the others it keeps its look at
-   rest, the caret telling where the keys go (owner, 2026-11-19). */
-:is(html[data-relief="1"] .app-soft:not([data-lead]), .app-soft[data-lead="1"]) .app-range.is-focused { border-color: var(--accent); }
-:is(html:is([data-relief="2"], [data-relief="6"]) .app-soft:not([data-lead]), .app-soft:is([data-lead="2"], [data-lead="6"]))
-  :is(.input:focus, .app-range:focus-within) { border-color: var(--control-line); }
-
-/* A discreet sign of the field being typed in, on the leads 2 to 6, after the tab "Typing" (owner, 2026-11-19):
-   7 nothing; 8 the fill of the controls of today, lighter than the bars; 9 its line under it, in the weak gray;
-   10 its line all around, in the faint gray. !important: the rules of the leads are more specific. */
-html[data-typing="8"]:not([data-relief="1"]) .app-soft:not([data-lead]) :is(.input:focus, .app-range:focus-within, .app-range.is-focused),
-html[data-typing="8"] .app-soft[data-lead]:not([data-lead="1"]) :is(.input:focus, .app-range:focus-within, .app-range.is-focused) { background: var(--control) !important; }
-html[data-typing="9"]:not([data-relief="1"]) .app-soft:not([data-lead]) :is(.input:focus, .app-range:focus-within, .app-range.is-focused),
-html[data-typing="9"] .app-soft[data-lead]:not([data-lead="1"]) :is(.input:focus, .app-range:focus-within, .app-range.is-focused) { border-bottom-color: var(--weak) !important; }
-html[data-typing="10"]:not([data-relief="1"]) .app-soft:not([data-lead]) :is(.input:focus, .app-range:focus-within, .app-range.is-focused),
-html[data-typing="10"] .app-soft[data-lead]:not([data-lead="1"]) :is(.input:focus, .app-range:focus-within, .app-range.is-focused) { border-color: var(--faint) !important; }
+/* 1, today: the fill of the controls, a line (the weak gray on a checkbox), the accent while typing. */
+.app-soft[data-lead="1"] :is(.check, .input, .app-range) { background: var(--control); border-color: var(--control-line); box-shadow: none; }
+.app-soft[data-lead="1"] .check { border-color: var(--weak); }
+.app-soft[data-lead="1"] .app-range.is-focused { border-color: var(--accent); }
+/* 2, flat: the fill of the bars, the line of today. */
+.app-soft[data-lead="2"] :is(.check, .input, .app-range) { border-color: var(--control-line); box-shadow: none; }
+.app-soft[data-lead="2"] .check { border-color: var(--weak); }
+/* 3, raised: cast outside, up left and down right. */
+.app-soft[data-lead="3"] :is(.check, .input, .app-range) { box-shadow: var(--soft-raised); }
+/* 5, bevel: a line of 1 px, dark on the top and the left, light on the bottom and the right, no blur. */
+.app-soft[data-lead="5"] :is(.check, .input, .app-range) {
+  box-shadow: none; border-color: var(--soft-dark) rgba(255, 255, 255, .08) rgba(255, 255, 255, .08) var(--soft-dark);
+}
+/* 6, pressed in with the line of today. */
+.app-soft[data-lead="6"] :is(.check, .input, .app-range) { border-color: var(--control-line); }
+.app-soft[data-lead="6"] .check { border-color: var(--weak); }
+/* The checked box of every lead stays as it is. */
+.app-soft .check.on { background: var(--accent); border-color: var(--accent); box-shadow: none; }
 
 /* The board of the states: one row per lead, on the item block's background. */
 .app-soft-board { display: flex; flex-direction: column; gap: 14px; padding: 16px 14px; background: var(--bg-b);
   color: var(--text); font: var(--body-size)/1.3 var(--font-body); }
-.app-soft-row { display: grid; grid-template-columns: 96px 15px 15px 62px 62px 62px; gap: 18px; align-items: center; }
+.app-soft-row { display: grid; grid-template-columns: 110px 15px 15px 62px 62px 62px; gap: 12px; align-items: center; }
 .app-soft-row > b { font-weight: 600; color: var(--weak); font-size: 11px; letter-spacing: .04em; }
 .app-soft-head > span { color: var(--faint); font-size: 10.5px; }
 .app-soft-row .app-range { display: flex; position: relative; width: 62px; }
