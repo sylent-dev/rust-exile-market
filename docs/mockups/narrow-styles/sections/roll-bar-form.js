@@ -9,6 +9,8 @@
 // 4, the zone of its tier shaded (13j2): the bar of today, the zone of the roll's tier lighter behind the fill,
 //    so that the room left in the tier shows.
 // A line of two values ("Adds # to #") takes the average of their shares, like the bar of today.
+// Chosen by the owner on 2026-11-19: 1, the bar of today, the easiest to read for a new player; the room left
+// in the tier of 4 is already written by the range of the tier next to the bar.
 
 // Where `value` falls between `low` and `high`, from 0 to 1.
 const rbfShare = (value, low, high) => (high > low ? Math.min(1, Math.max(0, (value - low) / (high - low))) : 1);
@@ -74,10 +76,10 @@ const rbfBowStats = form => bowTierStats.map(row => {
 });
 
 const RBF_FORMS = [
-  [1, "1 · today: filled to the roll over every tier"],
-  [2, "2 · the zone searched, the roll as a tick"],
-  [3, "3 · a segment per tier"],
-  [4, "4 · the zone of its tier shaded"],
+  [1, "Chosen · 1 · today: filled to the roll over every tier"],
+  [2, "Not chosen · 2 · the zone searched, the roll as a tick"],
+  [3, "Not chosen · 3 · a segment per tier"],
+  [4, "Not chosen · 4 · the zone of its tier shaded"],
 ];
 SECTIONS.unshift(["Roll bar form (22h): one other form of the bar of a rare or magic modifier", [
   ...RBF_FORMS.map(([form, title]) => [`${title} · Ancestral Mail`,
