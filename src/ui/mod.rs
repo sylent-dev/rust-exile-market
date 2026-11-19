@@ -20,6 +20,7 @@ mod number_field;
 mod offer_tooltip;
 mod offers_block;
 mod price_block;
+mod relief;
 mod resize_edges;
 mod settings_panel;
 mod status_bar;

@@ -8,11 +8,11 @@ use std::sync::Arc;
 use egui::text::{LayoutJob, TextFormat, TextWrapping};
 use egui::{
     Color32, CornerRadius, CursorIcon, FontId, Galley, OpenUrl, Painter, Pos2, Rect, Response,
-    Role, Sense, Stroke, StrokeKind, Ui, Vec2, WidgetInfo, pos2, vec2,
+    Role, Sense, Stroke, Ui, Vec2, WidgetInfo, pos2, vec2,
 };
 
-use super::icons;
 use super::theme::{color, size, text};
+use super::{icons, relief};
 use crate::i18n::CutSentence;
 
 /// The mark in front of a choice: a radio button among exclusive choices, a check box for a
@@ -32,7 +32,6 @@ mod choice {
     pub const RADIO_STROKE: f32 = 2.0;
     pub const RADIO_DOT_RADIUS: f32 = 2.5;
     pub const CHECK_SIZE: f32 = MARK_SIZE;
-    pub const CHECK_STROKE: f32 = 1.5;
     pub const CHECK_MARK_WIDTH: f32 = 9.0;
     /// The "not allowed" sign, drawn on the 16 px grid of its icon in the mock-up.
     pub const SIGN_GRID: f32 = 16.0;
@@ -50,41 +49,34 @@ impl Mark {
         }
     }
 
-    fn paint(self, painter: &Painter, center: Pos2, hovered: bool) {
-        use choice::{
-            CHECK_MARK_WIDTH, CHECK_SIZE, CHECK_STROKE, RADIO_DOT_RADIUS, RADIO_RADIUS,
-            RADIO_STROKE,
-        };
+    /// Paints the mark around `center`; unchecked, it is pressed into its block, with no line.
+    fn paint(self, painter: &Painter, center: Pos2) {
+        use choice::{CHECK_MARK_WIDTH, CHECK_SIZE, RADIO_DOT_RADIUS, RADIO_RADIUS, RADIO_STROKE};
 
         match self {
             Self::Radio { selected } => {
-                let line = if selected {
-                    color::ACCENT
-                } else if hovered {
-                    color::WEAK
-                } else {
-                    color::FAINT
-                };
-                painter.circle_stroke(center, RADIO_RADIUS, Stroke::new(RADIO_STROKE, line));
                 if selected {
+                    painter.circle_stroke(
+                        center,
+                        RADIO_RADIUS,
+                        Stroke::new(RADIO_STROKE, color::ACCENT),
+                    );
                     painter.circle_filled(center, RADIO_DOT_RADIUS, color::ACCENT);
+                } else {
+                    // The ring and its stroke across.
+                    let side = 2.0 * RADIO_RADIUS + RADIO_STROKE;
+                    let rect = Rect::from_center_size(center, Vec2::splat(side));
+                    painter.add(relief::pressed_in(painter, rect, side / 2.0, color::BAND_A));
                 }
             }
             Self::Check { checked } => {
                 let rect = Rect::from_center_size(center, Vec2::splat(CHECK_SIZE));
-                let radius = CornerRadius::same(size::RADIUS);
                 if checked {
-                    painter.rect_filled(rect, radius, color::ACCENT);
+                    painter.rect_filled(rect, CornerRadius::same(size::RADIUS), color::ACCENT);
                     icons::check_mark(painter, center, CHECK_MARK_WIDTH, color::ON_ACCENT);
                 } else {
-                    let line = if hovered { color::TEXT } else { color::WEAK };
-                    painter.rect(
-                        rect,
-                        radius,
-                        color::CONTROL,
-                        Stroke::new(CHECK_STROKE, line),
-                        StrokeKind::Inside,
-                    );
+                    let radius = f32::from(size::RADIUS);
+                    painter.add(relief::pressed_in(painter, rect, radius, color::BAND_A));
                 }
             }
         }
@@ -120,7 +112,6 @@ pub fn choice_galley(ui: &mut Ui, mark: Mark, galley: Arc<Galley>, label: &str) 
     mark.paint(
         painter,
         pos2(rect.left() + MARK_SIZE / 2.0, rect.center().y),
-        response.hovered() || response.has_focus(),
     );
     let text_top = rect.center().y - galley.size().y / 2.0;
     painter.galley(
@@ -139,7 +130,6 @@ pub fn check_box(ui: &mut Ui, checked: bool, size: Vec2, label: &str) -> Respons
     Mark::Check { checked }.paint(
         ui.painter(),
         pos2(rect.left() + choice::MARK_SIZE / 2.0, rect.center().y),
-        response.hovered() || response.has_focus(),
     );
     response.on_hover_cursor(CursorIcon::PointingHand)
 }
