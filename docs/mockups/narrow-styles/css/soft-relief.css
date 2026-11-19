@@ -43,9 +43,11 @@
   border-color: var(--soft-dark) var(--soft-light) var(--soft-light) var(--soft-dark);
 }
 
-/* The field being typed in keeps the line of the accent, in every lead. */
-/* !important: the rules of the leads are more specific. */
-.app-soft :is(.input:focus, .app-range:focus-within, .app-range.is-focused) { border-color: var(--accent) !important; }
+/* The field being typed in: the line of the accent in the lead of today only; in the others it keeps its look at
+   rest, the caret telling where the keys go (owner, 2026-11-19). */
+:is(html[data-relief="1"] .app-soft:not([data-lead]), .app-soft[data-lead="1"]) .app-range.is-focused { border-color: var(--accent); }
+:is(html:is([data-relief="2"], [data-relief="6"]) .app-soft:not([data-lead]), .app-soft:is([data-lead="2"], [data-lead="6"]))
+  :is(.input:focus, .app-range:focus-within) { border-color: var(--control-line); }
 
 /* The board of the states: one row per lead, on the item block's background. */
 .app-soft-board { display: flex; flex-direction: column; gap: 14px; padding: 16px 14px; background: var(--bg-b);
