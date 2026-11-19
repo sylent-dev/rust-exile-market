@@ -35,11 +35,12 @@ env:
 jobs:
   # A release only from a commit of main, which went through a pull request and its checks, with
   # the toolchain of rust-toolchain.toml: a tag put by mistake on another commit builds nothing.
+  # On every run, also the notes of the version: a version without them builds nothing.
   # Not a lock: the workflow run is the one of the tagged commit, so a commit made to remove
   # this job would still publish (an environment with the owner's approval would close that,
   # see backlog.md). The ruleset of the tags (`v*`) keeps them from being moved or deleted.
   tag:
-    name: Check that the tag is on main
+    name: Check that the tag is on main and the notes of the version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -52,12 +53,31 @@ jobs:
             echo "The commit of $GITHUB_REF_NAME is not on main: nothing is released"
             exit 1
           fi
-          # The notes of the release, written before the tag (docs/releases.md): checked here, so
-          # that a version without them builds nothing.
-          if [ ! -f "docs/release-notes/$GITHUB_REF_NAME.md" ]; then
-            echo "docs/release-notes/$GITHUB_REF_NAME.md is missing: nothing is released"
+      # The notes of the version of Cargo.toml, written before the tag (docs/releases.md): the
+      # notes of the GitHub release and the patch notes the site reads, in English and French,
+      # each patch note with this version in its header, so that a copy of the previous one
+      # doesn't pass. Checked on every run, so that the run by hand before the tag tells a
+      # missing one; the build job checks that the tag matches this version.
+      - name: Check the notes of the version
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)
+          if [ -z "$version" ]; then
+            echo "The version of Cargo.toml can't be read"
             exit 1
           fi
+          missing=0
+          notes="docs/release-notes/v$version.md"
+          if [ ! -s "$notes" ]; then
+            echo "$notes is missing or empty (docs/releases.md, step 2)"
+            missing=1
+          fi
+          for notes in "docs/patch-notes/en/v$version.md" "docs/patch-notes/fr/v$version.md"; do
+            if ! grep -qx "version: $version" "$notes" 2>/dev/null; then
+              echo "$notes is missing, or its header doesn't say version: $version (docs/releases.md, The patch notes)"
+              missing=1
+            fi
+          done
+          exit "$missing"
 
   # One file for the four archives: about.toml lists the targets of the matrix below.
   notices:

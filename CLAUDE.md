@@ -30,6 +30,7 @@
 - If the user interface is translated, its texts are never hard-coded: each message goes into the translation file of every language (English is the reference), read with the library chosen in `docs/technical-choices.md`.
 - Exception: the code review notes in `outputs/` are written in French.
 - Exception: the test guides in `docs/tests/` may be written in French, the language of the testers.
+- Exception: the French patch notes in `docs/patch-notes/fr/`, read by the players on the site (`docs/releases.md`).
 
 ## Specifications and roadmap
 

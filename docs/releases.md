@@ -3,7 +3,7 @@
 ## Publish a version
 
 1. Run the `security-auditor` subagent on `main` and fix the findings the owner approves (a critical or high one blocks the release), and run the guides of `docs/tests/` again ([the list](tests/README.md)).
-2. Update `version` in `Cargo.toml` (then run `cargo build` to update `Cargo.lock`), write the notes of the version in `docs/release-notes/v<version>.md` (for the players: the download, the display mode the game needs, what changed, the known limits), and merge them into `main`.
+2. Update `version` in `Cargo.toml` (then run `cargo build` to update `Cargo.lock`), write the notes of the version in `docs/release-notes/v<version>.md` (for the players: the download, the display mode the game needs, what changed, the known limits) and its [patch notes](#the-patch-notes) in English and French, and merge them into `main`.
 3. Run the Release workflow by hand on `main` (Actions, Release, Run workflow) and wait for its builds on every system: a tag can't be moved, so a build that fails at the tag costs a version number.
 4. Tag the merged commit with the same version and push the tag:
 
@@ -13,11 +13,34 @@
    git push origin v0.1.0
    ```
 
-The [Release workflow](../.github/workflows/release.yml) builds the archives for Windows, macOS and Linux and publishes them as a GitHub release, with their checksums (`SHA256SUMS.txt`) and the notes of `docs/release-notes/<tag>.md`. The release is a normal one, never a pre-release: `releases/latest`, which the download page and the README link to, skips the pre-releases. It fails if the tag does not match the version of `Cargo.toml`, if the notes of the version are missing, if its commit isn't on `main` (a commit that went through a pull request and its checks; a guard against a tag put by mistake, since the workflow that runs is the one of the tagged commit), or if a security advisory on a dependency isn't sorted yet (`cargo deny check advisories`: update the dependency, or list the advisory in `deny.toml` with its reason). A ruleset of the repository keeps the tags `v*` from being moved or deleted: a wrong tag is replaced by the next version, never pushed again.
+The [Release workflow](../.github/workflows/release.yml) builds the archives for Windows, macOS and Linux and publishes them as a GitHub release, with their checksums (`SHA256SUMS.txt`) and the notes of `docs/release-notes/<tag>.md`. The release is a normal one, never a pre-release: `releases/latest`, which the download page and the README link to, skips the pre-releases. It fails if the tag does not match the version of `Cargo.toml`, if the notes or the patch notes of the version are missing, if its commit isn't on `main` (a commit that went through a pull request and its checks; a guard against a tag put by mistake, since the workflow that runs is the one of the tagged commit), or if a security advisory on a dependency isn't sorted yet (`cargo deny check advisories`: update the dependency, or list the advisory in `deny.toml` with its reason). A ruleset of the repository keeps the tags `v*` from being moved or deleted: a wrong tag is replaced by the next version, never pushed again.
 
 The version of Rust is pinned in `rust-toolchain.toml`: the release is built by the compiler the checks of `main` ran with. Dependabot proposes the new versions; each action of the workflows is pinned to a commit the same way (`.github/scripts/pinned-actions.sh`, run by the CI).
 
 Between two releases, the [Advisories workflow](../.github/workflows/advisories.yml) checks the advisories every day and fails, with an email to the owner, on a new one: a flaw that reaches the players calls for an urgent fix and a patch release.
+
+## The patch notes
+
+The page of the patch notes of the site (`sylent-dev/exile-market.sylent.tools`) reads them from `main` when it is built: `docs/patch-notes/en/v<version>.md` and `docs/patch-notes/fr/v<version>.md`, one file per version and per language. This path is read by the site: moving or renaming it breaks its page. After a release, run the deployment of the site again, by hand.
+
+Each note is short and written for a player, the same points in both languages:
+
+```markdown
+---
+version: 0.2.0
+date: 2026-11-20
+---
+
+- **New**: one sentence, without technical words.
+- **Fixed**: what the player saw, and what they see now.
+```
+
+- `date`: the day of the tag, `YYYY-MM-DD`; `version`: without the `v`.
+- One line per change a player notices, from one to six, each starting with **New**, **Changed** or **Fixed** (French **Nouveau**, **Modifié**, **Corrigé**), the news first; the notes of `docs/release-notes/` keep the detail.
+- The French note addresses the player with « vous », as the interface does, and names the items, the currencies and the windows with the words of the interface and of the game in French.
+- Never the name of a competitor (`CLAUDE.md`, Interface design).
+
+The Release workflow stops, building nothing, when the notes of the version of `Cargo.toml` (`docs/release-notes/` and both patch notes) are missing, or when a patch note doesn't say this version in its header (a copy of the previous one), run by hand as well as at the tag: the run by hand of step 3 tells it before the tag.
 
 ## What an archive holds
 
