@@ -49,6 +49,16 @@
 :is(html:is([data-relief="2"], [data-relief="6"]) .app-soft:not([data-lead]), .app-soft:is([data-lead="2"], [data-lead="6"]))
   :is(.input:focus, .app-range:focus-within) { border-color: var(--control-line); }
 
+/* A discreet sign of the field being typed in, on the leads 2 to 6, after the tab "Typing" (owner, 2026-11-19):
+   7 nothing; 8 the fill of the controls of today, lighter than the bars; 9 its line under it, in the weak gray;
+   10 its line all around, in the faint gray. !important: the rules of the leads are more specific. */
+html[data-typing="8"]:not([data-relief="1"]) .app-soft:not([data-lead]) :is(.input:focus, .app-range:focus-within, .app-range.is-focused),
+html[data-typing="8"] .app-soft[data-lead]:not([data-lead="1"]) :is(.input:focus, .app-range:focus-within, .app-range.is-focused) { background: var(--control) !important; }
+html[data-typing="9"]:not([data-relief="1"]) .app-soft:not([data-lead]) :is(.input:focus, .app-range:focus-within, .app-range.is-focused),
+html[data-typing="9"] .app-soft[data-lead]:not([data-lead="1"]) :is(.input:focus, .app-range:focus-within, .app-range.is-focused) { border-bottom-color: var(--weak) !important; }
+html[data-typing="10"]:not([data-relief="1"]) .app-soft:not([data-lead]) :is(.input:focus, .app-range:focus-within, .app-range.is-focused),
+html[data-typing="10"] .app-soft[data-lead]:not([data-lead="1"]) :is(.input:focus, .app-range:focus-within, .app-range.is-focused) { border-color: var(--faint) !important; }
+
 /* The board of the states: one row per lead, on the item block's background. */
 .app-soft-board { display: flex; flex-direction: column; gap: 14px; padding: 16px 14px; background: var(--bg-b);
   color: var(--text); font: var(--body-size)/1.3 var(--font-body); }

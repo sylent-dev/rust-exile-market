@@ -9,6 +9,8 @@ const VARIANTS = {
   league: { label: "League", options: { softcore: "Softcore", hardcore: "Hardcore" }, fallback: "softcore" },
   // Soft relief (22i): the lead drawn on the windows of its section.
   relief: { label: "Relief (22i)", options: { 1: "1 today", 2: "2 flat", 3: "3 raised", 4: "4 pressed in", 5: "5 bevel", 6: "6 pressed in, its line" }, fallback: "4" },
+  // Soft relief (22i): a discreet sign of the field being typed in, on the leads 2 to 6 (owner, 2026-11-19).
+  typing: { label: "Typing (22i)", options: { 7: "7 nothing", 8: "8 lighter fill", 9: "9 underline", 10: "10 gray line" }, fallback: "7" },
 };
 // Values tuned by eye, each a slider of the header that sets a CSS variable of the page (`scale` divides the
 // value shown, so that a percent sets an opacity); the address keeps them too.
