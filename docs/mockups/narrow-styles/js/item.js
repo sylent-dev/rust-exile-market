@@ -38,7 +38,8 @@ document.addEventListener("click", event => {
   const on = tag.classList.toggle("is-on");
   tag.querySelector(".app-tip").textContent = tag.dataset[on ? "tipOn" : "tipOff"];
 });
-const rareBar = o => `<span class="bar"><i style="width:${(o.share * 100).toFixed(1)}%"></i></span>`;
+// `o.html`, a bar drawn in another form (section Roll bar form, 22h).
+const rareBar = o => o.html || `<span class="bar"><i style="width:${(o.share * 100).toFixed(1)}%"></i></span>`;
 
 function item(it, unfolded = false) {
   // Corrupted once or twice, as in the application.
