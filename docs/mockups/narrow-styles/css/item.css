@@ -95,6 +95,14 @@
 .input { width: 46px; padding: 1px 6px; text-align: right; font-family: var(--font-number); font-size: 12.5px; }
 .bar { width: 96px; height: 4px; border-radius: 2px; background: var(--control-line); overflow: hidden; }
 .bar i { display: block; height: 100%; background: var(--accent); }
+/* The forms of the roll bar compared in 22h: a zone lighter behind the fill, the roll as a tick, a segment per tier. */
+.app-rbf { position: relative; }
+.app-rbf i { position: relative; }
+.app-rbf-zone { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--accent) 35%, transparent); }
+.app-rbf-tick { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--accent); }
+.app-rbf-segments { display: flex; gap: 1px; background: none; border-radius: 0; }
+.app-rbf-segments b { flex: 1; background: var(--control-line); border-radius: 1px; overflow: hidden; }
+.app-rbf-segments b i { display: block; height: 100%; background: var(--accent); }
 .note { color: var(--faint); font-size: 12px; }
 /* A stat: its checkbox, its text, and under it its bar, its range and its minimum, so that the
    text takes the whole width. */
