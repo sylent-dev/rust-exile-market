@@ -8,8 +8,18 @@ const VARIANTS = {
   theme: { label: "Style", options: Object.fromEntries(Object.entries(THEMES).map(([k, v]) => [k, v.title])), fallback: "slate" },
   league: { label: "League", options: { softcore: "Softcore", hardcore: "Hardcore" }, fallback: "softcore" },
 };
+// Values tuned by eye, each a slider of the header that sets a CSS variable of the page (`scale` divides the
+// value shown, so that a percent sets an opacity); the address keeps them too.
+const SLIDERS = {
+  // None open: the depth, the softness and the opacities of the relief of the controls were settled by the owner
+  // on 2026-11-19 (css/soft-relief.css).
+};
 const params = new URLSearchParams(location.search);
 const chosen = Object.fromEntries(Object.entries(VARIANTS).map(([key, v]) => [key, params.get(key) in v.options ? params.get(key) : v.fallback]));
+for (const [key, v] of Object.entries(SLIDERS)) {
+  const value = Number(params.get(key));
+  chosen[key] = params.has(key) && value >= v.min && value <= v.max ? value : v.fallback;
+}
 let theme = chosen.theme;
 
 const ORB = { div: "divine-orb", chaos: "chaos-orb", ex: "exalted-orb" };

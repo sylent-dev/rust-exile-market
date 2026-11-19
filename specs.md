@@ -29,11 +29,11 @@ The single source of truth of the interface is the mock-up [docs/mockups/narrow-
 
 | Token | Value | Use |
 |---|---|---|
-| Band A | `#0f1216` | Title bar, price block, status bar. |
+| Band A | `#0f1216` | Title bar, price block, status bar; the fill of the unchecked boxes and radios and of the min–max fields (Shapes). |
 | Band B | `#151a20` | Item block, offers block, settings. |
 | Alternate row | `#1a2028` | Every other row of the offers. |
-| Control | `#1d242d` | Pills, inputs, gear block, waiting countdown, tooltip (`#20272f`). |
-| Control line | `#2a3440` | Input borders, separators, hover of the pills. |
+| Control | `#1d242d` | Pills, a min–max field being typed in, gear block, waiting countdown, tooltip (`#20272f`). |
+| Control line | `#2a3440` | Separators, hover of the pills. |
 | Text | `#e3e8ef` | Main text. |
 | Weak text | `#8692a3` | Labels, secondary lines. |
 | Faint text | `#556070` | Status bar, search age, roll ranges. |
@@ -65,6 +65,7 @@ The single source of truth of the interface is the mock-up [docs/mockups/narrow-
 
 - **Action blocks are flat**, the height of their band, glued to its edge: the league block in the title bar; in the offers band, a 48 px square in the corner of its title row (search, its spinner, the countdown, search again). The icons of the title bar have no block: only the icon.
 - **Small information elements are rounded by 3 px**: tags, inputs, checkboxes (15 px, drawn check mark), pills.
+- **The unchecked boxes and radios and the min–max fields are pressed into their block** (step 22i, the owner's choice on 2026-11-19, lead 4 of the mock-up section "Soft relief (22i)"; set aside: today's, flat on Band A with the line of today, raised, a bevel of 1 px, pressed in with the line of today): the fill of Band A, no line, a shadow inside offset by 1 px and blurred over 2.5 px, black at 70 % along the top and the left, white at 3 % along the bottom and the right. Checked, a box or a radio stays as it is. A field being typed in takes the fill of Control, with no line of the main action (set aside: nothing, a line of the weak text under it, a line of the faint text around it): the caret tells where the keys go, and over the game the status bar says it (Keyboard). egui casts a shadow outside a shape only (epaint 0.37): the shadow inside is painted otherwise, settled by a probe at the start of 22i2.
 - **The scroll bar is rounded by 1 px**: thin at rest, its ends are round; widened under the pointer (the floating bar of egui), they are nearly square.
 - **Secondary actions are pills** with a verb: "Check on trade", "Show 6 stats", "Copy whisper".
 - What opens over the content (the tooltip of an offer, the bubble of a new league) is a plain rectangle, radius 4 px, with a shadow, without an arrow toward what it belongs to.
