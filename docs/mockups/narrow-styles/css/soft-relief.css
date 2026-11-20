@@ -4,9 +4,10 @@
    the right. The checked box and radio stay as they are. A field being typed in takes the lighter fill of the
    controls (--control), with no line of the accent (variant 8); the caret tells where the keys go, and over the
    game the status bar says it (14b2).
-   egui has no shadow inside a shape (epaint 0.37: a Shadow is cast outside): the application paints the shape in
-   the dark of the shadow, then the fill blurred over it, moved down right (a RectShape with a blur_width; a radio
-   is a rectangle rounded by half its size), to settle in a probe at the start of 22i2. */
+   The line made transparent stays: the fill runs under it and the shadows start inside it, as CSS casts a box
+   shadow inset (1 px for a box and a field, 2 px for a radio, as drawn at scale 1).
+   egui has no shadow inside a shape (epaint 0.37: a Shadow is cast outside): the application paints the shape as
+   a mesh, a vertex at the center of each pixel near its edges, colored as this shadow (src/ui/relief.rs). */
 :root {
   --soft-depth: 1px; --soft-blur: 2.5px; --soft-dark: rgba(0, 0, 0, .7); --soft-light: rgba(255, 255, 255, .03);
   --soft-pressed: inset var(--soft-depth) var(--soft-depth) var(--soft-blur) var(--soft-dark),

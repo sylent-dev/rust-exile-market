@@ -4,7 +4,7 @@
 use egui::text::{LayoutJob, TextFormat};
 use egui::{
     Align, Align2, Area, Color32, CornerRadius, Frame, Id, Label, Layout, Margin, Order, Rect,
-    Response, RichText, Sense, Stroke, TextEdit, Ui, Vec2, ViewportId, pos2, vec2,
+    Response, RichText, Sense, Shape, TextEdit, Ui, Vec2, ViewportId, pos2, vec2,
 };
 
 use super::Stats;
@@ -19,6 +19,7 @@ use crate::i18n::{Message, Translator};
 use crate::item::{Currency, MAX_WAYSTONE_TIER, ModifierOrigin, RadiusSkills, Range};
 use crate::ui::item_block::waystone_tier_color;
 use crate::ui::number_field::NumberField;
+use crate::ui::relief::{self, Pressed};
 use crate::ui::theme::{self, color, size, text};
 use crate::ui::widgets;
 
@@ -47,8 +48,12 @@ const WIDE_RANGE_COLUMN: f32 = 76.0;
 const HALF_WIDTH: f32 = 24.0;
 const WIDE_HALF_WIDTH: f32 = 31.0;
 
-/// The space around the halves of a range field.
-const RANGE_PADDING: Margin = Margin::symmetric(2, 1);
+/// The space around the halves of a range field, its border included.
+const RANGE_PADDING: Margin = Margin::symmetric(3, 2);
+
+/// The line of a range field in the mock-up, transparent once pressed in, inside which its
+/// shadows start.
+const RANGE_BORDER: f32 = 1.0;
 
 /// The range field raised by 3 px on the line of its checkbox: taller than the checkbox, it
 /// looked too low (tuned by eye by the owner on the mock-up: 1 px in step 13h, 3 px in step
@@ -394,21 +399,12 @@ fn faint_note(ui: &mut Ui, note: &str, width: f32) {
 fn range_field(ui: &mut Ui, key: FilterKey, choice: &mut Filter, limit: Limit) -> DrawnField {
     let halves = [Half::Minimum, Half::Maximum];
     let ids = halves.map(|half| ui.make_persistent_id(("stat-range", key, half)));
-    let focused = ui.memory(|memory| ids.iter().any(|&id| memory.has_focus(id)));
-    let line_color = if focused {
-        color::WEAK
-    } else {
-        color::CONTROL_LINE
-    };
     let (column, half_width) = range_widths(limit);
-    let stroke = Stroke::new(1.0, line_color);
     let mut edited = None;
-    let dash_width =
-        column - 2.0 * (f32::from(RANGE_PADDING.left) + stroke.width) - 2.0 * half_width;
+    let dash_width = column - 2.0 * f32::from(RANGE_PADDING.left) - 2.0 * half_width;
+    // Painted once the field is laid out, under its numbers.
+    let background = ui.painter().add(Shape::Noop);
     let field = Frame::NONE
-        .fill(color::CONTROL)
-        .stroke(stroke)
-        .corner_radius(CornerRadius::same(size::RADIUS))
         .inner_margin(RANGE_PADDING)
         .outer_margin(RANGE_RAISE)
         .show(ui, |ui| {
@@ -434,11 +430,22 @@ fn range_field(ui: &mut Ui, key: FilterKey, choice: &mut Filter, limit: Limit) -
                 }
             }
         });
-    DrawnField {
-        edited,
-        // Without the margin that raises it.
-        rect: field.response.rect - RANGE_RAISE,
-    }
+    // Without the margin that raises it.
+    let rect = field.response.rect - RANGE_RAISE;
+    // Being typed in, on the lighter fill of the controls.
+    let fill = if edited.is_some() {
+        color::CONTROL
+    } else {
+        color::BAND_A
+    };
+    let pressed = Pressed {
+        rect,
+        radius: f32::from(size::RADIUS),
+        border: RANGE_BORDER,
+    };
+    let painter = ui.painter();
+    painter.set(background, relief::pressed_in(painter, pressed, fill));
+    DrawnField { edited, rect }
 }
 
 /// A range field as it is drawn: the half the player is in, if any, and where it is.
