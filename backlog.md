@@ -108,6 +108,8 @@ One entry per item: what it is, its kind (the section it sits in), what it depen
 
 ## Process
 
+- A red run of `main` hidden by the documentation commit after it (found while fixing the cancelled runs, 22j, 2026-11-20): a push to `main` is compared with the commit before it only (`BASE` is `github.event.before` in `.github/workflows/ci.yml`), so a documentation commit pushed after a code commit whose run failed skips its checks and shows `main` green. Low risk: the pull request of the code commit ran the checks before its merge. A real fix compares with the last commit of `main` whose run succeeded, asked to the API of GitHub, here and in the templates; a change of a workflow, so a code review. Kind: process. Depends on: step 23 (Second retrospective), where it is decided (owner's go, 2026-11-20).
+
 - A check of the CI that warns when a file of `src/` or `tools/` passes about 800 lines of code, its tests apart (owner, 2026-11-11, after a post on the God Object AI assistants grow, and Claude Code's own account of this project: `ExileMarketApp` with 26 fields, files of 2,000 to 2,900 lines before step 17e3d). Left out on 2026-11-13 (owner's go): after 17e3d, one file passes 800 lines, `src/i18n.rs` (869, its lists of messages), the next ones about 600; the rule of `docs/code-quality.md` and the file that grows, named at the start of each step, suffice for now, and the check would cost a pull request and its review. Kind: process. Depends on: step 19 (Retrospective), for the project template, where it may help most.
 
 ## Features
