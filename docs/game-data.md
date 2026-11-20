@@ -169,7 +169,7 @@ Only a line the game marks desecrated (` (desecrated)`) may be read with a desec
 
 - A desecrated line the tables of a lord and those of an ordinary modifier hold as well is read as the ordinary one, the first of the file.
 - One that a modifier of one tier only of an affix and an ordinary modifier of the other hold keeps both (`Grenade Skills have +1 Cooldown Use (desecrated)` of a cannon, the prefix of Amanamu or the T2 of the suffix; without the mark, the T2 of the suffix), the row of the first without tier number.
-- Whether the game marks a line that adds up a desecrated and an ordinary modifier is unknown (step 22).
+- The game writes a desecrated modifier apart from an unmarked one of the same stat, on two lines, as it does a fractured one: `172% d'Augmentation des Dégâts Physiques` and `79% d'Augmentation des Dégâts Physiques (desecrated)` on the owner's mirrored bow (`fr-trade-rare-bow-mirrored.txt`), `41% increased Energy Shield (fractured)` and `98% increased Energy Shield` on the owner's tiara (`en-owner-trade-rare-helmet-fractured.txt`). Whether it adds up two modifiers of one mark, a lord's and an ordinary one a desecration revealed, isn't seen on a copy yet: the draw adds them up ([The measures of the draw](#the-measures-of-the-draw)).
 
 **Decisions**
 
@@ -202,15 +202,26 @@ The session does it from the copy as the parser read it, once the base is known:
 
 ### The measures of the draw
 
-The draw is in the repository since 2026-11-10 (`src/game_data/modifiers/trade_tiers/game_tests/random_items.rs`, an ignored test to run by hand after the game data are generated again, `cargo test --release random_items -- --ignored --nocapture`): 6,400 rare items of 16 bases a way (14 until 2026-11-11, then a Diamond, two prefixes and suffixes at most, and a Trarthan Cannon, where many desecrated lines can be an ordinary modifier or a lord's), in six ways (at item level 82: the lines in the order of the modifiers, the same items shuffled, a third of the modifiers of a lord of the Abyss, all of them, all marked desecrated with one in two an ordinary modifier; and at item level 45), its counts recorded in the test.
+The draw is in the repository since 2026-11-10 (`src/game_data/modifiers/trade_tiers/game_tests/random_items.rs`, an ignored test to run by hand after the game data are generated again, `cargo test --release random_items -- --ignored --nocapture`): 6,400 rare items of 16 bases a way (14 until 2026-11-11, then a Diamond, two prefixes and suffixes at most, and a Trarthan Cannon, where many desecrated lines can be an ordinary modifier or a lord's), in nine ways (at item level 82: the lines in the order of the modifiers, the same items shuffled, a third of the modifiers of a lord of the Abyss, all of them, all marked desecrated with one in two an ordinary modifier; at item level 45; then, since 2026-11-20, a third marked desecrated with one in two an ordinary modifier, one modifier fractured, and the same items shuffled), its counts recorded in the test. A marked modifier is written apart from the others of its stat, as the game does ([The desecrated lines](#the-desecrated-lines)): until 2026-11-20 the draw drew no such item, and its six ways had none.
 
 The draw isn't the game's: every modifier and tier as likely, the order of the lines unknown.
 
-**Today.** On the first way, 24,137 of 26,789 lines get the tier they rolled, 2,520 none, 85 another tier of their modifier and 47 another modifier, 24 readings and 995 steps at most (1,810 steps shuffled; the 2,734 steps of 2026-10-30 aren't met again). On the 16 bases and the six ways, what is left:
+**Today.** On the first way, 24,137 of 26,789 lines get the tier they rolled, 2,520 none, 85 another tier of their modifier and 47 another modifier, 24 readings and 995 steps at most (1,810 steps shuffled; the 2,734 steps of 2026-10-30 aren't met again). On the 16 bases and the nine ways, what is left:
 
-- 145 lines that add up modifiers, most of them read as one modifier that holds them alone (the rule turned down below);
-- 86 lines two modifiers of one affix hold with other ranges, read as the first of the file, all of them `#% chance for Flasks you use to not consume Charges` of a desecrated belt, which two lords roll (54, 21 and 11 by way; [backlog.md](../backlog.md));
-- 276 values in two tiers of their modifier, the worst taken (backlog too).
+- 181 lines that add up modifiers, most of them read as one modifier that holds them alone (the rule turned down below);
+- 91 lines two modifiers of one affix hold with other ranges, read as the first of the file, all of them `#% chance for Flasks you use to not consume Charges` of a desecrated belt, which two lords roll (54, 21, 10 and 6 by way; [backlog.md](../backlog.md));
+- 515 values in two tiers of their modifier, the worst taken (backlog too);
+- 198 items without any tier, a stat of theirs on two lines (below).
+
+**Step 22l, a stat on two lines.** A stat written on two lines, of two marks, lets the best reading take each line for the pure modifier of that stat: two modifiers of one type, which the game can't roll and the other readings never make, so that the search doesn't meet its best reading and leaves every line of the item without tier (`Outcome::BestNotMet`; [The bounds and the end of the search](#the-bounds-and-the-end-of-the-search)). On the three ways that draw such items often (2026-11-20):
+
+| Way | Items with a stat on two lines | Items without any tier |
+|---|---|---|
+| A third marked desecrated, one in two an ordinary modifier | 190 of 6,400 | 45 |
+| One modifier fractured | 358 of 6,400 | 48 |
+| The same items shuffled | 358 of 6,400 | 105 |
+
+A third of the modifiers of a lord has 21 such items and none without any tier, a lord's modifier and an ordinary one of its stat being of two types. The owner's tiara and mirrored bow are read: their prefixes are full, and the reading of each line alone overflows them.
 
 **Step 17e3e, the lines by cause.** It sorted the lines read as another modifier by cause on the 14 bases: on the first way, 835 of 23,920 lines (3.5 %; 5.7 % with the lines shuffled) on 531 of 5,600 items, 641 of them the lines of a hybrid read alone as pure modifiers (1,148 of 1,362 shuffled), 153 lines adding up modifiers read otherwise, 32 a hybrid read as another one and 9 a pure modifier of the other affix.
 
