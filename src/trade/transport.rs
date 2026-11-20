@@ -122,8 +122,8 @@ impl<T: Transport> Guarded<T> {
         self.refusal.until(now)
     }
 
-    /// Sends `request`, unless the wait of a refusal holds; a refusal starts one, of the delay
-    /// of its `Retry-After`.
+    /// Sends `request`, unless the wait of a refusal holds; a refusal starts one, as long as
+    /// it asks ([`limits::refusal_wait`]).
     pub fn send(&mut self, request: &Request) -> Attempt {
         if let Some(until) = self.refusal.until(Instant::now()) {
             return Attempt::Waiting(until);
@@ -524,6 +524,27 @@ pub(super) mod tests {
         };
         assert_about(Some(wait), until);
         assert_eq!(site.requests(), []);
+    }
+
+    #[test]
+    fn a_refusal_makes_every_request_wait_for_a_restriction_longer_than_its_delay() {
+        let site = FakeSite::default();
+        let headers = LimitHeaders {
+            retry_after: Some("60".to_owned()),
+            ..limits("trade-search-request-limit", "5:10:60", "6:10:300")
+        };
+        site.answer(429, headers, "");
+        let refusal = Refusal::default();
+        let start = Instant::now();
+
+        let refused = Guarded::new(site, refusal.clone()).send(&get());
+
+        let Attempt::Refused { until, .. } = refused else {
+            panic!("a refusal: {refused:?}");
+        };
+        assert!(until >= start + Duration::from_mins(5), "{until:?}");
+        assert!(until < start + Duration::from_mins(6), "{until:?}");
+        assert_eq!(refusal.until(start), Some(until));
     }
 
     #[test]

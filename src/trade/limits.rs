@@ -177,7 +177,6 @@ impl PolicyLimits {
     fn answered(&mut self, headers: &LimitHeaders, now: Instant) {
         let mut windows = Vec::new();
         let mut unreadable = false;
-        let mut restricted = Duration::ZERO;
         for rule in &headers.rules {
             let Some(read) = read_rule(rule) else {
                 log::warn!(
@@ -187,15 +186,6 @@ impl PolicyLimits {
                     logging::plain(&rule.state)
                 );
                 unreadable = true;
-                // Its restrictions apply all the same, those that can be read.
-                let rule_restricted = rule
-                    .state
-                    .split(',')
-                    .filter_map(triple)
-                    .map(|(_, _, restricted)| seconds(restricted))
-                    .max()
-                    .unwrap_or_default();
-                restricted = restricted.max(rule_restricted);
                 continue;
             };
             for window in read {
@@ -214,7 +204,6 @@ impl PolicyLimits {
                     others: window.counted.saturating_sub(ours),
                     told: now,
                 });
-                restricted = restricted.max(window.restricted);
             }
         }
         // An answer without limits, or with limits that can't all be read, keeps the ones
@@ -222,6 +211,7 @@ impl PolicyLimits {
         if !unreadable && !windows.is_empty() {
             self.windows = windows;
         }
+        let restricted = longest_restriction(headers);
         if !restricted.is_zero() {
             self.block(now + restricted + MARGIN);
         }
@@ -241,8 +231,6 @@ struct ReadWindow {
     period: Duration,
     /// The hits the trade site counted in it.
     counted: usize,
-    /// How long the trade site refuses the requests, when they went over it.
-    restricted: Duration,
 }
 
 /// The windows of a rule; `None` when a window can't be read, or when the limits and the
@@ -258,15 +246,28 @@ fn read_rule(rule: &RuleHeaders) -> Option<Vec<ReadWindow>> {
         .zip(&states)
         .map(|(limit, state)| {
             let (hits, period, _) = triple(limit)?;
-            let (counted, counted_period, restricted) = triple(state)?;
+            let (counted, counted_period, _) = triple(state)?;
             (period == counted_period).then(|| ReadWindow {
                 hits: count(hits),
                 period: seconds(period),
                 counted: count(counted),
-                restricted: seconds(restricted),
             })
         })
         .collect()
+}
+
+/// How long the trade site refuses the requests that went over a window, the longest time
+/// the states of `headers` tell (the third number of `6:10:60`): of every state that can be
+/// read, also those of a rule whose windows can't.
+fn longest_restriction(headers: &LimitHeaders) -> Duration {
+    headers
+        .rules
+        .iter()
+        .flat_map(|rule| rule.state.split(','))
+        .filter_map(triple)
+        .map(|(_, _, restricted)| seconds(restricted))
+        .max()
+        .unwrap_or_default()
 }
 
 /// The limits of every policy.
@@ -315,15 +316,15 @@ impl Limits {
 /// The longest wait a refusal can ask: a day, and the margin.
 pub const LONGEST_REFUSAL_WAIT: Duration = Duration::from_secs(LONGEST).saturating_add(MARGIN);
 
-/// How long a refusal asks to wait: the delay of `Retry-After`, a day at most, or a minute
-/// when it gives none, and the margin.
+/// How long a refusal asks to wait: the delay of `Retry-After`, or a minute when it gives
+/// none, or the restriction its limits tell when longer, a day at most, and the margin.
 pub fn refusal_wait(headers: &LimitHeaders) -> Duration {
     let delay = headers
         .retry_after
         .as_deref()
         .and_then(|seconds| seconds.trim().parse().ok())
         .map_or(DEFAULT_RETRY_AFTER, seconds);
-    delay + MARGIN
+    delay.max(longest_restriction(headers)) + MARGIN
 }
 
 /// A time read in a header, at most a day.

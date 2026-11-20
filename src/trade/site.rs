@@ -240,8 +240,8 @@ impl<T: Transport> TradeSite<T> {
     }
 
     /// The result of the data endpoint `name` on the trade site of `language`. Not asked
-    /// during the wait of a refusal; a refusal (403, 429) starts one, of the delay of its
-    /// `Retry-After`, for the searches of offers too.
+    /// during the wait of a refusal; a refusal (403, 429) starts one, as long as it asks, for
+    /// the searches of offers too.
     fn data<A: DeserializeOwned>(
         &mut self,
         language: Language,
