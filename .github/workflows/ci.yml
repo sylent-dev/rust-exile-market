@@ -10,7 +10,8 @@ permissions:
 
 # A new push to a pull request cancels its runs that are still going. Each push to `main` has a
 # group of its own, its commit: sharing one, a documentation commit pushed during the run of a
-# code commit would cancel that run, or the run waiting behind it, and skip its own checks.
+# code commit would cancel that run (or, with `cancel-in-progress: false`, the run waiting
+# behind it), then skip its own checks, since it compares with that commit alone.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: true
