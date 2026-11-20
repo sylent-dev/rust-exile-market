@@ -10,6 +10,8 @@ The trade site announces its limits per IP address in the `X-Rate-Limit-*` heade
 | Fetch (`trade-fetch-request-limit`), 10 offers per request | 12 per 4 s (10 s penalty), 16 per 12 s (300 s), 50 per 300 s (300 s), 1,000 per 6 h (1,800 s) |
 | Currency exchange (`trade-exchange-request-limit`), measured on 2026-10-26 | 5 per 15 s (60 s penalty), 10 per 90 s (300 s), 30 per 300 s (1,800 s) |
 
+The data endpoints (`/api/trade2/data/*`, the item names and the stat templates) announce no limit: one `GET /api/trade2/data/static` on 2026-11-20 answered without `X-Rate-Limit-*` nor `Retry-After`, from the cache of Cloudflare (`cf-cache-status: HIT`, `cache-control: public, max-age=14400`). The application still spaces them a second apart (`PACE` in `src/trade/site.rs`) and reads the `Retry-After` of a refusal of theirs.
+
 Guardrails:
 
 - A search only runs when the player clicks the search or refresh block: copying an item never searches by itself (sorting the loot copies many items in a row). One click makes one search and one fetch; the double chevron makes one more fetch. Nothing runs in the background.
