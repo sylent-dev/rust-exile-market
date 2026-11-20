@@ -8,6 +8,8 @@ One entry per item: what it is, its kind (the section it sits in), what it depen
 
 - The bug icon of the title bar made more discreet once the application is stable and the issues fewer (step 16, the owner's idea on 2026-11-04): fainter (mock-up window "Later" of the section "Bug report (16)"), a row in the settings, or a link in their status bar; decide with the owner from the issues received.
 
+- A sign of the keyboard focus, and maybe of the pointer, on an unchecked box or radio pressed in (code review of 22i2, 2026-11-20): before 22i their line brightened under the pointer and with the focus; pressed in, they have no line, and the mock-up draws neither state. Depends on a mock-up of the sign first; worth it if a player moves through the settings or the filters with Tab.
+
 ## Edge cases
 
 - Whether reading the title of a frozen window of another program can block on Windows (security audit of v0.2.0, 2026-11-19): `winsafe::GetWindowText` in `src/game_window/windows.rs` calls `GetWindowTextLength` too. At worst the `game-open` thread alone hangs: Close with the game stops acting, the interface doesn't freeze, and the setting is off by default. To settle with a small probe on Windows: a window that stops handling its messages, and a timed call from another process; if it blocks, read the class of a window first and the title of the windows of the game's class only. Depends on a Windows machine.
