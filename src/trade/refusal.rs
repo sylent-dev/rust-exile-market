@@ -20,8 +20,8 @@ const KEPT_FILE: &str = "trade-refusal.json";
 const KEPT_VERSION: u32 = 1;
 
 /// The time before which no request is sent to the trade site, if it refused one. Its clones
-/// share the same time. Outside the tests, only [`Refusal::kept_in`] builds one: a wait that
-/// the next launch wouldn't read can't be written.
+/// share the same time. Outside the tests, only [`Refusal::kept_in`] builds one, so that the
+/// application can't be handed a wait that forgets its cache directory.
 #[derive(Debug, Clone)]
 #[cfg_attr(test, derive(Default))]
 pub struct Refusal(Arc<SharedWait>);
@@ -227,13 +227,18 @@ pub(super) mod tests {
         fs::write(&blocked, "").expect("a file");
         let now = Instant::now();
 
-        for refusal in [Refusal::kept_in(Some(blocked)), Refusal::kept_in(None)] {
+        for refusal in [
+            Refusal::kept_in(Some(blocked.clone())),
+            Refusal::kept_in(None),
+        ] {
             assert_eq!(refusal.until(now), None);
 
             refusal.extend(now + Duration::from_mins(30));
 
             assert_eq!(refusal.until(now), Some(now + Duration::from_mins(30)));
         }
+        // Nothing was kept: the file is still a file, with no directory in its place.
+        assert!(blocked.is_file());
     }
 
     /// Writes the file of `version` a launch left in `directory`, as the version 1 writes it,

@@ -62,7 +62,7 @@ One entry per item: what it is, its kind (the section it sits in), what it depen
 
 ## Waiting on others
 
-- The headers of a real refusal of the trade site (code review of 22k, 2026-11-20): the states of a refusal in the tests (`6:10:300` with a `Retry-After`) are written by hand from the limits measured on answers of status 200, and a refusal is never provoked on purpose. Since 22k the log writes the status, the `Retry-After` and the states of each refusal (`refusal_log` in `src/trade/transport.rs`): at the first one read in a log (the owner's, or a bug report), copy its headers into a test of `src/trade/limits/tests.rs` with its date, and check that the restriction and the `Retry-After` say what `refusal_wait` reads. Depends on: a refusal met by a player.
+- The headers of a real refusal of the trade site (code review of 22k, 2026-11-20): the states of a refusal in the tests (`6:10:300` with a `Retry-After`) are written by hand from the limits measured on answers of status 200, and a refusal is never provoked on purpose. Since 22k the log writes the status, the policy, the `Retry-After` and the limits and state of each rule of each refusal (`refusal_log` in `src/trade/transport.rs`): at the first one read in a log (the owner's, or a bug report), copy its headers into a test of `src/trade/limits/tests.rs` with its date, and check that the restriction and the `Retry-After` say what `refusal_wait` reads. Depends on: a refusal met by a player.
 
 - The note of a priced item in French (`labels.note` is `None` in French; a French copy of a priced item needed to learn its label; since 13k2e2, a note after the lines of a unique without header is no longer read as them, `a_french_unique_without_header_is_read_before_a_note_with_a_number`).
 

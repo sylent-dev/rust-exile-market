@@ -145,34 +145,48 @@ impl<T: Transport> Guarded<T> {
     }
 }
 
+/// The rules of a refusal its line of the log writes: the trade site tells one or two, and
+/// their number is otherwise bounded by the size of the headers only.
+const LOGGED_RULES: usize = 4;
+
 /// The line of the log for the refusal `answer`, with the headers its `wait` was read from:
 /// the first refusal a player meets tells what the trade site really writes in them (none
 /// read yet on 2026-11-20, see `docs/trade-site-usage.md`).
 fn refusal_log(answer: &Answer, wait: Duration) -> String {
     let limits = &answer.limits;
-    let retry_after = limits.retry_after.as_deref().map(logging::plain);
-    let states: Vec<String> = limits
+    let told = |header: &Option<String>| {
+        header
+            .as_deref()
+            .map_or_else(|| "none".to_owned(), logging::plain)
+    };
+    // As the limits that can't be read are logged: the limits of a rule, then its state.
+    let mut rules: Vec<String> = limits
         .rules
         .iter()
+        .take(LOGGED_RULES)
         .map(|rule| {
             format!(
-                "{} {}",
+                "{} {} / {}",
                 logging::plain(&rule.name),
+                logging::plain(&rule.limits),
                 logging::plain(&rule.state)
             )
         })
         .collect();
+    if limits.rules.len() > LOGGED_RULES {
+        rules.push(format!("… {} rules in all", limits.rules.len()));
+    }
+    if rules.is_empty() {
+        rules.push("none".to_owned());
+    }
     format!(
-        "Trade site: request refused with the status {}, nothing sent for {} s (Retry-After: \
-         {}; states: {})",
+        "Trade site: request refused with the status {}, nothing sent for {} s (policy: {}; \
+         Retry-After: {}; rules: {})",
         answer.status,
         wait.as_secs(),
-        retry_after.as_deref().unwrap_or("none"),
-        if states.is_empty() {
-            "none".to_owned()
-        } else {
-            states.join(", ")
-        }
+        told(&limits.policy),
+        told(&limits.retry_after),
+        rules.join(", ")
     )
 }
 
@@ -581,7 +595,8 @@ pub(super) mod tests {
     }
 
     /// The states of a refusal are written by hand in the tests, from the limits measured on
-    /// answers of status 200: the log keeps the headers of the first real one.
+    /// answers of status 200: the log keeps the headers of the first real one, whole enough
+    /// to be copied into a test.
     #[test]
     fn the_log_of_a_refusal_tells_the_headers_its_wait_was_read_from() {
         let refusal = |limits| Answer {
@@ -589,22 +604,50 @@ pub(super) mod tests {
             limits,
             body: Ok(String::new()),
         };
-        let mut told = limits(
-            "trade-search-request-limit",
-            "5:10:60",
-            "6:10:300\nfake line",
-        );
+        let mut told = limits("trade-search-request-limit", "5:10:60", "6:10:300");
         told.retry_after = Some("60".to_owned());
 
         assert_eq!(
             refusal_log(&refusal(told), Duration::from_secs(301)),
-            "Trade site: request refused with the status 429, nothing sent for 301 s \
-             (Retry-After: 60; states: Ip 6:10:300 fake line)"
+            "Trade site: request refused with the status 429, nothing sent for 301 s (policy: \
+             trade-search-request-limit; Retry-After: 60; rules: Ip 5:10:60 / 6:10:300)"
         );
         assert_eq!(
             refusal_log(&refusal(LimitHeaders::default()), Duration::from_secs(61)),
-            "Trade site: request refused with the status 429, nothing sent for 61 s \
-             (Retry-After: none; states: none)"
+            "Trade site: request refused with the status 429, nothing sent for 61 s (policy: \
+             none; Retry-After: none; rules: none)"
+        );
+    }
+
+    /// A text of the trade site can't fill the log: each header is cut, and so is their
+    /// number (64 KiB of headers could name thousands of rules).
+    #[test]
+    fn the_log_of_a_refusal_is_cut_when_its_headers_are_long_or_many() {
+        let long = "9".repeat(300);
+        let cut = format!("{}…", "9".repeat(200));
+        let rule = RuleHeaders {
+            name: long.clone(),
+            limits: long.clone(),
+            state: long.clone(),
+        };
+        let answer = Answer {
+            status: 403,
+            limits: LimitHeaders {
+                policy: Some(long.clone()),
+                rules: vec![rule; 6],
+                retry_after: Some(long),
+            },
+            body: Ok(String::new()),
+        };
+
+        let logged_rule = format!("{cut} {cut} / {cut}");
+        assert_eq!(
+            refusal_log(&answer, Duration::from_secs(61)),
+            format!(
+                "Trade site: request refused with the status 403, nothing sent for 61 s \
+                 (policy: {cut}; Retry-After: {cut}; rules: {logged_rule}, {logged_rule}, \
+                 {logged_rule}, {logged_rule}, … 6 rules in all)"
+            )
         );
     }
 
