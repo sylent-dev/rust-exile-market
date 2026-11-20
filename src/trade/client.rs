@@ -267,13 +267,12 @@ impl<T: Transport> TradeClient<T> {
             }
             Attempt::Refused { answer, .. } => {
                 self.limits.sent(policy, hit(false));
-                log::warn!(
-                    "Trade site: request refused with the status {}",
-                    answer.status
-                );
-                let until = self.limits.refused(policy, &answer.limits, now);
+                self.limits.answered(policy, &answer.limits, now);
                 return Err(TradeError::Refused {
-                    until,
+                    // When a request of this policy may leave again: after the wait the
+                    // refusal started for every request, counted once by the guard, and
+                    // after what the limits it told still ask of this policy.
+                    until: self.ready_at(policy, now),
                     status: answer.status,
                 });
             }
@@ -427,6 +426,78 @@ pub(super) mod tests {
         assert!(until > Instant::now() + Duration::from_secs(55));
         assert_eq!(site.requests().len(), 1);
         assert!(client.next_search(SearchKind::Items, Instant::now()) >= until);
+    }
+
+    /// The code review of 22k: the wait shown to the player was counted apart from the one
+    /// every request shares, which ended with the delay when the restriction was longer.
+    #[test]
+    fn the_wait_a_refusal_shows_is_the_one_every_request_shares() {
+        use crate::trade::refusal::tests::assert_about;
+
+        let site = FakeSite::default();
+        let mut headers = limits("trade-search-request-limit", "5:10:60", "6:10:300");
+        headers.retry_after = Some("60".to_owned());
+        site.answer(429, headers, "");
+        let refusal = Refusal::default();
+        let mut client = TradeClient::with_transport(site, refusal.clone());
+        let start = Instant::now();
+
+        let search = client.search_items(Language::English, &League::new("Standard"), &ring());
+
+        let Err(TradeError::Refused { until, .. }) = search else {
+            panic!("refused: {search:?}");
+        };
+        assert!(until >= start + Duration::from_mins(5), "{until:?}");
+        assert_about(refusal.until(start), until);
+    }
+
+    /// The same for a refusal that tells no limits: the wait shown is the shared one, which
+    /// the policy no longer counts by itself.
+    #[test]
+    fn a_refusal_without_limits_shows_the_wait_every_request_shares() {
+        let site = FakeSite::default();
+        site.answer(403, crate::trade::transport::tests::retry_after("600"), "");
+        let refusal = Refusal::default();
+        let mut client = TradeClient::with_transport(site, refusal.clone());
+        let start = Instant::now();
+
+        let search = client.search_items(Language::English, &League::new("Standard"), &ring());
+
+        let Err(TradeError::Refused { until, .. }) = search else {
+            panic!("refused: {search:?}");
+        };
+        assert_eq!(Some(until), refusal.until(start));
+        assert!(until >= start + Duration::from_mins(10), "{until:?}");
+    }
+
+    /// The limits a refusal tells are read too: a window still full once its wait is over
+    /// (600 searches per 6 h are refused for an hour only, measured on 2026-10-26; the state
+    /// is written by hand) lets no search of its policy leave before it has room.
+    #[test]
+    fn the_windows_a_refusal_tells_still_count_after_its_wait() {
+        let site = FakeSite::default();
+        let mut headers = limits(
+            "trade-search-request-limit",
+            "600:21600:3600",
+            "601:21600:3600",
+        );
+        headers.retry_after = Some("3600".to_owned());
+        site.answer(429, headers, "");
+        let refusal = Refusal::default();
+        let mut client = TradeClient::with_transport(site, refusal.clone());
+        let start = Instant::now();
+
+        let search = client.search_items(Language::English, &League::new("Standard"), &ring());
+
+        let Err(TradeError::Refused { until, .. }) = search else {
+            panic!("refused: {search:?}");
+        };
+        // Every request waits an hour; the searches of items, the six hours of their window.
+        let shared = refusal.until(start).expect("a shared wait");
+        assert!(shared < start + Duration::from_hours(2), "{shared:?}");
+        assert!(until >= start + Duration::from_hours(6), "{until:?}");
+        assert!(client.next_search(SearchKind::Items, start) >= until);
+        assert!(client.next_search(SearchKind::Exchange, start) < start + Duration::from_hours(2));
     }
 
     /// The security audit of 2026-11-10: the download of the item names shares this wait.

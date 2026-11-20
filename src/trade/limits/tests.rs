@@ -289,36 +289,45 @@ fn a_restriction_told_by_the_trade_site_waits_its_whole_time() {
     );
 }
 
+/// The wait every request of the application shares, and the next launch reads: a restriction
+/// longer than the delay was only kept by the policy of the request refused (security audit
+/// of 2026-11-10, finding 9).
 #[test]
-fn a_refusal_waits_for_the_delay_it_gives() {
-    let mut limits = Limits::default();
-    let now = Instant::now();
-    let mut headers = search_headers("1:10:0,1:60:0,1:300:0,1:21600:0");
-    headers.retry_after = Some("300".to_owned());
+fn the_wait_of_a_refusal_is_its_delay_or_a_longer_restriction() {
+    let asked = |retry_after: Option<&str>, state: &str| {
+        let mut headers = search_headers(state);
+        headers.retry_after = retry_after.map(str::to_owned);
+        refusal_wait(&headers)
+    };
 
-    let until = limits.refused(Policy::Search, &headers, now);
-
-    assert_eq!(until, now + 300 * SECOND + MARGIN);
-    assert_eq!(limits.ready_at(Policy::Search, now), until);
-    // Without the header, a minute.
-    let mut other = Limits::default();
+    let unrestricted = "1:10:0,1:60:0,1:300:0,1:21600:0";
+    assert_eq!(asked(Some("300"), unrestricted), 300 * SECOND + MARGIN);
+    // Without the header, a minute, with or without limits.
+    assert_eq!(asked(None, unrestricted), DEFAULT_RETRY_AFTER + MARGIN);
     assert_eq!(
-        other.refused(Policy::Fetch, &LimitHeaders::default(), now),
-        now + DEFAULT_RETRY_AFTER + MARGIN
+        refusal_wait(&LimitHeaders::default()),
+        Duration::from_mins(1) + MARGIN
     );
-}
-
-#[test]
-fn a_refusal_waits_for_a_restriction_longer_than_its_delay() {
-    let mut limits = Limits::default();
-    let now = Instant::now();
-    let mut headers = search_headers("1:10:0,16:60:300,16:300:0,16:21600:0");
-    headers.retry_after = Some("60".to_owned());
-
+    // The longest restriction of the windows, when longer than the delay only.
+    let restricted = "6:10:60,16:60:300,16:300:0,16:21600:0";
+    assert_eq!(asked(Some("60"), restricted), 300 * SECOND + MARGIN);
+    assert_eq!(asked(None, restricted), 300 * SECOND + MARGIN);
+    assert_eq!(asked(Some("600"), restricted), 600 * SECOND + MARGIN);
+    // The restriction of a second rule.
+    let mut two_rules = search_headers(unrestricted);
+    two_rules.rules.push(rule("Account", "2:30:60", "3:30:600"));
+    assert_eq!(refusal_wait(&two_rules), 600 * SECOND + MARGIN);
+    // A day at most (`specs.md`, Local files), whichever header asks more.
+    assert_eq!(LONGEST_REFUSAL_WAIT, Duration::from_hours(24) + MARGIN);
+    assert_eq!(asked(Some("999999"), unrestricted), LONGEST_REFUSAL_WAIT);
     assert_eq!(
-        limits.refused(Policy::Search, &headers, now),
-        now + 300 * SECOND + MARGIN
+        asked(Some("60"), "6:10:999999,1:60:0,1:300:0,1:21600:0"),
+        LONGEST_REFUSAL_WAIT
     );
+    // The restriction of a rule whose windows can't be read.
+    let mut unreadable = headers("trade-search-request-limit", "five", "6:10:300");
+    unreadable.retry_after = Some("60".to_owned());
+    assert_eq!(refusal_wait(&unreadable), 300 * SECOND + MARGIN);
 }
 
 #[test]
