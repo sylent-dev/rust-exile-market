@@ -23,7 +23,7 @@ const DEFAULT_HISTORY: Duration = Duration::from_hours(6);
 const DEFAULT_RETRY_AFTER: Duration = Duration::from_mins(1);
 /// The longest time read in a header, so that a wrong number can't overflow a time: the
 /// longest window measured is 6 h.
-const LONGEST: u64 = 24 * 60 * 60;
+const LONGEST_HEADER_TIME: Duration = Duration::from_hours(24);
 
 /// The kinds of requests, each with its own limits.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -149,7 +149,7 @@ struct PolicyLimits {
     /// counts them.
     sent: Vec<Hit>,
     windows: Vec<Window>,
-    /// The end of a refusal, or of a restriction told by the trade site.
+    /// The end of a restriction told by the trade site.
     blocked_until: Option<Instant>,
 }
 
@@ -213,15 +213,9 @@ impl PolicyLimits {
         }
         let restricted = longest_restriction(headers);
         if !restricted.is_zero() {
-            self.block(now + restricted + MARGIN);
+            let until = now + restricted + MARGIN;
+            self.blocked_until = Some(self.blocked_until.map_or(until, |known| known.max(until)));
         }
-    }
-
-    fn block(&mut self, until: Instant) {
-        self.blocked_until = Some(
-            self.blocked_until
-                .map_or(until, |blocked| blocked.max(until)),
-        );
     }
 }
 
@@ -290,7 +284,8 @@ impl Limits {
     }
 
     /// Reads the limits of an answer received `now` to a request of `expected`, which the
-    /// answer names itself when it can.
+    /// answer names itself when it can: of a refusal too, whose own wait every request shares
+    /// ([`refusal_wait`]).
     pub fn answered(&mut self, expected: Policy, headers: &LimitHeaders, now: Instant) {
         let policy = match headers.policy.as_deref() {
             None => expected,
@@ -301,23 +296,14 @@ impl Limits {
         };
         self.policies[policy.index()].answered(headers, now);
     }
-
-    /// The trade site refused a request of `policy` (HTTP 429 or 403) `now`: no request of it is
-    /// sent before the delay of `Retry-After`, nor before the restriction it tells. Returns
-    /// the end of the wait.
-    pub fn refused(&mut self, policy: Policy, headers: &LimitHeaders, now: Instant) -> Instant {
-        self.answered(policy, headers, now);
-        let limits = &mut self.policies[policy.index()];
-        limits.block(now + refusal_wait(headers));
-        limits.ready_at(now)
-    }
 }
 
 /// The longest wait a refusal can ask: a day, and the margin.
-pub const LONGEST_REFUSAL_WAIT: Duration = Duration::from_secs(LONGEST).saturating_add(MARGIN);
+pub const LONGEST_REFUSAL_WAIT: Duration = LONGEST_HEADER_TIME.saturating_add(MARGIN);
 
-/// How long a refusal asks to wait: the delay of `Retry-After`, or a minute when it gives
-/// none, or the restriction its limits tell when longer, a day at most, and the margin.
+/// How long a refusal (HTTP 429 or 403) asks every request to wait: the delay of
+/// `Retry-After`, or a minute when it gives none, or the restriction its limits tell when
+/// longer, a day at most, and the margin.
 pub fn refusal_wait(headers: &LimitHeaders) -> Duration {
     let delay = headers
         .retry_after
@@ -329,7 +315,7 @@ pub fn refusal_wait(headers: &LimitHeaders) -> Duration {
 
 /// A time read in a header, at most a day.
 fn seconds(seconds: u64) -> Duration {
-    Duration::from_secs(seconds.min(LONGEST))
+    Duration::from_secs(seconds).min(LONGEST_HEADER_TIME)
 }
 
 /// A number of hits read in a header.

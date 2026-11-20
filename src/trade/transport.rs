@@ -3,7 +3,7 @@
 //! limits. Every request goes through [`Guarded`], which sends nothing during the wait of a
 //! refusal.
 
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use serde::de::DeserializeOwned;
 
@@ -134,12 +134,46 @@ impl<T: Transport> Guarded<T> {
         };
         // A 403 too: the trade site turns the address away.
         if matches!(answer.status, FORBIDDEN | TOO_MANY_REQUESTS) {
-            let until = Instant::now() + limits::refusal_wait(&answer.limits);
+            let wait = limits::refusal_wait(&answer.limits);
+            log::warn!("{}", refusal_log(&answer, wait));
+            answer.log_error_message();
+            let until = Instant::now() + wait;
             self.refusal.extend(until);
             return Attempt::Refused { answer, until };
         }
         Attempt::Answered(answer)
     }
+}
+
+/// The line of the log for the refusal `answer`, with the headers its `wait` was read from:
+/// the first refusal a player meets tells what the trade site really writes in them (none
+/// read yet on 2026-11-20, see `docs/trade-site-usage.md`).
+fn refusal_log(answer: &Answer, wait: Duration) -> String {
+    let limits = &answer.limits;
+    let retry_after = limits.retry_after.as_deref().map(logging::plain);
+    let states: Vec<String> = limits
+        .rules
+        .iter()
+        .map(|rule| {
+            format!(
+                "{} {}",
+                logging::plain(&rule.name),
+                logging::plain(&rule.state)
+            )
+        })
+        .collect();
+    format!(
+        "Trade site: request refused with the status {}, nothing sent for {} s (Retry-After: \
+         {}; states: {})",
+        answer.status,
+        wait.as_secs(),
+        retry_after.as_deref().unwrap_or("none"),
+        if states.is_empty() {
+            "none".to_owned()
+        } else {
+            states.join(", ")
+        }
+    )
 }
 
 /// The requests sent with `ureq`, which keeps no cookie (its `cookies` feature is off, see
@@ -218,7 +252,6 @@ fn limit_headers(headers: &ureq::http::HeaderMap) -> LimitHeaders {
 pub(super) mod tests {
     use std::collections::VecDeque;
     use std::sync::{Arc, Mutex};
-    use std::time::Duration;
 
     use super::*;
     use crate::trade::client::tests::SEARCH;
@@ -545,6 +578,34 @@ pub(super) mod tests {
         assert!(until >= start + Duration::from_mins(5), "{until:?}");
         assert!(until < start + Duration::from_mins(6), "{until:?}");
         assert_eq!(refusal.until(start), Some(until));
+    }
+
+    /// The states of a refusal are written by hand in the tests, from the limits measured on
+    /// answers of status 200: the log keeps the headers of the first real one.
+    #[test]
+    fn the_log_of_a_refusal_tells_the_headers_its_wait_was_read_from() {
+        let refusal = |limits| Answer {
+            status: 429,
+            limits,
+            body: Ok(String::new()),
+        };
+        let mut told = limits(
+            "trade-search-request-limit",
+            "5:10:60",
+            "6:10:300\nfake line",
+        );
+        told.retry_after = Some("60".to_owned());
+
+        assert_eq!(
+            refusal_log(&refusal(told), Duration::from_secs(301)),
+            "Trade site: request refused with the status 429, nothing sent for 301 s \
+             (Retry-After: 60; states: Ip 6:10:300 fake line)"
+        );
+        assert_eq!(
+            refusal_log(&refusal(LimitHeaders::default()), Duration::from_secs(61)),
+            "Trade site: request refused with the status 429, nothing sent for 61 s \
+             (Retry-After: none; states: none)"
+        );
     }
 
     #[test]

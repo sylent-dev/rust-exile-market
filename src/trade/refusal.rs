@@ -16,17 +16,20 @@ use crate::logging;
 
 /// The file of the end of the wait in the cache directory.
 const KEPT_FILE: &str = "trade-refusal.json";
-/// Changed with the shape of [`Kept`]: a file of another version is ignored.
+/// Changed with the shape of [`KeptWait`]: a file of another version is ignored.
 const KEPT_VERSION: u32 = 1;
 
 /// The time before which no request is sent to the trade site, if it refused one. Its clones
-/// share the same time.
-#[derive(Debug, Clone, Default)]
-pub struct Refusal(Arc<Shared>);
+/// share the same time. Outside the tests, only [`Refusal::kept_in`] builds one: a wait that
+/// the next launch wouldn't read can't be written.
+#[derive(Debug, Clone)]
+#[cfg_attr(test, derive(Default))]
+pub struct Refusal(Arc<SharedWait>);
 
 /// What the clones of a [`Refusal`] share.
-#[derive(Debug, Default)]
-struct Shared {
+#[derive(Debug)]
+#[cfg_attr(test, derive(Default))]
+struct SharedWait {
     /// Behind a mutex rather than sent through a channel: each thread reads it before each
     /// of its requests, and a refusal of one must stop the next request of the other.
     until: Mutex<Option<Instant>>,
@@ -38,32 +41,33 @@ struct Shared {
 /// The end of a wait as its file keeps it: a time of the clock of the system, the only one
 /// that goes on from one launch to the next.
 #[derive(Debug, Serialize, Deserialize)]
-struct Kept {
+struct KeptWait {
     until: SystemTime,
 }
 
 impl Refusal {
     /// The wait the last launch kept in `directory`, when it isn't over, and every wait to
-    /// come kept there in turn.
+    /// come kept there in turn. Without a directory, a wait ends with the application.
     #[must_use]
     pub fn kept_in(directory: Option<PathBuf>) -> Self {
-        let Some(directory) = directory else {
+        let left = if let Some(directory) = &directory {
+            read_kept(directory).and_then(|kept| wait_left(kept.until, SystemTime::now()))
+        } else {
             log::warn!(
                 "No cache directory: the wait of a refusal of the trade site will end with \
                  the application"
             );
-            return Self::default();
+            None
         };
-        let left = read_kept(&directory).and_then(|kept| wait_left(kept.until, SystemTime::now()));
         if let Some(left) = left {
             log::info!(
                 "Trade site: the wait of a refusal kept from the last launch, {} s left",
                 left.as_secs()
             );
         }
-        Self(Arc::new(Shared {
+        Self(Arc::new(SharedWait {
             until: Mutex::new(left.map(|left| Instant::now() + left)),
-            directory: Some(directory),
+            directory,
         }))
     }
 
@@ -75,7 +79,8 @@ impl Refusal {
         until.filter(|&until| until > now)
     }
 
-    /// Waits until `until` at least: a wait already longer stays.
+    /// Waits until `until` at least, and keeps that end for the next launch: a wait already
+    /// longer stays, in memory and in its file.
     pub fn extend(&self, until: Instant) {
         let mut known = self.0.until.lock().unwrap_or_else(PoisonError::into_inner);
         if known.is_some_and(|known| known >= until) {
@@ -108,7 +113,7 @@ fn wait_left(until: SystemTime, clock: SystemTime) -> Option<Duration> {
 }
 
 /// What the file of `directory` keeps, if it has one that can be read.
-fn read_kept(directory: &Path) -> Option<Kept> {
+fn read_kept(directory: &Path) -> Option<KeptWait> {
     let path = directory.join(KEPT_FILE);
     files::read_versioned_json(&path, KEPT_VERSION).unwrap_or_else(|error| {
         log::warn!(
@@ -127,7 +132,7 @@ fn keep(directory: &Path, until: Instant) {
         .checked_add(left)
         .ok_or_else(|| io::Error::other("its end is beyond the clock of the system"))
         .and_then(|until| {
-            files::write_versioned_json(directory, KEPT_FILE, KEPT_VERSION, &Kept { until })
+            files::write_versioned_json(directory, KEPT_FILE, KEPT_VERSION, &KeptWait { until })
         });
     if let Err(error) = written {
         log::warn!(
@@ -213,6 +218,60 @@ pub(super) mod tests {
         assert_about(next_launch.until(now), now + Duration::from_hours(2));
     }
 
+    #[test]
+    fn a_wait_that_cant_be_kept_still_holds_until_the_application_closes() {
+        let directory = TestDirectory::new("refusal-unwritable");
+        fs::create_dir_all(&directory.0).expect("a directory");
+        // A file has the name of the cache directory: nothing can be written in it.
+        let blocked = directory.0.join("blocked");
+        fs::write(&blocked, "").expect("a file");
+        let now = Instant::now();
+
+        for refusal in [Refusal::kept_in(Some(blocked)), Refusal::kept_in(None)] {
+            assert_eq!(refusal.until(now), None);
+
+            refusal.extend(now + Duration::from_mins(30));
+
+            assert_eq!(refusal.until(now), Some(now + Duration::from_mins(30)));
+        }
+    }
+
+    /// Writes the file of `version` a launch left in `directory`, as the version 1 writes it,
+    /// with a wait that ends in 30 minutes.
+    fn leave_file(directory: &TestDirectory, version: u32) {
+        let until = (SystemTime::now() + Duration::from_mins(30))
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .expect("after 1970");
+        let json = format!(
+            r#"{{"version":{version},"value":{{"until":{{"secs_since_epoch":{},"nanos_since_epoch":{}}}}}}}"#,
+            until.as_secs(),
+            until.subsec_nanos()
+        );
+        fs::create_dir_all(&directory.0).expect("a directory");
+        fs::write(directory.0.join(KEPT_FILE), json).expect("a file");
+    }
+
+    /// A change of the shape of the file without a new version would lose the wait under way
+    /// at an update of the application.
+    #[test]
+    fn the_file_of_the_version_is_read_as_a_launch_wrote_it() {
+        let directory = TestDirectory::new("refusal-version");
+        let now = Instant::now();
+        leave_file(&directory, KEPT_VERSION);
+
+        let refusal = launched_with(&directory);
+
+        assert_about(refusal.until(now), now + Duration::from_mins(30));
+    }
+
+    #[test]
+    fn the_file_of_another_version_keeps_no_wait() {
+        let directory = TestDirectory::new("refusal-other-version");
+        leave_file(&directory, KEPT_VERSION + 1);
+
+        assert_eq!(launched_with(&directory).until(Instant::now()), None);
+    }
+
     /// A time of the clock of the system, as a launch reads it.
     fn clock() -> SystemTime {
         SystemTime::UNIX_EPOCH + Duration::from_secs(1_795_000_000)
@@ -273,7 +332,7 @@ pub(super) mod tests {
             now - Duration::from_secs(1),
             now + LONGEST_REFUSAL_WAIT + Duration::from_mins(1),
         ] {
-            files::write_versioned_json(&directory.0, KEPT_FILE, KEPT_VERSION, &Kept { until })
+            files::write_versioned_json(&directory.0, KEPT_FILE, KEPT_VERSION, &KeptWait { until })
                 .expect("a file");
 
             let refusal = launched_with(&directory);
