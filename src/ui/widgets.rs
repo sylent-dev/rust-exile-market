@@ -11,8 +11,9 @@ use egui::{
     Role, Sense, Stroke, Ui, Vec2, WidgetInfo, pos2, vec2,
 };
 
+use super::icons;
+use super::relief::{self, Pressed};
 use super::theme::{color, size, text};
-use super::{icons, relief};
 use crate::i18n::CutSentence;
 
 /// The mark in front of a choice: a radio button among exclusive choices, a check box for a
@@ -32,6 +33,9 @@ mod choice {
     pub const RADIO_STROKE: f32 = 2.0;
     pub const RADIO_DOT_RADIUS: f32 = 2.5;
     pub const CHECK_SIZE: f32 = MARK_SIZE;
+    /// The line of an unchecked box in the mock-up, transparent once pressed in: 1.5 px in its
+    /// CSS, drawn 1 px by the browsers at scale 1 (measured on the mock-up on 2026-11-20).
+    pub const CHECK_BORDER: f32 = 1.0;
     pub const CHECK_MARK_WIDTH: f32 = 9.0;
     /// The "not allowed" sign, drawn on the 16 px grid of its icon in the mock-up.
     pub const SIGN_GRID: f32 = 16.0;
@@ -51,7 +55,10 @@ impl Mark {
 
     /// Paints the mark around `center`; unchecked, it is pressed into its block, with no line.
     fn paint(self, painter: &Painter, center: Pos2) {
-        use choice::{CHECK_MARK_WIDTH, CHECK_SIZE, RADIO_DOT_RADIUS, RADIO_RADIUS, RADIO_STROKE};
+        use choice::{
+            CHECK_BORDER, CHECK_MARK_WIDTH, CHECK_SIZE, RADIO_DOT_RADIUS, RADIO_RADIUS,
+            RADIO_STROKE,
+        };
 
         match self {
             Self::Radio { selected } => {
@@ -63,10 +70,14 @@ impl Mark {
                     );
                     painter.circle_filled(center, RADIO_DOT_RADIUS, color::ACCENT);
                 } else {
-                    // The ring and its stroke across.
+                    // The ring and its stroke across, the stroke the border of the mock-up.
                     let side = 2.0 * RADIO_RADIUS + RADIO_STROKE;
-                    let rect = Rect::from_center_size(center, Vec2::splat(side));
-                    painter.add(relief::pressed_in(painter, rect, side / 2.0, color::BAND_A));
+                    let radio = Pressed {
+                        rect: Rect::from_center_size(center, Vec2::splat(side)),
+                        radius: side / 2.0,
+                        border: RADIO_STROKE,
+                    };
+                    painter.add(relief::pressed_in(painter, radio, color::BAND_A));
                 }
             }
             Self::Check { checked } => {
@@ -75,8 +86,12 @@ impl Mark {
                     painter.rect_filled(rect, CornerRadius::same(size::RADIUS), color::ACCENT);
                     icons::check_mark(painter, center, CHECK_MARK_WIDTH, color::ON_ACCENT);
                 } else {
-                    let radius = f32::from(size::RADIUS);
-                    painter.add(relief::pressed_in(painter, rect, radius, color::BAND_A));
+                    let check = Pressed {
+                        rect,
+                        radius: f32::from(size::RADIUS),
+                        border: CHECK_BORDER,
+                    };
+                    painter.add(relief::pressed_in(painter, check, color::BAND_A));
                 }
             }
         }
