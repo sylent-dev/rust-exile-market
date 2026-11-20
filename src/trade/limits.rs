@@ -312,6 +312,9 @@ impl Limits {
     }
 }
 
+/// The longest wait a refusal can ask: a day, and the margin.
+pub const LONGEST_REFUSAL_WAIT: Duration = Duration::from_secs(LONGEST).saturating_add(MARGIN);
+
 /// How long a refusal asks to wait: the delay of `Retry-After`, a day at most, or a minute
 /// when it gives none, and the margin.
 pub fn refusal_wait(headers: &LimitHeaders) -> Duration {

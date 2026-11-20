@@ -18,6 +18,7 @@ use self::open_lists::{OpenList, OpenLists};
 use self::overlay_window::OverlayWindow;
 use crate::bug_report::{Facts, GameOnlySettings, JoinedItem, LogSession, Report};
 use crate::clipboard::{self, ClipboardEvent, ClipboardWatch};
+use crate::files;
 use crate::filters::Window;
 use crate::game_window::{self, GameWindowWatch};
 use crate::hotkey::PriceCheckHotkey;
@@ -124,8 +125,8 @@ impl ExileMarketApp {
         // The prices of the league of the last session, until the leagues arrive.
         let market = MarketWatch::start(settings.league(), move || market_ctx.request_repaint());
 
-        // A refusal of the trade site makes its two threads wait.
-        let refusal = Refusal::default();
+        // A refusal of the trade site makes its two threads wait, at the next launch too.
+        let refusal = Refusal::kept_in(files::cache_directory());
         Self {
             // The language of the copied items never changes the interface: it only chooses
             // the item names and the trade site.

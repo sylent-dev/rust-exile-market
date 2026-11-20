@@ -500,6 +500,32 @@ pub(super) mod tests {
         }
     }
 
+    /// The security audit of 2026-11-10 (finding 9): closing the application ended the wait,
+    /// and the next launch could send a request during the penalty.
+    #[test]
+    fn a_refusal_stops_the_requests_of_the_next_launch_too() {
+        use crate::files::TestDirectory;
+        use crate::trade::refusal::tests::{assert_about, launched_with};
+
+        let directory = TestDirectory::new("refusal-next-launch");
+        let site = FakeSite::default();
+        site.answer(429, retry_after("600"), "");
+        let refused = Guarded::new(site, launched_with(&directory)).send(&get());
+        let Attempt::Refused { until, .. } = refused else {
+            panic!("a refusal: {refused:?}");
+        };
+
+        let site = FakeSite::default();
+        let mut next_launch = Guarded::new(site.clone(), launched_with(&directory));
+        let attempt = next_launch.send(&get());
+
+        let Attempt::Waiting(wait) = attempt else {
+            panic!("a wait: {attempt:?}");
+        };
+        assert_about(Some(wait), until);
+        assert_eq!(site.requests(), []);
+    }
+
     #[test]
     fn nothing_is_sent_during_the_wait_of_a_refusal_of_another_request() {
         let site = FakeSite::default();
