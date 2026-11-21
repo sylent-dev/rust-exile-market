@@ -25,8 +25,8 @@ L'exécutable s'appelle désormais `exile-market` (sans le préfixe `rust-` du d
 5. **Sans boîte de dialogue** : `env -u DISPLAY PATH=/nonexistent target/release/exile-market`.
    ✅ Aucune boîte ; le message dans le terminal seulement, et le log écrit `No dialog of the system could show the message of the window`.
 
-6. **Déjà ouvert** : lance Exile Market, puis lance-le une seconde fois depuis un autre terminal : `target/release/exile-market`.
-   ✅ Une boîte de dialogue de KDE, titrée « Exile Market », avec le signe d'information du système (pas celui d'erreur) : « Exile Market est déjà ouvert. », puis « Sa fenêtre est peut-être réduite, ou derrière le jeu : cherchez-la dans la barre des tâches. » ; le même texte dans le terminal. Après OK, le second lancement se termine ; le premier tourne toujours, et son log `exile-market.log` continue (pas de nouveau `exile-market.previous.log`).
+6. **Déjà ouvert** : lance Exile Market, puis note les heures des logs : `ls -l --time-style=+%H:%M:%S ~/.local/state/exile-market/`. Lance-le une seconde fois depuis un autre terminal : `target/release/exile-market`.
+   ✅ Une boîte de dialogue de KDE, titrée « Exile Market », avec le signe d'information du système (pas celui d'erreur) : « Exile Market est déjà ouvert. », puis « Sa fenêtre est peut-être réduite, ou derrière le jeu : cherchez-la dans la barre des tâches. » (en anglais si l'application est réglée en anglais) ; le même texte dans le terminal. Après OK, le second lancement se termine et le premier tourne toujours. La même commande `ls` donne la même heure à `exile-market.previous.log`, et `grep started ~/.local/state/exile-market/exile-market.log` ne montre qu'une ligne, à l'heure du premier lancement.
 
 7. **Tes propres scénarios** : ce que tu veux essayer d'autre.
 

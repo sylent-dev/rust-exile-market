@@ -74,14 +74,16 @@ const MIN_WINDOW_SIZE: [f32; 2] = [360.0, 420.0];
 
 fn main() -> ExitCode {
     // Before the log, whose rotation would rename the log of the Exile Market already open. The
-    // lock is held until the end of `main`.
-    let (_lock, unlocked) = match single_instance::take() {
-        single_instance::Instance::Alone(lock) => (Some(lock), None),
+    // lock is held until the end of `main`: `unlocked` borrows `instance`, so that it can't be
+    // dropped sooner.
+    let instance = single_instance::take();
+    let unlocked = match &instance {
+        single_instance::Instance::Alone { .. } => None,
         single_instance::Instance::AlreadyOpen => {
             tell_already_open();
             return ExitCode::SUCCESS;
         }
-        single_instance::Instance::Unlocked(error) => (None, Some(error)),
+        single_instance::Instance::Unlocked(error) => Some(error),
     };
     logging::init();
     log::info!("{APP_NAME} {VERSION} started");

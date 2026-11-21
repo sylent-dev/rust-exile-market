@@ -14,8 +14,8 @@ const FILE_NAME: &str = "exile-market.lock";
 /// What the lock says of this launch.
 #[derive(Debug)]
 pub enum Instance {
-    /// No other Exile Market runs: this one holds the lock while it lives.
-    Alone(Lock),
+    /// No other Exile Market runs: this one holds the lock while the value lives, never read.
+    Alone { _lock: Lock },
     /// Another Exile Market holds the lock.
     AlreadyOpen,
     /// The lock couldn't be taken (no home directory, a folder that can't be written): this
@@ -44,22 +44,33 @@ pub fn take() -> Instance {
 
 /// Takes the lock in `directory`, made when missing.
 fn take_in(directory: &Path) -> Instance {
+    let path = directory.join(FILE_NAME);
     let file = fs::create_dir_all(directory).and_then(|()| {
         File::options()
             .create(true)
             .truncate(false)
             .write(true)
-            .open(directory.join(FILE_NAME))
+            .open(&path)
     });
     let file = match file {
         Ok(file) => file,
-        Err(error) => return Instance::Unlocked(error),
+        Err(error) => return Instance::Unlocked(on(&path, &error)),
     };
     match file.try_lock() {
-        Ok(()) => Instance::Alone(Lock { _file: file }),
+        Ok(()) => Instance::Alone {
+            _lock: Lock { _file: file },
+        },
         Err(TryLockError::WouldBlock) => Instance::AlreadyOpen,
-        Err(TryLockError::Error(error)) => Instance::Unlocked(error),
+        Err(TryLockError::Error(error)) => Instance::Unlocked(on(&path, &error)),
     }
+}
+
+/// `error` with the lock file it happened on, which an `io::Error` doesn't keep.
+fn on(path: &Path, error: &io::Error) -> io::Error {
+    io::Error::new(
+        error.kind(),
+        format!("{}: {error}", crate::logging::without_home(path).display()),
+    )
 }
 
 /// The message of a launch while Exile Market already runs: that it is open, then where its
@@ -79,22 +90,26 @@ mod tests {
     fn a_second_launch_finds_the_lock_taken_until_the_first_one_ends() {
         let directory = TestDirectory::new("single-instance");
         let first = take_in(&directory.0);
-        assert!(matches!(first, Instance::Alone(_)), "{first:?}");
+        assert!(matches!(first, Instance::Alone { .. }), "{first:?}");
         let second = take_in(&directory.0);
         assert!(matches!(second, Instance::AlreadyOpen), "{second:?}");
         drop(first);
         let after = take_in(&directory.0);
-        assert!(matches!(after, Instance::Alone(_)), "{after:?}");
+        assert!(matches!(after, Instance::Alone { .. }), "{after:?}");
     }
 
     #[test]
     fn a_lock_that_cant_be_taken_lets_the_launch_go_on() {
         let directory = TestDirectory::new("single-instance-blocked");
-        // A file where the folder should be.
-        fs::write(&directory.0, "").expect("the file");
-        let instance = take_in(&directory.0);
-        assert!(matches!(instance, Instance::Unlocked(_)), "{instance:?}");
-        fs::remove_file(&directory.0).expect("removed");
+        fs::create_dir_all(&directory.0).expect("the folder");
+        // A file where the folder of the lock should be.
+        let blocked = directory.0.join("cache");
+        fs::write(&blocked, "").expect("the file");
+        let instance = take_in(&blocked);
+        let Instance::Unlocked(error) = &instance else {
+            panic!("{instance:?}");
+        };
+        assert!(error.to_string().contains(FILE_NAME), "{error}");
     }
 
     #[test]

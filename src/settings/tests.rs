@@ -314,6 +314,20 @@ fn a_value_that_cant_be_read_takes_its_default_and_the_others_are_kept() {
 }
 
 #[test]
+fn a_peek_reads_the_settings_and_leaves_a_broken_file_where_it_is() {
+    let directory = TestDirectory::new("peek");
+    directory.write("language = \"french\"\n");
+    assert_eq!(directory.file().peek().language(), LanguageSetting::French);
+    directory.write("not toml");
+    assert_eq!(directory.file().peek(), Settings::default());
+    assert_eq!(
+        fs::read_to_string(directory.0.join(FILE_NAME)).unwrap(),
+        "not toml"
+    );
+    assert!(!directory.0.join(INVALID_FILE_NAME).exists());
+}
+
+#[test]
 fn a_file_that_isnt_toml_gives_the_default_settings_and_is_kept_aside() {
     let directory = TestDirectory::new("unreadable");
     directory.write("not toml");
