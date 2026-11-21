@@ -31,6 +31,7 @@ mod recent_items;
 mod roll_difference;
 mod session;
 mod settings;
+mod single_instance;
 mod tier_rolls;
 mod trade;
 mod ui;
@@ -72,8 +73,21 @@ const WINDOW_SIZE: [f32; 2] = [420.0, 720.0];
 const MIN_WINDOW_SIZE: [f32; 2] = [360.0, 420.0];
 
 fn main() -> ExitCode {
+    // Before the log, whose rotation would rename the log of the Exile Market already open. The
+    // lock is held until the end of `main`.
+    let (_lock, unlocked) = match single_instance::take() {
+        single_instance::Instance::Alone(lock) => (Some(lock), None),
+        single_instance::Instance::AlreadyOpen => {
+            tell_already_open();
+            return ExitCode::SUCCESS;
+        }
+        single_instance::Instance::Unlocked(error) => (None, Some(error)),
+    };
     logging::init();
     log::info!("{APP_NAME} {VERSION} started");
+    if let Some(error) = unlocked {
+        log::warn!("The lock of a single {APP_NAME} couldn't be taken, launched anyway: {error}");
+    }
     // Read before the window opens, which starts always on top when it is set.
     let settings_file = settings::SettingsFile::in_config_directory();
     let settings = settings_file.load();
@@ -107,17 +121,27 @@ fn main() -> ExitCode {
             let cause = window_error::Cause::of(&error);
             log::error!("The window failed to open ({cause:?}): {error}");
             let translator = i18n::Translator::new(settings_language);
-            window_error::show(&window_error::message(
-                &translator,
-                cause,
-                &error.to_string(),
-                logging::path(),
-            ));
+            window_error::show(
+                &window_error::message(&translator, cause, &error.to_string(), logging::path()),
+                window_error::Sign::Error,
+            );
             // The message already told the error: no `Error: …` written after it, as returning
             // the error would.
             ExitCode::FAILURE
         }
     }
+}
+
+/// Tells the player that the application already runs, in the language of its settings.
+fn tell_already_open() {
+    let language = settings::SettingsFile::in_config_directory()
+        .peek()
+        .language()
+        .language();
+    window_error::show(
+        &single_instance::message(&i18n::Translator::new(language)),
+        window_error::Sign::Information,
+    );
 }
 
 /// The options of the window: its title bar drawn by the application, its level from the

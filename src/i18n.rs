@@ -671,6 +671,18 @@ impl Translator {
         self.format(WINDOW_ERROR_DETAILS, Some(&args))
     }
 
+    /// The message of a launch while the application already runs: that it is open, then where
+    /// its window may be.
+    #[must_use]
+    pub fn already_open(&self) -> [String; 2] {
+        let mut args = FluentArgs::new();
+        args.set("app", crate::APP_NAME);
+        [
+            self.format(ALREADY_OPEN, Some(&args)),
+            self.format(ALREADY_OPEN_WHERE, None),
+        ]
+    }
+
     /// The key of the hotkey taken by another application, in the settings, on the line after
     /// [`Self::hotkey_taken`]: where to choose another, and the keys that still `copy`.
     #[must_use]

@@ -598,3 +598,11 @@ window-error-other-fix = Signalez-le sur GitHub avec son journal, pour qu'il soi
 window-error-log = Journal : { $path }
 # L'erreur, en anglais.
 window-error-details = Détails : { $error }
+
+## Déjà ouvert
+
+# La même boîte de dialogue du système, avec le signe d'information, quand Exile Market est lancé alors qu'il tourne
+# déjà : le second lancement quitte ensuite. $app est le nom de l'application.
+already-open = { $app } est déjà ouvert.
+# Où sa fenêtre peut être.
+already-open-where = Sa fenêtre est peut-être réduite, ou derrière le jeu : cherchez-la dans la barre des tâches.

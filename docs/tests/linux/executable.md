@@ -1,6 +1,6 @@
-# L'exécutable, sous Linux : les tests (17a)
+# L'exécutable, sous Linux : les tests (17a, 22m)
 
-L'exécutable s'appelle désormais `exile-market` (sans le préfixe `rust-` du dépôt), et ce nom est aussi l'identifiant de sa fenêtre. Sa fenêtre porte l'icône de l'application, l'emblème rouge. Quand la fenêtre ne peut pas s'ouvrir, une boîte de dialogue du système le dit (kdialog sous KDE, sinon zenity), avec le même texte dans le terminal et le journal. Fais les tests d'affilée. Un ✅ suffit quand ça marche ; détaille seulement ce qui cloche.
+L'exécutable s'appelle désormais `exile-market` (sans le préfixe `rust-` du dépôt), et ce nom est aussi l'identifiant de sa fenêtre. Sa fenêtre porte l'icône de l'application, l'emblème rouge. Quand la fenêtre ne peut pas s'ouvrir, une boîte de dialogue du système le dit (kdialog sous KDE, sinon zenity), avec le même texte dans le terminal et le journal. Un second lancement, pendant qu'Exile Market tourne, le dit dans la même boîte et quitte (22m). Fais les tests d'affilée. Un ✅ suffit quand ça marche ; détaille seulement ce qui cloche.
 
 ## Avant
 
@@ -25,7 +25,10 @@ L'exécutable s'appelle désormais `exile-market` (sans le préfixe `rust-` du d
 5. **Sans boîte de dialogue** : `env -u DISPLAY PATH=/nonexistent target/release/exile-market`.
    ✅ Aucune boîte ; le message dans le terminal seulement, et le log écrit `No dialog of the system could show the message of the window`.
 
-6. **Tes propres scénarios** : ce que tu veux essayer d'autre.
+6. **Déjà ouvert** : lance Exile Market, puis lance-le une seconde fois depuis un autre terminal : `target/release/exile-market`.
+   ✅ Une boîte de dialogue de KDE, titrée « Exile Market », avec le signe d'information du système (pas celui d'erreur) : « Exile Market est déjà ouvert. », puis « Sa fenêtre est peut-être réduite, ou derrière le jeu : cherchez-la dans la barre des tâches. » ; le même texte dans le terminal. Après OK, le second lancement se termine ; le premier tourne toujours, et son log `exile-market.log` continue (pas de nouveau `exile-market.previous.log`).
+
+7. **Tes propres scénarios** : ce que tu veux essayer d'autre.
 
 ## Résultats
 
@@ -36,4 +39,5 @@ L'exécutable s'appelle désormais `exile-market` (sans le préfixe `rust-` du d
 | 3. La fenêtre ne s'ouvre pas | | |
 | 4. Avec zenity | | |
 | 5. Sans boîte de dialogue | | |
-| 6. Tes propres scénarios | | |
+| 6. Déjà ouvert | | |
+| 7. Tes propres scénarios | | |

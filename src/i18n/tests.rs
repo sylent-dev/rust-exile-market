@@ -126,7 +126,7 @@ fn the_code_and_every_file_have_the_same_messages() {
             OFFERS_REPORT_START,
             LOW_RELIABILITY_TRADES,
         ])
-        .chain(WINDOW_ERROR_IDS)
+        .chain(SYSTEM_DIALOG_IDS)
         .chain(DOWNLOAD_QUOTES)
         .map(str::to_owned)
         .collect();
@@ -163,8 +163,8 @@ fn the_affix_of_a_lord_names_him_in_each_language() {
     );
 }
 
-/// The messages of a window that can't open.
-const WINDOW_ERROR_IDS: [&str; 8] = [
+/// The messages of the dialogs of the system: a window that can't open, a launch already open.
+const SYSTEM_DIALOG_IDS: [&str; 10] = [
     WINDOW_ERROR_DISPLAY,
     WINDOW_ERROR_DISPLAY_FIX,
     WINDOW_ERROR_OPENGL,
@@ -173,10 +173,12 @@ const WINDOW_ERROR_IDS: [&str; 8] = [
     WINDOW_ERROR_OTHER_FIX,
     WINDOW_ERROR_LOG,
     WINDOW_ERROR_DETAILS,
+    ALREADY_OPEN,
+    ALREADY_OPEN_WHERE,
 ];
 
 #[test]
-fn every_message_of_a_window_that_cant_open_formats_without_errors() {
+fn every_message_of_a_dialog_of_the_system_formats_without_errors() {
     // The errors fail the `debug_assert` of `format`.
     for language in Language::ALL {
         let translator = Translator::new(language);
@@ -190,6 +192,9 @@ fn every_message_of_a_window_that_cant_open_formats_without_errors() {
         }
         assert!(translator.window_error_log("/log").contains("/log"));
         assert!(translator.window_error_details("failed").contains("failed"));
+        let [open, place] = translator.already_open();
+        assert!(open.contains(crate::APP_NAME), "{language:?}");
+        assert!(!place.is_empty(), "{language:?}");
     }
 }
 
