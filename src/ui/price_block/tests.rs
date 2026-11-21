@@ -31,7 +31,6 @@ fn notice<'a>(
     view(
         price,
         None,
-        Rarity::Currency,
         ShownLeague {
             name: league,
             prices,
@@ -40,13 +39,10 @@ fn notice<'a>(
 }
 
 #[test]
-fn a_rare_item_has_no_market_price() {
+fn an_item_without_fixed_name_is_to_estimate_before_its_search() {
     let price = Err(NoFixedPrice::NotFixedName);
 
-    assert_eq!(
-        view(&price, None, Rarity::Magic, STANDARD),
-        PriceView::Notice(Notice::NoMarketPrice(Rarity::Magic))
-    );
+    assert_eq!(view(&price, None, STANDARD), PriceView::ToEstimate);
 }
 
 #[test]
@@ -97,16 +93,6 @@ fn after_a_search_without_estimate_the_hint_says_why_or_leaves_it_to_the_offers(
     );
 }
 
-#[test]
-fn a_skill_gem_has_no_market_price_either() {
-    let price = Err(NoFixedPrice::NotFixedName);
-
-    assert_eq!(
-        view(&price, None, Rarity::Gem, STANDARD),
-        PriceView::Notice(Notice::NoMarketPrice(Rarity::Gem))
-    );
-}
-
 /// An estimate of `exalted` Exalted Orbs from `counted` offers, from `cheapest` to `dearest`.
 fn estimate(exalted: f64, counted: usize, (cheapest, dearest): (f64, f64)) -> Estimate<'static> {
     Estimate {
@@ -128,12 +114,7 @@ fn once_its_offers_are_searched_a_rare_item_has_an_estimated_price() {
     let estimate = estimate(1680.0, 5, (1500.0, 2250.0));
 
     assert_eq!(
-        view(
-            &Err(NoFixedPrice::NotFixedName),
-            Some(estimate),
-            Rarity::Rare,
-            STANDARD
-        ),
+        view(&Err(NoFixedPrice::NotFixedName), Some(estimate), STANDARD),
         PriceView::Estimated(estimate)
     );
 }
@@ -171,10 +152,7 @@ fn an_estimate_from_too_few_offers_has_a_low_reliability() {
 
     assert_eq!(low(estimated(4)), Some(LowReliability::SimilarOffers(4)));
     assert_eq!(low(estimated(5)), None);
-    assert_eq!(
-        low(PriceView::Notice(Notice::NoMarketPrice(Rarity::Rare))),
-        None
-    );
+    assert_eq!(low(PriceView::ToEstimate), None);
 }
 
 #[test]
@@ -284,9 +262,7 @@ fn a_fixed_price_on_too_little_has_a_low_reliability_and_says_on_what() {
         price: price(quantity),
         modifiers: UniqueModifiers::default(),
     };
-    let low = |fixed: FixedPrice| {
-        low_reliability(&view(&Ok((fixed, RATES)), None, Rarity::Unique, STANDARD))
-    };
+    let low = |fixed: FixedPrice| low_reliability(&view(&Ok((fixed, RATES)), None, STANDARD));
 
     assert_eq!(
         low(FixedPrice::Currency(&currency(9))),

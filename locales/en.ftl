@@ -397,13 +397,9 @@ identify-to-price = Identify the item to get its price.
 possible-uniques = Possible uniques
 # In place of the price of a possible unique without offers.
 no-offers = No offers
-# Rare, magic and normal items, priced from the offers of similar items.
-no-market-price-rare = No market price for rare items.
-# A skill gem, which no price database lists, priced from the offers of similar gems.
-no-market-price-skill-gem = No market price for skill gems.
-no-market-price-magic = No market price for magic items.
-no-market-price-normal = No market price for normal items.
-search-to-estimate = Search similar offers to estimate it.
+# Under the dashes of the estimated price of a rare, magic or normal item, or of a skill gem, before its
+# search: what to do, the offers block being under the price block.
+search-to-estimate = Search the offers below to estimate its price.
 # A rare or magic item whose filters compare none of its stats: the offers of any item of its
 # base would say nothing of its price.
 check-to-estimate = Check a stat that sets this item apart to estimate it.
