@@ -214,7 +214,7 @@ The technical choices of the [roadmap](../roadmap.md), with their reasons: one s
 
 ## Window that can't open (step 17a)
 
-**Choice.** The error of `eframe::run_native` sorted into a cause (`src/window_error.rs`), its message shown by a dialog of the system: `MessageBox` of `winsafe` on Windows, `kdialog` or `zenity` run as commands on Linux, `osascript` on macOS
+**Choice.** The error of `eframe::run_native` sorted into a cause (`src/window_error.rs`), its message shown by a dialog of the system (`src/system_dialog.rs`): `MessageBox` of `winsafe` on Windows, `kdialog` or `zenity` run as commands on Linux, `osascript` on macOS
 
 **Reason.** The application can't draw without its window; these dialogs need no new dependency, and those of Linux open under Wayland too, where a missing XWayland is the likeliest cause.
 

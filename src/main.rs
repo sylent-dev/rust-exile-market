@@ -32,6 +32,7 @@ mod roll_difference;
 mod session;
 mod settings;
 mod single_instance;
+mod system_dialog;
 mod tier_rolls;
 mod trade;
 mod ui;
@@ -123,9 +124,9 @@ fn main() -> ExitCode {
             let cause = window_error::Cause::of(&error);
             log::error!("The window failed to open ({cause:?}): {error}");
             let translator = i18n::Translator::new(settings_language);
-            window_error::show(
+            system_dialog::show(
                 &window_error::message(&translator, cause, &error.to_string(), logging::path()),
-                window_error::Sign::Error,
+                system_dialog::Sign::Error,
             );
             // The message already told the error: no `Error: …` written after it, as returning
             // the error would.
@@ -140,9 +141,9 @@ fn tell_already_open() {
         .peek()
         .language()
         .language();
-    window_error::show(
+    system_dialog::show(
         &single_instance::message(&i18n::Translator::new(language)),
-        window_error::Sign::Information,
+        system_dialog::Sign::Information,
     );
 }
 
