@@ -149,7 +149,7 @@ pub(super) fn find<'a>(
                 fit.cmp(&other_fit).then(tier)
             });
         if found.is_some() {
-            is_of_one_type &= modifier_type.is_none_or(|held| held == table.modifier_type);
+            is_of_one_type &= modifier_type.is_none_or(|earlier| earlier == table.modifier_type);
             modifier_type = Some(&table.modifier_type);
         }
         if let Some((fit, found)) = found

@@ -889,22 +889,41 @@ fn a_stat_on_two_lines_is_its_pure_modifier_and_a_hybrid_whichever_is_marked() {
 }
 
 #[test]
-fn a_line_only_a_reading_refused_for_its_type_reads_is_left_as_one_no_candidate_holds() {
+fn a_line_alone_and_a_sum_that_takes_its_type_are_ranked_as_any_two_readings() {
+    let tables = pure_and_hybrid_tables();
     // The life of 55 is in no tier alone: the pure modifier, `21–30`, and the hybrid with the
-    // energy shield add up to it, the only way to read it, which takes the type of the pure
-    // life the fractured line already is. An item the tables can't explain.
-    let lines = [
-        marked_line(ModifierOrigin::Fractured, "+25 to maximum Life"),
-        modifier(None, &["25% increased Energy Shield"]),
-        modifier(None, &["+55 to maximum Life"]),
-    ];
-
-    let (tiers, effort) = searched(&pure_and_hybrid_tables(), 60, &lines, (3, 3));
-
-    // The other lines are read as if no candidate held it, the energy shield a pure modifier.
+    // energy shield add up to it, a sum that takes the type of the pure life the fractured
+    // line is by its value. One of the two is read, never both: an item the tables can't
+    // explain.
+    let lines = |shield| {
+        [
+            marked_line(ModifierOrigin::Fractured, "+25 to maximum Life"),
+            modifier(None, &[shield]),
+            modifier(None, &["+55 to maximum Life"]),
+        ]
+    };
     let pure = (1, vec![(Affix::Prefix, 1)]);
-    assert_eq!(summary(&lines, &tiers.found), [pure.clone(), pure]);
+    let hybrid = (2, vec![(Affix::Prefix, 1)]);
+
+    // The energy shield a pure modifier too: two lines read either way, and the reading
+    // that splits no line is the best, the life of 55 without tier.
+    let alone = lines("25% increased Energy Shield");
+    let (tiers, effort) = searched(&tables, 60, &alone, (3, 3));
+    assert_eq!(summary(&alone, &tiers.found), [pure.clone(), pure]);
+    assert_eq!(added(&alone, &tiers.found), []);
     assert_eq!(tiers.without_tier, [(2, NoTier::InDoubt)]);
+    assert_eq!(effort.ending, Ending::OtherReadings(Outcome::BestMet));
+
+    // The energy shield in no pure tier: the sum reads two lines against one, and it is the
+    // fractured line that stays without tier (an entry of the backlog).
+    let summed = lines("20% increased Energy Shield");
+    let (tiers, effort) = searched(&tables, 60, &summed, (3, 3));
+    assert_eq!(summary(&summed, &tiers.found), [hybrid]);
+    assert_eq!(
+        added(&summed, &tiers.found),
+        [("+55 to maximum Life".to_owned(), Affix::Prefix, 1)]
+    );
+    assert_eq!(tiers.without_tier, [(0, NoTier::InDoubt)]);
     assert_eq!(effort.ending, Ending::OtherReadings(Outcome::BestMet));
 }
 
@@ -962,6 +981,18 @@ fn a_best_reading_the_other_readings_dont_meet_leaves_every_line_without_tier() 
         without_tier: (0..3).map(|line| (line, NoTier::InDoubt)).collect(),
     };
     assert_eq!(tiers, every_line_in_doubt);
+
+    // Two types with the same tiers show the same: the best reading is met, and its tiers
+    // stay, right in their numbers.
+    let tables = read_tables(&[
+        table_json("Life", "prefix", &[LIFE], &[(1, &[(21, 30)])]),
+        table_json("OtherLife", "prefix", &[LIFE], &[(1, &[(21, 30)])]),
+        table_json("Rarity", "suffix", &[RARITY], &[(1, &[(10, 20)])]),
+    ]);
+    let ((read, _), effort) = read_modifiers(&tables, 60, &lines, (3, 3));
+    assert_eq!(effort.ending, Ending::OtherReadings(Outcome::BestMet));
+    let life = (1, vec![(Affix::Prefix, 1)]);
+    assert_eq!(read, [life.clone(), life, (1, vec![(Affix::Suffix, 1)])]);
 }
 
 #[test]

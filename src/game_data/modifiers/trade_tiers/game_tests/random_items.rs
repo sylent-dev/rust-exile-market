@@ -583,7 +583,7 @@ impl<'a> DrawnItem<'a> {
     /// another mark is no obstacle: the game writes both.
     fn takes(&self, candidate: Candidate<'_>) -> bool {
         let Candidate { rolled, origin } = candidate;
-        let type_taken = self
+        let is_type_taken = self
             .modifiers
             .iter()
             .any(|modifier| modifier.rolled.table.modifier_type == rolled.table.modifier_type);
@@ -592,7 +592,7 @@ impl<'a> DrawnItem<'a> {
                 other.template == line.template && other.origin == origin && other.values.is_empty()
             })
         });
-        !type_taken && !clash
+        !is_type_taken && !clash
     }
 
     /// Adds `candidate` in its tier `tier`, its values drawn, each added up with those of the
@@ -746,8 +746,8 @@ struct Counts {
     /// The items with a stat on two lines, of two marks, among `items`.
     stat_on_two_lines: usize,
     /// The items whose best reading the other readings don't meet (`Outcome::BestNotMet`),
-    /// every line of theirs left without tier, among `items`: none since a reading can't hold
-    /// a type twice, which a stat on two lines read alone did.
+    /// every line of theirs left without tier, among `items`: a best reading with a type
+    /// twice, on lines whose candidates don't know their type.
     best_not_met: usize,
     lines: usize,
     /// The lines that add up two modifiers or more, among `lines`.

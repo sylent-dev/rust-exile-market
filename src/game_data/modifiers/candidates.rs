@@ -56,7 +56,7 @@ impl Candidate<'_> {
     /// Whether a modifier of it is of the type of a modifier of `other`, as far as their
     /// types are sure: an item never has both.
     pub(super) fn shares_a_type_with(&self, other: &Self) -> bool {
-        self.types.iter().any(|held| other.types.contains(held))
+        self.types.iter().any(|own| other.types.contains(own))
     }
 }
 
@@ -171,7 +171,7 @@ fn run_candidates<'a>(
 fn shared_type<'a>(found: &[(Affix, FoundModifier<'a>)]) -> Option<&'a str> {
     let mut types = found.iter().map(|(_, found)| found.modifier_type);
     let first = types.next()??;
-    types.all(|held| held == Some(first)).then_some(first)
+    types.all(|other| other == Some(first)).then_some(first)
 }
 
 #[cfg(test)]

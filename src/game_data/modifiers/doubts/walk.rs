@@ -201,7 +201,7 @@ impl State {
         let Some(placement) = ground.placements.get(index) else {
             return false;
         };
-        let type_taken = self
+        let is_type_taken = self
             .chosen
             .iter()
             .filter_map(|&chosen| ground.placements.get(chosen))
@@ -219,7 +219,7 @@ impl State {
                 .is_some_and(|line| line.values.is_empty())
                 && self.counts.get(line).is_some_and(|&count| count > 0)
         });
-        !type_taken && room && fractured && !shared
+        !is_type_taken && room && fractured && !shared
     }
 
     /// Adds the placement of `index` to the chosen ones.
