@@ -1,11 +1,13 @@
 //! The wait the trade site asked for by refusing a request, shared by the two threads that
 //! call it: a search refused makes the download of the item names wait, and the other way
 //! round, since both reach the same site from the same address. Its end is kept in the cache
-//! directory, so that closing the application and launching it again doesn't end the wait.
+//! directory, so that closing the application and launching it again doesn't end the wait, and
+//! read there again before each request, so that two Exile Market that run at once, on the
+//! same cache directory, share it too.
 
 use std::io;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant, SystemTime};
 
 use serde::{Deserialize, Serialize};
@@ -32,66 +34,109 @@ pub struct Refusal(Arc<SharedWait>);
 struct SharedWait {
     /// Behind a mutex rather than sent through a channel: each thread reads it before each
     /// of its requests, and a refusal of one must stop the next request of the other.
-    until: Mutex<Option<Instant>>,
-    /// The cache directory, where the end of the wait is kept for the next launch; without
-    /// one, the wait ends with the application.
+    wait: Mutex<Wait>,
+    /// The cache directory, where the end of the wait is kept for the next launch and for
+    /// another Exile Market; without one, the wait ends with the application.
     directory: Option<PathBuf>,
 }
 
+/// The wait as this Exile Market knows it.
+#[derive(Debug, Default)]
+struct Wait {
+    /// Its end, on the clock that never goes back.
+    until: Option<Instant>,
+    /// The end its file told when last read or written: a file that still tells it holds
+    /// nothing new, and its time, read again on the other clock, would differ by a moment.
+    in_file: Option<SystemTime>,
+}
+
 /// The end of a wait as its file keeps it: a time of the clock of the system, the only one
-/// that goes on from one launch to the next.
+/// that goes on from one launch to the next, and that two Exile Market share.
 #[derive(Debug, Serialize, Deserialize)]
 struct KeptWait {
     until: SystemTime,
 }
 
 impl Refusal {
-    /// The wait the last launch kept in `directory`, when it isn't over, and every wait to
-    /// come kept there in turn. Without a directory, a wait ends with the application.
+    /// The wait kept in `directory`, when it isn't over, and every wait to come kept there
+    /// in turn. Without a directory, a wait ends with the application.
     #[must_use]
     pub fn kept_in(directory: Option<PathBuf>) -> Self {
-        let left = if let Some(directory) = &directory {
-            read_kept(directory).and_then(|kept| wait_left(kept.until, SystemTime::now()))
-        } else {
+        if directory.is_none() {
             log::warn!(
                 "No cache directory: the wait of a refusal of the trade site will end with \
                  the application"
             );
-            None
-        };
-        if let Some(left) = left {
-            log::info!(
-                "Trade site: the wait of a refusal kept from the last launch, {} s left",
-                left.as_secs()
-            );
         }
-        Self(Arc::new(SharedWait {
-            until: Mutex::new(left.map(|left| Instant::now() + left)),
+        let shared = SharedWait {
+            wait: Mutex::default(),
             directory,
-        }))
+        };
+        // Read at the launch, so that the log tells a wait under way from its first lines.
+        drop(shared.read_again());
+        Self(Arc::new(shared))
     }
 
-    /// The end of the wait, while it is after `now`.
+    /// The end of the wait this Exile Market knows, while it is after `now`: what a request
+    /// would wait for, told without reading the file.
     #[must_use]
     pub fn until(&self, now: Instant) -> Option<Instant> {
-        // A thread that panicked wrote a whole time or none: the wait still holds.
-        let until = *self.0.until.lock().unwrap_or_else(PoisonError::into_inner);
-        until.filter(|&until| until > now)
+        self.0.known().until.filter(|&until| until > now)
+    }
+
+    /// The end of the wait, while it is after `now`, its file read again first: asked before
+    /// each request, since another Exile Market may have been refused meanwhile.
+    #[must_use]
+    pub fn until_read_again(&self, now: Instant) -> Option<Instant> {
+        self.0.read_again().until.filter(|&until| until > now)
     }
 
     /// Waits until `until` at least, and keeps that end for the next launch: a wait already
-    /// longer stays, in memory and in its file.
+    /// longer stays, in memory and in its file, whichever Exile Market wrote it.
     pub fn extend(&self, until: Instant) {
-        let mut known = self.0.until.lock().unwrap_or_else(PoisonError::into_inner);
-        if known.is_some_and(|known| known >= until) {
+        let mut wait = self.0.read_again();
+        if wait.until.is_some_and(|known| known >= until) {
             return;
         }
-        *known = Some(until);
+        wait.until = Some(until);
         // Written before the other thread can extend the wait in turn: the file always
         // holds the longest one.
-        if let Some(directory) = &self.0.directory {
-            keep(directory, until);
+        if let Some(directory) = &self.0.directory
+            && let Some(written) = keep(directory, until)
+        {
+            wait.in_file = Some(written);
         }
+    }
+}
+
+impl SharedWait {
+    /// The wait this Exile Market knows.
+    fn known(&self) -> MutexGuard<'_, Wait> {
+        // A thread that panicked wrote a whole wait or none: the wait still holds.
+        self.wait.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// The wait known once its file is read again, the longest of the two: a file that tells
+    /// a shorter wait, or none, ends nothing.
+    fn read_again(&self) -> MutexGuard<'_, Wait> {
+        let mut wait = self.known();
+        let kept = self.directory.as_deref().and_then(read_kept);
+        if let Some(KeptWait { until: kept }) = kept
+            && wait.in_file != Some(kept)
+        {
+            wait.in_file = Some(kept);
+            let until = wait_left(kept, SystemTime::now()).map(|left| Instant::now() + left);
+            if let Some(until) = until
+                && wait.until.is_none_or(|known| until > known)
+            {
+                log::info!(
+                    "Trade site: the wait of a refusal read from its file, {} s left",
+                    until.saturating_duration_since(Instant::now()).as_secs()
+                );
+                wait.until = Some(until);
+            }
+        }
+        wait
     }
 }
 
@@ -103,8 +148,8 @@ fn wait_left(until: SystemTime, clock: SystemTime) -> Option<Duration> {
     let left = until.duration_since(clock).ok()?;
     if left > LONGEST_REFUSAL_WAIT {
         log::warn!(
-            "Trade site: the wait of a refusal kept from the last launch would last {} s, \
-             more than a refusal asks: ignored",
+            "Trade site: the wait of a refusal read from its file would last {} s, more than \
+             a refusal asks: ignored",
             left.as_secs()
         );
         return None;
@@ -124,22 +169,25 @@ fn read_kept(directory: &Path) -> Option<KeptWait> {
     })
 }
 
-/// Keeps the end `until` of the wait in `directory` for the next launch; a failure is logged,
-/// and the wait then ends with the application.
-fn keep(directory: &Path, until: Instant) {
+/// Keeps the end `until` of the wait in `directory`, and gives it as its file tells it; a
+/// failure is logged, and the wait then ends with the application.
+fn keep(directory: &Path, until: Instant) -> Option<SystemTime> {
     let left = until.saturating_duration_since(Instant::now());
     let written = SystemTime::now()
         .checked_add(left)
         .ok_or_else(|| io::Error::other("its end is beyond the clock of the system"))
         .and_then(|until| {
             files::write_versioned_json(directory, KEPT_FILE, KEPT_VERSION, &KeptWait { until })
+                .map(|()| until)
         });
-    if let Err(error) = written {
-        log::warn!(
-            "The wait of a refusal of the trade site couldn't be kept in {}: {error}",
-            logging::without_home(directory).display()
-        );
-    }
+    written
+        .inspect_err(|error| {
+            log::warn!(
+                "The wait of a refusal of the trade site couldn't be kept in {}: {error}",
+                logging::without_home(directory).display()
+            );
+        })
+        .ok()
 }
 
 #[cfg(test)]
@@ -239,6 +287,120 @@ pub(super) mod tests {
         }
         // Nothing was kept: the file is still a file, with no directory in its place.
         assert!(blocked.is_file());
+    }
+
+    /// Writes in `directory` the file of a wait that ends in `left`, whatever it kept: as an
+    /// Exile Market of a version that didn't read the file before writing it.
+    fn overwrite_file(directory: &TestDirectory, left: Duration) {
+        let until = SystemTime::now() + left;
+        files::write_versioned_json(&directory.0, KEPT_FILE, KEPT_VERSION, &KeptWait { until })
+            .expect("a file");
+    }
+
+    /// The security audit of v0.2.1 (2026-11-21): two Exile Market at once, each launched
+    /// before the refusal of the other, read the file at their launch only.
+    #[test]
+    fn the_wait_of_another_exile_market_is_read_again_before_a_request() {
+        let directory = TestDirectory::new("refusal-other");
+        let now = Instant::now();
+        let refusal = launched_with(&directory);
+        let other = launched_with(&directory);
+
+        other.extend(now + Duration::from_mins(30));
+
+        assert_about(refusal.until_read_again(now), now + Duration::from_mins(30));
+        // Known from then on, as a wait of its own.
+        assert_about(refusal.until(now), now + Duration::from_mins(30));
+    }
+
+    #[test]
+    fn a_shorter_wait_doesnt_replace_the_wait_of_another_exile_market() {
+        let directory = TestDirectory::new("refusal-other-shorter");
+        let now = Instant::now();
+        let refusal = launched_with(&directory);
+        let other = launched_with(&directory);
+        other.extend(now + Duration::from_mins(30));
+
+        refusal.extend(now + Duration::from_mins(5));
+
+        assert_about(refusal.until(now), now + Duration::from_mins(30));
+        let next_launch = launched_with(&directory);
+        assert_about(next_launch.until(now), now + Duration::from_mins(30));
+    }
+
+    #[test]
+    fn a_longer_wait_replaces_the_wait_of_another_exile_market() {
+        let directory = TestDirectory::new("refusal-other-longer");
+        let now = Instant::now();
+        let refusal = launched_with(&directory);
+        let other = launched_with(&directory);
+        other.extend(now + Duration::from_mins(5));
+
+        refusal.extend(now + Duration::from_mins(30));
+
+        assert_about(other.until_read_again(now), now + Duration::from_mins(30));
+    }
+
+    /// Its time, read from the file on the other clock, is a moment later each time.
+    #[test]
+    fn the_file_it_wrote_doesnt_move_the_wait_known() {
+        let directory = TestDirectory::new("refusal-own-file");
+        let now = Instant::now();
+        let until = now + Duration::from_mins(30);
+        let refusal = launched_with(&directory);
+
+        refusal.extend(until);
+
+        assert_eq!(refusal.until_read_again(now), Some(until));
+        assert_eq!(refusal.until_read_again(now), Some(until));
+    }
+
+    #[test]
+    fn a_file_that_tells_a_shorter_wait_or_none_ends_no_wait_known() {
+        let directory = TestDirectory::new("refusal-file-shorter");
+        let now = Instant::now();
+        let until = now + Duration::from_mins(30);
+        let refusal = launched_with(&directory);
+        refusal.extend(until);
+
+        overwrite_file(&directory, Duration::from_mins(5));
+        assert_eq!(refusal.until_read_again(now), Some(until));
+
+        fs::remove_file(directory.0.join(KEPT_FILE)).expect("a file to remove");
+        assert_eq!(refusal.until_read_again(now), Some(until));
+
+        fs::write(directory.0.join(KEPT_FILE), "not JSON").expect("a file");
+        assert_eq!(refusal.until_read_again(now), Some(until));
+    }
+
+    /// A wait written, then a longer one, then the first again: each change of the file is
+    /// read, and the file read last doesn't hide the one before.
+    #[test]
+    fn each_change_of_the_file_is_read_and_the_longest_wait_stays() {
+        let directory = TestDirectory::new("refusal-file-changes");
+        let now = Instant::now();
+        let refusal = launched_with(&directory);
+
+        overwrite_file(&directory, Duration::from_mins(5));
+        assert_about(refusal.until_read_again(now), now + Duration::from_mins(5));
+        overwrite_file(&directory, Duration::from_hours(2));
+        assert_about(refusal.until_read_again(now), now + Duration::from_hours(2));
+        overwrite_file(&directory, Duration::from_mins(5));
+        assert_about(refusal.until_read_again(now), now + Duration::from_hours(2));
+    }
+
+    /// The time of a clock set back, or of a file written by hand, in the file of another
+    /// Exile Market: ignored as at the launch, and the wait it writes next is read.
+    #[test]
+    fn a_wait_too_long_in_the_file_is_ignored_and_the_next_one_is_read() {
+        let directory = TestDirectory::new("refusal-file-too-long");
+        let now = Instant::now();
+        let refusal = launched_with(&directory);
+
+        overwrite_file(&directory, LONGEST_REFUSAL_WAIT + Duration::from_mins(1));
+        assert_eq!(refusal.until_read_again(now), None);
+        overwrite_file(&directory, Duration::from_mins(30));
+        assert_about(refusal.until_read_again(now), now + Duration::from_mins(30));
     }
 
     /// Writes the file of `version` a launch left in `directory`, as the version 1 writes it,
