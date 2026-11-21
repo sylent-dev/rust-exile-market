@@ -83,7 +83,7 @@ pub struct OffersBlock<'a> {
     pub has_bug_report: bool,
     /// How long ago the item was copied, when its price block asks to search its offers: the
     /// search block beats for it before the first search.
-    pub search_called_since: Option<Duration>,
+    pub asked_to_search_since_copy: Option<Duration>,
     pub i18n: &'a Translator,
 }
 

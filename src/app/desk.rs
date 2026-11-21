@@ -94,13 +94,13 @@ impl Desk {
         self.recent.shown()
     }
 
-    /// Takes in an event of the clipboard watching. The item shown, copied again, keeps its
-    /// filters and offers; another item copied leaves them to the items remembered, and shows
-    /// its own.
-    pub(super) fn apply_clipboard_event(&mut self, event: ClipboardEvent) {
+    /// Takes in an event of the clipboard watching, received at `now`. The item shown, copied
+    /// again, keeps its filters and offers; another item copied leaves them to the items
+    /// remembered, and shows its own.
+    pub(super) fn apply_clipboard_event(&mut self, event: ClipboardEvent, now: Instant) {
         let mut back = None;
         if let ClipboardEvent::Copied { item, hotkey } = &event {
-            self.copied_at = Instant::now();
+            self.copied_at = now;
             // The clipboard watching alone tells the copy of the hotkey.
             if copied_again(hotkey.is_some(), self.recent.shown(), item) {
                 // Its filters and offers stay.

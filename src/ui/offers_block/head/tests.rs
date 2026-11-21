@@ -41,6 +41,25 @@ fn the_search_block_beats_twice_from_a_while_after_the_copy() {
     assert_eq!(beat(Duration::from_secs(60)), Beat::Over);
 }
 
+#[test]
+fn the_search_block_beats_only_before_the_first_search() {
+    use crate::trade::search::Failure;
+
+    let asked = Some(Duration::from_millis(650));
+
+    assert_eq!(search_beat(&OffersState::Idle, asked), Beat::Ring(0.5));
+    // The price block doesn't ask to search.
+    assert_eq!(search_beat(&OffersState::Idle, None), Beat::Over);
+    // Searched once: the search block of a failure or of a wait beats no more.
+    for state in [
+        OffersState::Searching,
+        OffersState::Failed(Failure::Unreachable),
+        OffersState::Limited(WaitCause::Limits),
+    ] {
+        assert_eq!(search_beat(&state, asked), Beat::Over, "{state:?}");
+    }
+}
+
 /// The characters of `galley` inside each of `rects`, its spaces left out.
 fn found_in(galley: &Galley, rects: &[Rect]) -> Vec<String> {
     rects
@@ -168,7 +187,7 @@ impl HintWindow {
             item: &self.item,
             lines: &self.lines,
             has_bug_report: self.has_bug_report,
-            search_called_since: None,
+            asked_to_search_since_copy: None,
             i18n: &self.i18n,
         }
     }

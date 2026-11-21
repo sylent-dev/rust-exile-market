@@ -171,6 +171,27 @@ impl StatChecks {
     }
 }
 
+/// What the line under the dashes of an item without estimate asks or says.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum EstimateHint {
+    /// Search the offers: the search block beats for it.
+    Search,
+    /// Check a stat that sets the item apart first.
+    CheckStat,
+    /// No offer found is paid in a currency the estimate counts.
+    NoCountedCurrency,
+}
+
+impl EstimateHint {
+    fn message(self) -> Message {
+        match self {
+            Self::Search => Message::SearchToEstimate,
+            Self::CheckStat => Message::CheckToEstimate,
+            Self::NoCountedCurrency => Message::NoOfferCountedToEstimate,
+        }
+    }
+}
+
 /// The line under the dashes of an item without estimate, given the `checks` of its
 /// filters and why it has `no_estimate`: an item priced by its stats ([`Item::is_priced_by_stats`]) is
 /// estimated only from a search that compares some, so that it asks for one to be checked, and
@@ -180,18 +201,18 @@ fn estimate_hint(
     is_priced_by_stats: bool,
     checks: StatChecks,
     no_estimate: NoEstimate,
-) -> Option<Message> {
+) -> Option<EstimateHint> {
     if is_priced_by_stats {
         match checks {
             StatChecks::Checked => {}
-            StatChecks::Unchecked => return Some(Message::CheckToEstimate),
+            StatChecks::Unchecked => return Some(EstimateHint::CheckStat),
             StatChecks::NoneToCheck => return None,
         }
     }
     match no_estimate {
-        NoEstimate::NotSearched => Some(Message::SearchToEstimate),
+        NoEstimate::NotSearched => Some(EstimateHint::Search),
         NoEstimate::NothingCounted => None,
-        NoEstimate::CurrenciesNotCounted => Some(Message::NoOfferCountedToEstimate),
+        NoEstimate::CurrenciesNotCounted => Some(EstimateHint::NoCountedCurrency),
     }
 }
 
@@ -282,12 +303,12 @@ impl PriceBlock<'_> {
     /// the search block beats for it.
     #[must_use]
     pub fn asks_to_search(&self) -> bool {
-        matches!(self.price, Err(NoFixedPrice::NotFixedName))
-            && self.estimate_hint() == Some(Message::SearchToEstimate)
+        view(&self.price, self.estimate.ok(), self.league) == PriceView::ToEstimate
+            && self.estimate_hint() == Some(EstimateHint::Search)
     }
 
     /// The line under the dashes of an item without estimate ([`estimate_hint`]).
-    fn estimate_hint(&self) -> Option<Message> {
+    fn estimate_hint(&self) -> Option<EstimateHint> {
         let Err(no_estimate) = self.estimate else {
             return None;
         };
@@ -438,7 +459,7 @@ impl PriceBlock<'_> {
         pending_amounts(ui);
         if let Some(hint) = self.estimate_hint() {
             ui.add_space(LINE_GAP);
-            line(ui, &self.i18n.text(hint), color::WEAK);
+            line(ui, &self.i18n.text(hint.message()), color::WEAK);
         }
     }
 

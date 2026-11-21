@@ -56,6 +56,20 @@ enum Beat {
     Over,
 }
 
+/// The beat of the search block in the `state` of the offers, the price block having asked to
+/// search them `asked_since_copy`, since the item was copied: only before the first search, the
+/// block of an item searched once (a failure, a wait of the trade site) beating no more.
+fn search_beat(state: &OffersState, asked_since_copy: Option<Duration>) -> Beat {
+    match state {
+        OffersState::Idle => asked_since_copy.map_or(Beat::Over, beat),
+        OffersState::Searching
+        | OffersState::Items(_)
+        | OffersState::Exchange { .. }
+        | OffersState::Failed(_)
+        | OffersState::Limited(_) => Beat::Over,
+    }
+}
+
 /// The beat of the search block `since_copy` after the item was copied.
 fn beat(since_copy: Duration) -> Beat {
     let Some(beating) = since_copy.checked_sub(BEAT_DELAY) else {
@@ -422,13 +436,7 @@ impl OffersBlock<'_> {
     /// around the search block in `rect`, drawn under it, the window drawn again until the
     /// beats are over.
     fn search_ring(&self, ui: &Ui, rect: Rect) {
-        let Some(since_copy) = self.search_called_since else {
-            return;
-        };
-        if !matches!(self.offers.state(), OffersState::Idle) {
-            return;
-        }
-        match beat(since_copy) {
+        match search_beat(self.offers.state(), self.asked_to_search_since_copy) {
             Beat::Before(wait) => ui.ctx().request_repaint_after(wait),
             Beat::Ring(through) => {
                 let spread = easing::cubic_out(through);

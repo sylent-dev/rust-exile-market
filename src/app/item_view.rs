@@ -146,7 +146,7 @@ impl ItemView<'_> {
                 item,
                 lines: shown.lines(),
                 has_bug_report,
-                search_called_since: asks_to_search.then_some(since_copy),
+                asked_to_search_since_copy: asks_to_search.then_some(since_copy),
                 i18n,
             }
             .show(ui)
