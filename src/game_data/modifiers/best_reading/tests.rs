@@ -378,10 +378,12 @@ fn a_reading_with_two_modifiers_of_one_type_isnt_one() {
     assert_eq!((best.chosen, best.ambiguous), (vec![1, 3], vec![]));
     // Types nothing tells are no obstacle: the lines alone, the most modifiers.
     assert_eq!(chosen(&untyped, 3, room, 0), [0, 2, 3]);
-    // Nor are two types.
+    // Nor are two types: the lines alone, and no line that may be left without tier, each
+    // candidate sharing a type with itself only (the lines alone, or the hybrid).
     let mut candidates = candidates;
     candidates[3].types = vec!["Evasion"];
-    assert_eq!(chosen(&candidates, 3, room, 0), [0, 2, 3]);
+    let best = best_reading(&candidates, 3, room, 0).expect("every reading looked at");
+    assert_eq!((best.chosen, best.readings), (vec![0, 2, 3], 2));
 }
 
 #[test]
@@ -421,6 +423,14 @@ fn two_lines_alone_of_one_type_are_each_left_without_tier_in_turn() {
     // read by both. The readings of neither, and of both, aren't readings.
     assert_eq!(best.readings, 4);
     assert_eq!((best.chosen, best.ambiguous), (vec![1, 2], vec![1, 0]));
+
+    // Three lines of one type, fractured, desecrated and unmarked: one of them at most, three
+    // readings as good among the eight choices, every line ambiguous.
+    let candidates =
+        [0, 1, 2].map(|line| typed(candidate(line..line + 1, &[Prefix], false), &["Life"]));
+    let best = best_reading(&candidates, 3, room, 0).expect("every reading looked at");
+    assert_eq!(best.readings, 8);
+    assert_eq!((best.chosen, best.ambiguous), (vec![2], vec![2, 1, 0]));
 }
 
 #[test]

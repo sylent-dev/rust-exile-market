@@ -855,8 +855,11 @@ fn marked_line(origin: ModifierOrigin, text: &str) -> Modifier {
 }
 
 #[test]
-fn a_marked_hybrid_is_read_next_to_the_pure_modifier_of_its_stat() {
-    use ModifierOrigin::Desecrated;
+fn a_stat_on_two_lines_is_its_pure_modifier_and_a_hybrid_whichever_is_marked() {
+    use ModifierOrigin::{Desecrated, Fractured};
+    let tables = pure_and_hybrid_tables();
+    let pure = (1, vec![(Affix::Prefix, 1)]);
+    let hybrid = (2, vec![(Affix::Prefix, 1)]);
     // A stat on two lines, of two marks: read alone, the two lives would be two modifiers of
     // one type, which the game can't roll, and three modifiers, more than any other reading.
     let lines = [
@@ -865,15 +868,43 @@ fn a_marked_hybrid_is_read_next_to_the_pure_modifier_of_its_stat() {
         modifier(None, &["+26 to maximum Life"]),
     ];
 
-    let ((read, split), effort) = read_modifiers(&pure_and_hybrid_tables(), 60, &lines, (3, 3));
+    let ((read, split), effort) = read_modifiers(&tables, 60, &lines, (3, 3));
 
     // The marked lines are their hybrid, the other life the pure modifier: no other reading,
     // a hybrid never joining lines of two marks.
-    assert_eq!(
-        read,
-        [(2, vec![(Affix::Prefix, 1)]), (1, vec![(Affix::Prefix, 1)])]
-    );
+    assert_eq!(read, [hybrid.clone(), pure.clone()]);
     assert_eq!(split, []);
+    assert_eq!(effort.ending, Ending::OtherReadings(Outcome::BestMet));
+
+    // The unmarked lines their hybrid, the marked life the pure modifier, as well.
+    let lines = [
+        marked_line(Fractured, "+26 to maximum Life"),
+        modifier(None, &["25% increased Energy Shield"]),
+        modifier(None, &["+25 to maximum Life"]),
+    ];
+    let ((read, split), effort) = read_modifiers(&tables, 60, &lines, (3, 3));
+    assert_eq!(read, [pure, hybrid]);
+    assert_eq!(split, []);
+    assert_eq!(effort.ending, Ending::OtherReadings(Outcome::BestMet));
+}
+
+#[test]
+fn a_line_only_a_reading_refused_for_its_type_reads_is_left_as_one_no_candidate_holds() {
+    // The life of 55 is in no tier alone: the pure modifier, `21–30`, and the hybrid with the
+    // energy shield add up to it, the only way to read it, which takes the type of the pure
+    // life the fractured line already is. An item the tables can't explain.
+    let lines = [
+        marked_line(ModifierOrigin::Fractured, "+25 to maximum Life"),
+        modifier(None, &["25% increased Energy Shield"]),
+        modifier(None, &["+55 to maximum Life"]),
+    ];
+
+    let (tiers, effort) = searched(&pure_and_hybrid_tables(), 60, &lines, (3, 3));
+
+    // The other lines are read as if no candidate held it, the energy shield a pure modifier.
+    let pure = (1, vec![(Affix::Prefix, 1)]);
+    assert_eq!(summary(&lines, &tiers.found), [pure.clone(), pure]);
+    assert_eq!(tiers.without_tier, [(2, NoTier::InDoubt)]);
     assert_eq!(effort.ending, Ending::OtherReadings(Outcome::BestMet));
 }
 
@@ -950,9 +981,9 @@ fn a_search_whose_readings_stop_at_their_bound_reads_no_line() {
     assert_eq!(effort.readings, 2);
     assert_eq!(effort.ending, Ending::OtherReadings(Outcome::BestMet));
     assert_eq!(read, [(2, vec![(Affix::Prefix, 1)])]);
-    // Each line a hybrid with the one before or after: more readings than the bound, and no
-    // line read, the best of those looked at being maybe not the best of all (twelve hybrids
-    // fit twelve prefixes).
+    // Each line a hybrid with the one before or after: more choices to look at than the
+    // bound, those that hold the hybrid twice counted, and no line read, the best of the
+    // readings looked at being maybe not the best of all.
     let mut cut = lines(24);
     cut.push(modifier(None, &["+41 to the Rating of no Stat"]));
     let (tiers, effort) = searched(&tables, 60, &cut, (12, 0));

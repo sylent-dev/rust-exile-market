@@ -141,17 +141,22 @@ fn the_lines_of_two_origins_arent_read_as_one_modifier() {
 
     // Not the hybrid of the energy shield and the mana, of two marks. Nor each alone: the two
     // lines of energy shield are each the pure modifier by their value, one type, so that
-    // one of them at most is, and the mana may be a hybrid with the unmarked one.
-    let read = lines_read(&modifiers, &found)
-        .into_iter()
-        .map(|(lines, _)| lines);
+    // one of them at most is, and the mana may be a hybrid with the unmarked one. The rarity
+    // is a suffix: one energy shield, the mana and the desecrated line fill the prefixes.
+    let line = |text: &str| vec![text.to_owned()];
     assert_eq!(
-        read.collect::<Vec<_>>(),
+        lines_read(&modifiers, &found),
         [
-            ["18% increased Rarity of Items found"],
-            ["+43% to Fire Resistance"],
-            ["+40% to Cold Resistance"],
-            ["+69 to maximum Energy Shield"],
+            (
+                line("18% increased Rarity of Items found"),
+                vec![(Affix::Suffix, 1)]
+            ),
+            (line("+43% to Fire Resistance"), vec![(Affix::Suffix, 1)]),
+            (line("+40% to Cold Resistance"), vec![(Affix::Suffix, 2)]),
+            (
+                line("+69 to maximum Energy Shield"),
+                vec![(Affix::Prefix, 1)]
+            ),
         ]
     );
 }

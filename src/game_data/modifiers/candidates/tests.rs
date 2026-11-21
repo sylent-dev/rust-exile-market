@@ -488,6 +488,20 @@ fn a_candidate_tells_the_types_of_its_modifiers_that_are_sure() {
     // A prefix of one type or a suffix of another: nothing tells which.
     let two_types = [life("Life", "prefix"), life("OtherLife", "suffix")];
     assert_eq!(types(&two_types, a_life()), [[""; 0]]);
+    // A prefix of two types or a suffix of one, and a prefix of one or a suffix of two: the
+    // affix that tells its type doesn't tell the one of the candidate.
+    let untold_prefix = [
+        life("Life", "prefix"),
+        life("OtherLife", "prefix"),
+        life("Life", "suffix"),
+    ];
+    assert_eq!(types(&untold_prefix, a_life()), [[""; 0]]);
+    let untold_suffix = [
+        life("Life", "suffix"),
+        life("OtherLife", "suffix"),
+        life("Life", "prefix"),
+    ];
+    assert_eq!(types(&untold_suffix, a_life()), [[""; 0]]);
     // A split line: the type of the modifier of every line, then the one of the pure
     // modifier added.
     let hybrid_and_pure = [

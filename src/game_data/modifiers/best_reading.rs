@@ -8,8 +8,9 @@ use crate::item::Affix;
 /// The most ways to read the lines of an item copied from the in-game trade that are looked
 /// at: a handful on a real item, each hybrid the lines may be doubling them, as does each
 /// line that may be left without tier for its type ([`Unread`]; 60 at most on the items drawn
-/// at random by `trade_tiers/game_tests/random_items.rs`, 2026-11-21). Past them, no line is
-/// read: the best of the readings looked at may not be the best of all.
+/// at random by `trade_tiers/game_tests/random_items.rs`, 2026-11-21), the choices that hold a
+/// type twice counted among them, though they aren't readings ([`Search::is_reading`]). Past
+/// them, no line is read: the best of the readings looked at may not be the best of all.
 pub(super) const MAX_READINGS: usize = 4096;
 
 /// How many prefixes and suffixes the modifiers read from their values can add to the item.
@@ -179,16 +180,16 @@ pub(super) fn best_reading<'a>(
 }
 
 /// When a reading may leave a modifier of the item without tier.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Unread {
+#[derive(Clone, Copy)]
+enum Unread<'a> {
     /// In any reading: no candidate reads it alone.
     Freely,
     /// In none: a candidate reads it alone, the lines being read alone first.
     Never,
-    /// Only in a reading that holds a type of the candidate that reads it alone, of this
-    /// index, which can't be read with it: a stat the game writes on two lines, of two marks,
-    /// each of them the pure modifier of that stat by its value.
-    WhenItsTypeIsTaken(usize),
+    /// Only in a reading that holds a type of this candidate, the one that reads it alone,
+    /// which can't be read with it: a stat the game writes on two lines, of two marks, each
+    /// of them the pure modifier of that stat by its value.
+    WhenItsTypeIsTaken(&'a Candidate<'a>),
 }
 
 /// The ways to read the modifiers of an item, looked at one by one: for each, the candidates
@@ -198,7 +199,7 @@ struct Search<'a> {
     /// For each modifier of the item, the candidates that start at it, the shorter first.
     starting: Vec<Vec<usize>>,
     /// For each modifier of the item, when a reading may leave it without tier.
-    unread: Vec<Unread>,
+    unread: Vec<Unread<'a>>,
     room: Room,
     /// How many modifiers of the item are fractured.
     fractured: usize,
@@ -280,26 +281,29 @@ impl<'a> Search<'a> {
     /// reads alone left without tier only where a chosen candidate has taken a type of that
     /// one ([`Unread::WhenItsTypeIsTaken`]), never to make room for the others.
     fn is_reading(&self, chosen: &[usize]) -> bool {
-        let share_a_type = |one: usize, other: usize| {
-            let both = self.candidates.get(one).zip(self.candidates.get(other));
-            one != other && both.is_some_and(|(one, other)| one.shares_a_type_with(other))
-        };
-        // Whether a chosen candidate has a type of the candidate `index`, another one.
-        let is_taken = |index: usize| chosen.iter().any(|&other| share_a_type(index, other));
-        let is_read = |modifier: usize| {
-            let mut chosen = chosen
+        let chosen = || {
+            chosen
                 .iter()
-                .filter_map(|&index| self.candidates.get(index));
-            chosen.any(|candidate| candidate.modifiers.contains(&modifier))
+                .filter_map(|&index| self.candidates.get(index))
         };
-        let has_a_type_twice = chosen.iter().any(|&index| is_taken(index));
+        let has_a_type_twice = chosen().enumerate().any(|(place, candidate)| {
+            let mut after = chosen().skip(place + 1);
+            after.any(|other| other.shares_a_type_with(candidate))
+        });
         let leaves_a_line_unread =
             self.unread
                 .iter()
                 .enumerate()
                 .any(|(modifier, unread)| match *unread {
                     Unread::Freely | Unread::Never => false,
-                    Unread::WhenItsTypeIsTaken(alone) => !is_read(modifier) && !is_taken(alone),
+                    // Not read, the line isn't read by `alone` either: no chosen candidate is it.
+                    Unread::WhenItsTypeIsTaken(alone) => {
+                        let is_read =
+                            chosen().any(|candidate| candidate.modifiers.contains(&modifier));
+                        let is_taken =
+                            chosen().any(|candidate| candidate.shares_a_type_with(alone));
+                        !is_read && !is_taken
+                    }
                 });
         !has_a_type_twice && !leaves_a_line_unread
     }
@@ -363,12 +367,9 @@ impl<'a> Search<'a> {
 /// of the indexes `starting` among `candidates` starting at it: never when one of them reads
 /// it alone, unless that one shares a type with a candidate of other lines, which a reading
 /// can't hold with it.
-fn unread(candidates: &[Candidate<'_>], modifier: usize, starting: &[usize]) -> Unread {
-    let alone = starting
-        .iter()
-        .filter_map(|&index| Some((index, candidates.get(index)?)))
-        .find(|(_, candidate)| candidate.is_alone());
-    let Some((index, alone)) = alone else {
+fn unread<'a>(candidates: &'a [Candidate<'a>], modifier: usize, starting: &[usize]) -> Unread<'a> {
+    let mut starting = starting.iter().filter_map(|&index| candidates.get(index));
+    let Some(alone) = starting.find(|candidate| candidate.is_alone()) else {
         return Unread::Freely;
     };
     let is_of_other_lines = |other: &Candidate<'_>| !other.modifiers.contains(&modifier);
@@ -376,7 +377,7 @@ fn unread(candidates: &[Candidate<'_>], modifier: usize, starting: &[usize]) -> 
         .iter()
         .any(|other| is_of_other_lines(other) && other.shares_a_type_with(alone))
     {
-        Unread::WhenItsTypeIsTaken(index)
+        Unread::WhenItsTypeIsTaken(alone)
     } else {
         Unread::Never
     }

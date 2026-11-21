@@ -253,4 +253,11 @@ fn the_type_of_a_copied_modifier_is_told_when_modifiers_of_one_type_alone_hold_i
     );
     let one_type = [life("Life", 1, (21, 30)), essence.to_owned()];
     assert_eq!(modifier_type(&one_type, None), told("Life"));
+    // Three modifiers, the last two of one type: two types all the same.
+    let three = [
+        life("OtherLife", 1, (20, 31)),
+        life("Life", 1, (21, 30)),
+        essence.to_owned(),
+    ];
+    assert_eq!(modifier_type(&three, None), Some(None));
 }

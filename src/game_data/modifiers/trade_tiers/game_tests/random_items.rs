@@ -746,8 +746,8 @@ struct Counts {
     /// The items with a stat on two lines, of two marks, among `items`.
     stat_on_two_lines: usize,
     /// The items whose best reading the other readings don't meet (`Outcome::BestNotMet`),
-    /// every line of theirs left without tier, among `items`: a stat on two lines read as
-    /// two modifiers of one type, which the game can't roll.
+    /// every line of theirs left without tier, among `items`: none since a reading can't hold
+    /// a type twice, which a stat on two lines read alone did.
     best_not_met: usize,
     lines: usize,
     /// The lines that add up two modifiers or more, among `lines`.
@@ -955,6 +955,9 @@ fn measure(way: Way) -> (Counts, Vec<&'static str>) {
             counts.stat_on_two_lines += usize::from(item.has_a_stat_on_two_lines());
             counts.best_not_met +=
                 usize::from(effort.ending == Ending::OtherReadings(Outcome::BestNotMet));
+            // Far from its bound (below), the search of the best reading stops only when
+            // every choice is refused, which never happens: one always is a reading.
+            assert_ne!(effort.ending, Ending::ReadingsCut, "{way:?}, {base_type}");
             counts.most_readings = counts.most_readings.max(effort.readings);
             counts.most_steps = counts.most_steps.max(effort.steps);
             let mut wrong = false;
