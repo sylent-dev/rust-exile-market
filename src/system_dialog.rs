@@ -82,11 +82,7 @@ fn dialog(message: &str, sign: Sign) -> bool {
     let desktop = std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default();
     linux_tools(&desktop).into_iter().any(|tool| {
         Command::new(tool.program())
-            .args(
-                tool.arguments(message, sign)
-                    .iter()
-                    .map(AsRef::<str>::as_ref),
-            )
+            .args(tool.arguments(message, sign).iter().map(Cow::as_ref))
             .stdout(Stdio::null())
             .status()
             .is_ok_and(|status| shown(status.code()))
@@ -143,16 +139,19 @@ impl Tool {
     }
 }
 
-/// `message` written for kdialog, which reads its text as the rich text of Qt when it looks like
-/// some (checked on KDE Plasma, 2026-11-20: `<b>` and `<i>` shown bold and italic): inside
-/// `<qt>`, a tag at its start, so that Qt always reads it as rich text, its `&`, `<` and `>`
-/// escaped, so that none is taken for markup, and its line breaks as `<br>`, which rich text
-/// would otherwise join into one line.
+/// `message` written for kdialog, which reads the escapes of its text first (`\\`, `\n`; kdialog
+/// 26.08.3 warns "Unrecognized escape sequence" for another one, 2026-11-22), then reads it as the
+/// rich text of Qt when it looks like some (checked on KDE Plasma, 2026-11-20: `<b>` and `<i>`
+/// shown bold and italic): inside `<qt>`, a tag at its start, so that Qt always reads it as rich
+/// text, its `\`, `&`, `<` and `>` escaped, so that none is taken for an escape or for markup,
+/// and its line breaks as `<br>`, which rich text would otherwise join into one line. Rich text
+/// still shows spaces in a row, and a tab, as one space: no message of the application has any.
 #[cfg(target_os = "linux")]
 fn kdialog_text(message: &str) -> String {
     let mut text = String::from("<qt>");
     for character in message.chars() {
         match character {
+            '\\' => text.push_str("\\\\"),
             '&' => text.push_str("&amp;"),
             '<' => text.push_str("&lt;"),
             '>' => text.push_str("&gt;"),
@@ -233,12 +232,15 @@ mod tests {
     #[test]
     fn kdialog_shows_the_message_as_written_in_its_rich_text() {
         assert_eq!(
-            Tool::Kdialog.arguments("Details: <b>a</b> & c > d\n\nLog: /logs/a.log", Sign::Error),
+            Tool::Kdialog.arguments(
+                "Details: <b>a</b> & c > d \\q\n\nLog: /logs/a.log",
+                Sign::Error
+            ),
             [
                 "--title",
                 "Exile Market",
                 "--error",
-                "<qt>Details: &lt;b&gt;a&lt;/b&gt; &amp; c &gt; d<br><br>Log: /logs/a.log</qt>"
+                "<qt>Details: &lt;b&gt;a&lt;/b&gt; &amp; c &gt; d \\\\q<br><br>Log: /logs/a.log</qt>"
             ]
         );
     }
