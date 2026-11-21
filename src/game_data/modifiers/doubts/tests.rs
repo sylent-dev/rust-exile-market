@@ -80,10 +80,12 @@ fn a_search_cut_at_its_bound_leaves_every_line_read_in_doubt() {
 fn a_search_that_doesnt_meet_the_best_reading_leaves_every_line_read_in_doubt() {
     let tables = [
         table("Life", "prefix", &[LIFE], &[(1, &[(21, 30)])]),
+        table("OtherLife", "prefix", &[LIFE], &[(1, &[(20, 31)])]),
         table("Rarity", "suffix", &[RARITY], &[(1, &[(10, 20)])]),
     ];
-    // Two lines of one stat written apart, one fractured: the best reading takes each for the
-    // pure life, two modifiers of one type, which the search never makes.
+    // Two lines of one stat written apart, one fractured, that the modifiers of two types
+    // hold, so that the candidates don't tell their type: the best reading takes each for the
+    // first of the file, two modifiers of one type, which the search never makes.
     let lines = [
         Some(marked(ModifierOrigin::Fractured, LIFE, 25.0)),
         Some(copied(&[(LIFE, 26.0)])),

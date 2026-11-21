@@ -1,13 +1,16 @@
 //! The best reading of the lines of an item copied from the in-game trade: every way to choose
-//! among its candidates, ranked, within the room the item has for prefixes and suffixes.
+//! among its candidates that holds no type twice, ranked, within the room the item has for
+//! prefixes and suffixes.
 
 use super::candidates::{AffixSet, Candidate};
 use crate::item::Affix;
 
 /// The most ways to read the lines of an item copied from the in-game trade that are looked
-/// at: a handful on a real item, each hybrid the lines may be doubling them (24 at most on
-/// the items drawn at random by `trade_tiers/game_tests/random_items.rs`, 2026-11-10). Past
-/// them, no line is read: the best of the readings looked at may not be the best of all.
+/// at: a handful on a real item, each hybrid the lines may be doubling them, as does each
+/// line that may be left without tier for its type ([`Unread`]; 60 at most on the items drawn
+/// at random by `trade_tiers/game_tests/random_items.rs`, 2026-11-21), the choices
+/// [`Search::is_reading`] refuses counted among them, though they aren't readings. Past them,
+/// no line is read: the best of the readings looked at may not be the best of all.
 pub(super) const MAX_READINGS: usize = 4096;
 
 /// How many prefixes and suffixes the modifiers read from their values can add to the item.
@@ -20,7 +23,7 @@ pub(super) struct Room {
 impl Room {
     /// The bounds of how many of the modifiers that can be both are prefixes, the others
     /// suffixes, when the `chosen` candidates fit the room; none when they don't.
-    fn bounds(self, chosen: &[usize], candidates: &[Candidate]) -> Option<(usize, usize)> {
+    fn bounds(self, chosen: &[usize], candidates: &[Candidate<'_>]) -> Option<(usize, usize)> {
         let (mut prefixes, mut suffixes, mut both) = (0_usize, 0_usize, 0_usize);
         let sets = chosen
             .iter()
@@ -40,7 +43,11 @@ impl Room {
 
     /// The affixes a modifier that can be both is left with, while the others of the `chosen`
     /// candidates fit the room; both when the candidates don't fit it.
-    pub(super) fn affixes_left(self, chosen: &[usize], candidates: &[Candidate]) -> AffixesLeft {
+    pub(super) fn affixes_left(
+        self,
+        chosen: &[usize],
+        candidates: &[Candidate<'_>],
+    ) -> AffixesLeft {
         let both = chosen
             .iter()
             .filter_map(|&index| candidates.get(index))
@@ -103,7 +110,7 @@ struct ReadingKey {
 /// The best reading of the lines of an item among its candidates, and what the readings as
 /// good as it leave in doubt.
 pub(super) struct BestReading<'a> {
-    candidates: &'a [Candidate],
+    candidates: &'a [Candidate<'a>],
     /// The indexes among `candidates` of those it reads, in the order of their lines.
     chosen: Vec<usize>,
     /// How many prefixes and suffixes the lines can add to the item.
@@ -122,7 +129,7 @@ pub(super) struct BestReading<'a> {
 
 impl BestReading<'_> {
     /// The candidates it reads, in the order of their lines.
-    pub(super) fn candidates(&self) -> impl Iterator<Item = &Candidate> {
+    pub(super) fn candidates(&self) -> impl Iterator<Item = &Candidate<'_>> {
         self.chosen
             .iter()
             .filter_map(|&index| self.candidates.get(index))
@@ -142,14 +149,15 @@ pub(super) struct Cut {
 }
 
 /// The best reading of the `count` modifiers of an item among `candidates`, within `room`,
-/// `fractured` of the modifiers being fractured. Past [`MAX_READINGS`], none: a reading not
-/// looked at may be as good as the best of the others, or better.
-pub(super) fn best_reading(
-    candidates: &[Candidate],
+/// `fractured` of the modifiers being fractured: the best of those that hold no type twice
+/// ([`Search::is_reading`]). Past [`MAX_READINGS`], none: a reading not looked at may be as
+/// good as the best of the others, or better.
+pub(super) fn best_reading<'a>(
+    candidates: &'a [Candidate<'a>],
     count: usize,
     room: Room,
     fractured: usize,
-) -> Result<BestReading<'_>, Cut> {
+) -> Result<BestReading<'a>, Cut> {
     let mut search = Search::new(candidates, count, room, fractured);
     search.walk(0, &mut Vec::new());
     match search.best {
@@ -163,19 +171,35 @@ pub(super) fn best_reading(
             readings: search.readings,
         }),
         // Cut, the search holds the best of the readings it looked at only, which it doesn't
-        // give. Not cut, it always holds one: the reading of no line for an item without any.
+        // give. Not cut, it always holds one: each line read alone, or left without tier where
+        // no candidate reads it so, or where an earlier line has taken its type.
         Some(_) | None => Err(Cut {
             readings: search.readings,
         }),
     }
 }
 
+/// When a reading may leave a modifier of the item without tier.
+#[derive(Clone, Copy)]
+enum Unread<'a> {
+    /// In any reading: no candidate reads it alone.
+    Freely,
+    /// In none: a candidate reads it alone, the lines being read alone first.
+    Never,
+    /// Only in a reading that holds a type of this candidate, the one that reads it alone,
+    /// which can't be read with it: a stat the game writes on two lines, of two marks, each
+    /// of them the pure modifier of that stat by its value.
+    WhenItsTypeIsTaken(&'a Candidate<'a>),
+}
+
 /// The ways to read the modifiers of an item, looked at one by one: for each, the candidates
 /// chosen, the other modifiers without tier.
 struct Search<'a> {
-    candidates: &'a [Candidate],
+    candidates: &'a [Candidate<'a>],
     /// For each modifier of the item, the candidates that start at it, the shorter first.
     starting: Vec<Vec<usize>>,
+    /// For each modifier of the item, when a reading may leave it without tier.
+    unread: Vec<Unread<'a>>,
     room: Room,
     /// How many modifiers of the item are fractured.
     fractured: usize,
@@ -195,16 +219,22 @@ struct Search<'a> {
 impl<'a> Search<'a> {
     /// A search among `candidates` that has looked at no reading yet, of the `count` modifiers
     /// of an item, `fractured` of them fractured, within `room`.
-    fn new(candidates: &'a [Candidate], count: usize, room: Room, fractured: usize) -> Self {
+    fn new(candidates: &'a [Candidate<'a>], count: usize, room: Room, fractured: usize) -> Self {
         let mut starting = vec![Vec::new(); count];
         for (index, candidate) in candidates.iter().enumerate() {
             if let Some(starting) = starting.get_mut(candidate.modifiers.start) {
                 starting.push(index);
             }
         }
+        let unread = starting
+            .iter()
+            .enumerate()
+            .map(|(modifier, starting)| unread(candidates, modifier, starting))
+            .collect();
         Self {
             candidates,
             starting,
+            unread,
             room,
             fractured,
             readings: 0,
@@ -216,8 +246,8 @@ impl<'a> Search<'a> {
     }
 
     /// Every reading from the modifier `position` on, after the candidates `chosen`, at most
-    /// [`MAX_READINGS`]: the lines alone first, a modifier no candidate starts at read
-    /// without tier.
+    /// [`MAX_READINGS`]: the lines alone first, a modifier left without tier where it may be
+    /// ([`Unread`]), as one no candidate starts at.
     fn walk(&mut self, position: usize, chosen: &mut Vec<usize>) {
         if self.readings >= MAX_READINGS {
             self.cut = true;
@@ -229,12 +259,11 @@ impl<'a> Search<'a> {
             return;
         };
         let starting = starting.clone();
-        let alone = starting.iter().any(|&index| {
-            self.candidates.get(index).is_some_and(|candidate| {
-                candidate.modifiers.len() == 1 && candidate.added.is_none()
-            })
-        });
-        if !alone {
+        let may_be_unread = match self.unread.get(position) {
+            Some(Unread::Freely | Unread::WhenItsTypeIsTaken(_)) | None => true,
+            Some(Unread::Never) => false,
+        };
+        if may_be_unread {
             self.walk(position + 1, chosen);
         }
         for index in starting {
@@ -247,10 +276,45 @@ impl<'a> Search<'a> {
         }
     }
 
-    /// Ranks the reading of the candidates `chosen` against the best one so far: kept when
-    /// better; as good, the lines both read otherwise are ambiguous, and their room in doubt
-    /// when they leave another one.
+    /// Whether the candidates `chosen` make a reading of the item: no type twice among their
+    /// modifiers, the game rolling one modifier of a type at most; and a line that a candidate
+    /// reads alone left without tier only where a chosen candidate has taken a type of that
+    /// one ([`Unread::WhenItsTypeIsTaken`]), never to make room for the others.
+    fn is_reading(&self, chosen: &[usize]) -> bool {
+        let chosen = || {
+            chosen
+                .iter()
+                .filter_map(|&index| self.candidates.get(index))
+        };
+        let has_a_type_twice = chosen().enumerate().any(|(place, candidate)| {
+            let mut after = chosen().skip(place + 1);
+            after.any(|other| other.shares_a_type_with(candidate))
+        });
+        let leaves_a_line_unread =
+            self.unread
+                .iter()
+                .enumerate()
+                .any(|(modifier, unread)| match *unread {
+                    Unread::Freely | Unread::Never => false,
+                    // Not read, the line isn't read by `alone` either: no chosen candidate is it.
+                    Unread::WhenItsTypeIsTaken(alone) => {
+                        let is_read =
+                            chosen().any(|candidate| candidate.modifiers.contains(&modifier));
+                        let is_taken =
+                            chosen().any(|candidate| candidate.shares_a_type_with(alone));
+                        !is_read && !is_taken
+                    }
+                });
+        !has_a_type_twice && !leaves_a_line_unread
+    }
+
+    /// Ranks the reading of the candidates `chosen` against the best one so far, when they
+    /// make one ([`Self::is_reading`]): kept when better; as good, the lines both read
+    /// otherwise are ambiguous, and their room in doubt when they leave another one.
     fn keep(&mut self, chosen: &[usize]) {
+        if !self.is_reading(chosen) {
+            return;
+        }
         let (mut read, mut joined, mut split) = (0, 0, 0);
         // The fractured modifiers, the lines alone counted.
         let mut fractured = self.fractured;
@@ -299,12 +363,32 @@ impl<'a> Search<'a> {
     }
 }
 
+/// When a reading may leave without tier the modifier `modifier` of an item, the candidates
+/// of the indexes `starting` among `candidates` starting at it: never when one of them reads
+/// it alone, unless that one shares a type with a candidate of other lines, which a reading
+/// can't hold with it.
+fn unread<'a>(candidates: &'a [Candidate<'a>], modifier: usize, starting: &[usize]) -> Unread<'a> {
+    let mut starting = starting.iter().filter_map(|&index| candidates.get(index));
+    let Some(alone) = starting.find(|candidate| candidate.is_alone()) else {
+        return Unread::Freely;
+    };
+    let is_of_other_lines = |other: &Candidate<'_>| !other.modifiers.contains(&modifier);
+    if candidates
+        .iter()
+        .any(|other| is_of_other_lines(other) && other.shares_a_type_with(alone))
+    {
+        Unread::WhenItsTypeIsTaken(alone)
+    } else {
+        Unread::Never
+    }
+}
+
 /// The lines that the readings `one` and `other`, as good, read otherwise: those of the
 /// candidates only one of them has, a line split into other modifiers (the `30% increased
 /// Rarity of Items found` of a tiara, a prefix T1 and a suffix T2, or a T2 and a T1), joined
 /// with another line, or read by one of them only, with the other lines of these modifiers,
 /// which would otherwise be read alone.
-fn differently_read(candidates: &[Candidate], one: &[usize], other: &[usize]) -> Vec<usize> {
+fn differently_read(candidates: &[Candidate<'_>], one: &[usize], other: &[usize]) -> Vec<usize> {
     let only_one = one.iter().filter(|index| !other.contains(index));
     let only_other = other.iter().filter(|index| !one.contains(index));
     only_one

@@ -7,7 +7,12 @@ use crate::game_data::modifiers::split_lines::AddedTiers;
 
 /// A candidate that splits the line `line` into a modifier of `affix` over the modifiers
 /// `modifiers` and a pure one of `added`, without tiers.
-fn split(modifiers: std::ops::Range<usize>, affix: Affix, added: Affix, line: usize) -> Candidate {
+fn split(
+    modifiers: std::ops::Range<usize>,
+    affix: Affix,
+    added: Affix,
+    line: usize,
+) -> Candidate<'static> {
     let whole = candidate(modifiers, &[affix], false);
     let tiers = whole.affixes.first().map(|(_, tiers)| tiers.clone());
     Candidate {
@@ -24,7 +29,7 @@ fn split(modifiers: std::ops::Range<usize>, affix: Affix, added: Affix, line: us
 fn the_lines_two_readings_as_good_read_otherwise_are_ambiguous() {
     use Affix::{Prefix, Suffix};
     let room = |prefixes, suffixes| Room { prefixes, suffixes };
-    let search = |candidates: &[Candidate], room| {
+    let search = |candidates: &[Candidate<'_>], room| {
         let best = best_reading(candidates, 2, room, 0).expect("every reading looked at");
         (Some(best.chosen), best.ambiguous)
     };
@@ -72,8 +77,13 @@ fn the_lines_two_readings_as_good_read_otherwise_are_ambiguous() {
     assert_eq!(search(&candidates, room(3, 3)), (Some(vec![0]), vec![]));
 }
 
-/// A candidate of the modifiers `modifiers` that can be `affixes`, without tiers.
-fn candidate(modifiers: std::ops::Range<usize>, affixes: &[Affix], fractured: bool) -> Candidate {
+/// A candidate of the modifiers `modifiers` that can be `affixes`, without tiers nor a sure
+/// type.
+fn candidate(
+    modifiers: std::ops::Range<usize>,
+    affixes: &[Affix],
+    fractured: bool,
+) -> Candidate<'static> {
     let tiers = ModifierTiers {
         tiers: Vec::new(),
         found: 0,
@@ -91,12 +101,13 @@ fn candidate(modifiers: std::ops::Range<usize>, affixes: &[Affix], fractured: bo
             .map(|&affix| (affix, tiers.clone()))
             .collect(),
         added: None,
+        types: Vec::new(),
     }
 }
 
 /// The candidates the best reading reads among `candidates`, on an item of `count` modifiers,
 /// `fractured` of them fractured, with `room`.
-fn chosen(candidates: &[Candidate], count: usize, room: Room, fractured: usize) -> Vec<usize> {
+fn chosen(candidates: &[Candidate<'_>], count: usize, room: Room, fractured: usize) -> Vec<usize> {
     let best = best_reading(candidates, count, room, fractured);
     best.expect("every reading looked at").chosen
 }
@@ -330,4 +341,117 @@ fn as_many_readings_as_the_bound_all_looked_at_arent_cut() {
     let best = best_reading(&candidates, 24, room, 0).expect("every reading looked at");
 
     assert_eq!(best.readings, MAX_READINGS);
+}
+
+/// `candidate`, its modifiers of the types `types`.
+fn typed(candidate: Candidate<'static>, types: &[&'static str]) -> Candidate<'static> {
+    Candidate {
+        types: types.to_vec(),
+        ..candidate
+    }
+}
+
+#[test]
+fn a_reading_with_two_modifiers_of_one_type_isnt_one() {
+    use Affix::Prefix;
+    let room = Room {
+        prefixes: 3,
+        suffixes: 0,
+    };
+    // The lines 0 and 2 are each the pure modifier of one stat by their value; the lines 0
+    // and 1 are a hybrid too.
+    let lines = [
+        (0..1, "Shield"),
+        (0..2, "Hybrid"),
+        (1..2, "Mana"),
+        (2..3, "Shield"),
+    ];
+    let untyped = lines
+        .clone()
+        .map(|(modifiers, _)| candidate(modifiers, &[Prefix], false));
+    let candidates = lines.map(|(modifiers, modifier_type)| {
+        typed(candidate(modifiers, &[Prefix], false), &[modifier_type])
+    });
+
+    // Read alone, they would be two modifiers of one type: the hybrid and the pure one.
+    let best = best_reading(&candidates, 3, room, 0).expect("every reading looked at");
+    assert_eq!((best.chosen, best.ambiguous), (vec![1, 3], vec![]));
+    // Types nothing tells are no obstacle: the lines alone, the most modifiers.
+    assert_eq!(chosen(&untyped, 3, room, 0), [0, 2, 3]);
+    // Nor are two types: the lines alone, and no line that may be left without tier, each
+    // candidate sharing a type with itself only (the lines alone, or the hybrid).
+    let mut candidates = candidates;
+    candidates[3].types = vec!["Evasion"];
+    let best = best_reading(&candidates, 3, room, 0).expect("every reading looked at");
+    assert_eq!((best.chosen, best.readings), (vec![0, 2, 3], 2));
+}
+
+#[test]
+fn the_added_modifier_of_a_split_line_takes_its_type_too() {
+    use Affix::Prefix;
+    let room = Room {
+        prefixes: 3,
+        suffixes: 0,
+    };
+    // The line 1 splits into a hybrid with the line 0 and the pure modifier of its stat, which
+    // the line 2, of that stat too, is by its value.
+    let candidates = [
+        typed(split(0..2, Prefix, Prefix, 1), &["Hybrid", "Life"]),
+        typed(candidate(2..3, &[Prefix], false), &["Life"]),
+    ];
+
+    // One of them: the split, which reads two lines.
+    assert_eq!(chosen(&candidates, 3, room, 0), [0]);
+}
+
+#[test]
+fn two_lines_alone_of_one_type_are_each_left_without_tier_in_turn() {
+    use Affix::{Prefix, Suffix};
+    let room = Room {
+        prefixes: 3,
+        suffixes: 3,
+    };
+    let candidates = [
+        typed(candidate(0..1, &[Prefix], false), &["Life"]),
+        typed(candidate(1..2, &[Prefix], false), &["Life"]),
+        candidate(2..3, &[Suffix], false),
+    ];
+
+    let best = best_reading(&candidates, 3, room, 0).expect("every reading looked at");
+
+    // Either line, the other without tier, two readings as good: both ambiguous, the line 2
+    // read by both. The readings of neither, and of both, aren't readings.
+    assert_eq!(best.readings, 4);
+    assert_eq!((best.chosen, best.ambiguous), (vec![1, 2], vec![1, 0]));
+
+    // Three lines of one type, fractured, desecrated and unmarked: one of them at most, three
+    // readings as good among the eight choices, every line ambiguous.
+    let candidates =
+        [0, 1, 2].map(|line| typed(candidate(line..line + 1, &[Prefix], false), &["Life"]));
+    let best = best_reading(&candidates, 3, room, 0).expect("every reading looked at");
+    assert_eq!(best.readings, 8);
+    assert_eq!((best.chosen, best.ambiguous), (vec![2], vec![2, 1, 0]));
+}
+
+#[test]
+fn a_line_read_alone_isnt_left_without_tier_to_make_room() {
+    use Affix::Prefix;
+    let room = Room {
+        prefixes: 1,
+        suffixes: 0,
+    };
+    // The line 0 is the pure life, a type the line 1 takes when it is split; the line 1 is
+    // also a modifier alone.
+    let candidates = [
+        typed(candidate(0..1, &[Prefix], false), &["Life"]),
+        typed(candidate(1..2, &[Prefix], false), &["Mana"]),
+        typed(split(1..2, Prefix, Prefix, 1), &["Hybrid", "Life"]),
+    ];
+
+    let best = best_reading(&candidates, 2, room, 0).expect("every reading looked at");
+
+    // The line 1 alone would fit the one prefix, the line 0 without tier: but nothing took
+    // the type of the line 0 there. Both lines alone, which overflow the room.
+    assert_eq!(best.chosen, [0, 1]);
+    assert!(!best.fits_room);
 }

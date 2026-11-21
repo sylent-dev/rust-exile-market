@@ -42,7 +42,7 @@ pub fn modifier_tiers(
         return split_tiers(&tables, modifier, matches, (*line, whole));
     }
     let (affix, copied) = affix_and_copied(modifier, matches)?;
-    find(&tables, affix, &copied, Tie::Best)
+    find(&tables, affix, &copied, Tie::Best).map(|found| found.tiers)
 }
 
 /// What the tables are searched with for `modifier`: its affix, and its lines as copied; none
@@ -92,19 +92,30 @@ pub(super) enum Tie {
     Worst,
 }
 
+/// What [`find`] found for a copied modifier.
+pub(super) struct FoundModifier<'a> {
+    /// The tiers of the modifier that holds it best.
+    pub(super) tiers: ModifierTiers,
+    /// The type of the modifiers that hold it, in a tier that could be its own; none when
+    /// modifiers of two types do (a desecrated line a lord's modifier and an ordinary one both
+    /// hold): nothing then tells the type of the one that rolled.
+    pub(super) modifier_type: Option<&'a str>,
+}
+
 /// The tiers of `copied` among `tables`, on the base of the item: those of the modifier of
-/// `affix` that holds it best, the tier taken on a `tie`. Of two tiers that hold it as well,
+/// `affix` that holds it best, the tier taken on a `tie`, with the type of the modifiers that
+/// hold it ([`FoundModifier::modifier_type`]). Of two tiers that hold it as well,
 /// the one of the number the advanced copy wrote, maybe of another modifier: a modifier of one
 /// tier only, a lord's, can't hide a T3 of an ordinary one with the same lines and ranges;
 /// when the copy wrote the header without tier, one whose tier the game doesn't write: the `+3
 /// to Level of all Spell Skills` of an essence on a wand isn't the ordinary T2 of the same
 /// value.
-pub(super) fn find(
-    tables: &ItemTables<'_>,
+pub(super) fn find<'a>(
+    tables: &ItemTables<'a>,
     affix: TableAffix,
     copied: &Copied<'_>,
     tie: Tie,
-) -> Option<ModifierTiers> {
+) -> Option<FoundModifier<'a>> {
     // Whether a tier of `table` isn't the one the advanced copy wrote.
     let other_number = |table: &Table, tier: &Tier| match copied.tier {
         CopiedTier::Written(number) => tier.number != number,
@@ -112,6 +123,8 @@ pub(super) fn find(
         CopiedTier::Unknown => false,
     };
     let mut best: Option<((Fit, bool), ModifierTiers)> = None;
+    let mut modifier_type: Option<&str> = None;
+    let mut is_of_one_type = true;
     for held in tables.holding_as(copied, affix) {
         let table = held.table;
         let found = held
@@ -135,6 +148,10 @@ pub(super) fn find(
                 };
                 fit.cmp(&other_fit).then(tier)
             });
+        if found.is_some() {
+            is_of_one_type &= modifier_type.is_none_or(|earlier| earlier == table.modifier_type);
+            modifier_type = Some(&table.modifier_type);
+        }
         if let Some((fit, found)) = found
             && best.as_ref().is_none_or(|(best, _)| fit < *best)
         {
@@ -158,7 +175,10 @@ pub(super) fn find(
             }
         }
     }
-    best.map(|(_, tiers)| tiers)
+    best.map(|(_, tiers)| FoundModifier {
+        tiers,
+        modifier_type: modifier_type.filter(|_| is_of_one_type),
+    })
 }
 
 #[cfg(test)]

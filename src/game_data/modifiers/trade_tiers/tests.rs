@@ -624,9 +624,9 @@ fn a_doubt_stays_in_the_part_of_the_item_it_is_about() {
 #[test]
 fn two_hybrids_that_share_a_line_leave_it_without_tier_when_both_follow_it() {
     use Affix::{Prefix, Suffix};
-    let hybrid = |kind, affix, other| {
+    let hybrid = |modifier_type, affix, other| {
         table_json(
-            kind,
+            modifier_type,
             affix,
             &[ENERGY_SHIELD, other],
             &[(1, &[(20, 29), (10, 19)])],
@@ -673,9 +673,9 @@ fn two_hybrids_that_share_a_line_leave_it_without_tier_when_both_follow_it() {
 fn a_line_split_in_two_ways_as_good_has_no_tier_and_keeps_its_room() {
     use Affix::Prefix;
     // The rarity, 30, adds up a prefix and a suffix in two ways: T1 and T2, or T2 and T1.
-    let rarity = |kind, affix| {
+    let rarity = |modifier_type, affix| {
         table_json(
-            kind,
+            modifier_type,
             affix,
             &[RARITY],
             &[(1, &[(10, 14)]), (30, &[(16, 20)])],
@@ -786,8 +786,9 @@ fn a_best_reading_out_of_the_room_keeps_only_the_tiers_every_reading_in_the_room
     // Three pure suffixes of each stat: two readings in the room, each with one of the
     // prefixes and the suffixes of the other stat. Each prefix has a reading that gives
     // it, none gives both.
-    let suffix =
-        |kind: &str, template, range| table_json(kind, "suffix", &[template], &[(1, &[range])]);
+    let suffix = |modifier_type: &str, template, range| {
+        table_json(modifier_type, "suffix", &[template], &[(1, &[range])])
+    };
     let tables = with(&[
         suffix("LifeA", LIFE, (15, 18)),
         suffix("LifeB", LIFE, (15, 18)),
@@ -845,45 +846,153 @@ fn a_line_only_a_reading_in_the_room_reads_changes_no_tier_but_those_of_its_modi
     );
 }
 
+/// The modifier of the line `text`, marked `origin` by the game.
+fn marked_line(origin: ModifierOrigin, text: &str) -> Modifier {
+    Modifier {
+        origin: Some(origin),
+        ..modifier(None, &[text])
+    }
+}
+
 #[test]
-fn a_best_reading_the_other_readings_dont_meet_leaves_every_line_without_tier() {
+fn a_stat_on_two_lines_is_its_pure_modifier_and_a_hybrid_whichever_is_marked() {
+    use ModifierOrigin::{Desecrated, Fractured};
+    let tables = pure_and_hybrid_tables();
+    let pure = (1, vec![(Affix::Prefix, 1)]);
+    let hybrid = (2, vec![(Affix::Prefix, 1)]);
+    // A stat on two lines, of two marks: read alone, the two lives would be two modifiers of
+    // one type, which the game can't roll, and three modifiers, more than any other reading.
+    let lines = [
+        marked_line(Desecrated, "25% increased Energy Shield"),
+        marked_line(Desecrated, "+25 to maximum Life"),
+        modifier(None, &["+26 to maximum Life"]),
+    ];
+
+    let ((read, split), effort) = read_modifiers(&tables, 60, &lines, (3, 3));
+
+    // The marked lines are their hybrid, the other life the pure modifier: no other reading,
+    // a hybrid never joining lines of two marks.
+    assert_eq!(read, [hybrid.clone(), pure.clone()]);
+    assert_eq!(split, []);
+    assert_eq!(effort.ending, Ending::OtherReadings(Outcome::BestMet));
+
+    // The unmarked lines their hybrid, the marked life the pure modifier, as well.
+    let lines = [
+        marked_line(Fractured, "+26 to maximum Life"),
+        modifier(None, &["25% increased Energy Shield"]),
+        modifier(None, &["+25 to maximum Life"]),
+    ];
+    let ((read, split), effort) = read_modifiers(&tables, 60, &lines, (3, 3));
+    assert_eq!(read, [pure, hybrid]);
+    assert_eq!(split, []);
+    assert_eq!(effort.ending, Ending::OtherReadings(Outcome::BestMet));
+}
+
+#[test]
+fn a_line_alone_and_a_sum_that_takes_its_type_are_ranked_as_any_two_readings() {
+    let tables = pure_and_hybrid_tables();
+    // The life of 55 is in no tier alone: the pure modifier, `21–30`, and the hybrid with the
+    // energy shield add up to it, a sum that takes the type of the pure life the fractured
+    // line is by its value. One of the two is read, never both: an item the tables can't
+    // explain.
+    let lines = |shield| {
+        [
+            marked_line(ModifierOrigin::Fractured, "+25 to maximum Life"),
+            modifier(None, &[shield]),
+            modifier(None, &["+55 to maximum Life"]),
+        ]
+    };
+    let pure = (1, vec![(Affix::Prefix, 1)]);
+    let hybrid = (2, vec![(Affix::Prefix, 1)]);
+
+    // The energy shield a pure modifier too: two lines read either way, and the reading
+    // that splits no line is the best, the life of 55 without tier.
+    let alone = lines("25% increased Energy Shield");
+    let (tiers, effort) = searched(&tables, 60, &alone, (3, 3));
+    assert_eq!(summary(&alone, &tiers.found), [pure.clone(), pure]);
+    assert_eq!(added(&alone, &tiers.found), []);
+    assert_eq!(tiers.without_tier, [(2, NoTier::InDoubt)]);
+    assert_eq!(effort.ending, Ending::OtherReadings(Outcome::BestMet));
+
+    // The energy shield in no pure tier: the sum reads two lines against one, and it is the
+    // fractured line that stays without tier (an entry of the backlog).
+    let summed = lines("20% increased Energy Shield");
+    let (tiers, effort) = searched(&tables, 60, &summed, (3, 3));
+    assert_eq!(summary(&summed, &tiers.found), [hybrid]);
+    assert_eq!(
+        added(&summed, &tiers.found),
+        [("+55 to maximum Life".to_owned(), Affix::Prefix, 1)]
+    );
+    assert_eq!(tiers.without_tier, [(0, NoTier::InDoubt)]);
+    assert_eq!(effort.ending, Ending::OtherReadings(Outcome::BestMet));
+}
+
+#[test]
+fn two_lines_only_the_modifier_of_one_type_holds_are_in_doubt_and_the_others_read() {
     let tables = read_tables(&[
         table_json("Life", "prefix", &[LIFE], &[(1, &[(21, 30)])]),
         table_json("Rarity", "suffix", &[RARITY], &[(1, &[(10, 20)])]),
     ]);
-    // Two lines of one stat written apart, one fractured: the best reading takes each for
-    // the pure life, two modifiers of one type, which the game can't roll and the other
-    // readings don't make.
+    // Two lines of one stat written apart, one fractured, each the pure life by its value:
+    // one of them at most, and nothing tells which.
     let lines = [
-        Modifier {
-            origin: Some(ModifierOrigin::Fractured),
-            ..modifier(None, &["+25 to maximum Life"])
-        },
+        marked_line(ModifierOrigin::Fractured, "+25 to maximum Life"),
         modifier(None, &["+26 to maximum Life"]),
         modifier(None, &["15% increased Rarity of Items found"]),
     ];
 
-    // The rarity too, which has nothing to do with it (an entry of the backlog).
-    let ((read, split), effort) = read_modifiers(&tables, 60, &lines, (3, 3));
-    assert_eq!(read, []);
-    assert_eq!(split, []);
-    assert_eq!(effort.ending, Ending::OtherReadings(Outcome::BestNotMet));
+    let (tiers, effort) = searched(&tables, 60, &lines, (3, 3));
 
-    // Other readings met, a hybrid with either life, none of them the best one: the same.
+    // The rarity, which has nothing to do with it, keeps its tier.
+    assert_eq!(
+        summary(&lines, &tiers.found),
+        [(1, vec![(Affix::Suffix, 1)])]
+    );
+    assert_eq!(
+        tiers.without_tier,
+        [(0, NoTier::InDoubt), (1, NoTier::InDoubt)]
+    );
+    assert_eq!(effort.ending, Ending::OtherReadings(Outcome::BestMet));
+}
+
+#[test]
+fn a_best_reading_the_other_readings_dont_meet_leaves_every_line_without_tier() {
+    let tables = read_tables(&[
+        table_json("Life", "prefix", &[LIFE], &[(1, &[(21, 30)])]),
+        table_json("OtherLife", "prefix", &[LIFE], &[(1, &[(20, 31)])]),
+        table_json("Rarity", "suffix", &[RARITY], &[(1, &[(10, 20)])]),
+    ]);
+    // Two lines of one stat written apart, one fractured, that the modifiers of two types
+    // hold: nothing tells the candidates their type, and the best reading takes each for the
+    // first of the file, two modifiers of one type, which the other readings don't make.
     let lines = [
-        "25% increased Energy Shield",
-        "+25 to maximum Life",
-        "+26 to maximum Life",
-    ]
-    .map(|text| modifier(None, &[text]));
-    let (tiers, effort) = searched(&pure_and_hybrid_tables(), 60, &lines, (3, 3));
+        marked_line(ModifierOrigin::Fractured, "+25 to maximum Life"),
+        modifier(None, &["+26 to maximum Life"]),
+        modifier(None, &["15% increased Rarity of Items found"]),
+    ];
+
+    let (tiers, effort) = searched(&tables, 60, &lines, (3, 3));
+
     assert_eq!(effort.ending, Ending::OtherReadings(Outcome::BestNotMet));
-    // Every line in doubt: the search can't vouch for the reading it would show.
+    // Every line in doubt, the rarity too: the search can't vouch for the reading it would
+    // show (an entry of the backlog).
     let every_line_in_doubt = TradeTiers {
         found: Vec::new(),
         without_tier: (0..3).map(|line| (line, NoTier::InDoubt)).collect(),
     };
     assert_eq!(tiers, every_line_in_doubt);
+
+    // Two types with the same tiers show the same: the best reading is met, and its tiers
+    // stay, right in their numbers.
+    let tables = read_tables(&[
+        table_json("Life", "prefix", &[LIFE], &[(1, &[(21, 30)])]),
+        table_json("OtherLife", "prefix", &[LIFE], &[(1, &[(21, 30)])]),
+        table_json("Rarity", "suffix", &[RARITY], &[(1, &[(10, 20)])]),
+    ]);
+    let ((read, _), effort) = read_modifiers(&tables, 60, &lines, (3, 3));
+    assert_eq!(effort.ending, Ending::OtherReadings(Outcome::BestMet));
+    let life = (1, vec![(Affix::Prefix, 1)]);
+    assert_eq!(read, [life.clone(), life, (1, vec![(Affix::Suffix, 1)])]);
 }
 
 #[test]
@@ -903,9 +1012,9 @@ fn a_search_whose_readings_stop_at_their_bound_reads_no_line() {
     assert_eq!(effort.readings, 2);
     assert_eq!(effort.ending, Ending::OtherReadings(Outcome::BestMet));
     assert_eq!(read, [(2, vec![(Affix::Prefix, 1)])]);
-    // Each line a hybrid with the one before or after: more readings than the bound, and no
-    // line read, the best of those looked at being maybe not the best of all (twelve hybrids
-    // fit twelve prefixes).
+    // Each line a hybrid with the one before or after: more choices to look at than the
+    // bound, those that hold the hybrid twice counted, and no line read, the best of the
+    // readings looked at being maybe not the best of all.
     let mut cut = lines(24);
     cut.push(modifier(None, &["+41 to the Rating of no Stat"]));
     let (tiers, effort) = searched(&tables, 60, &cut, (12, 0));

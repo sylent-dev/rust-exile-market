@@ -37,7 +37,7 @@ pub(super) struct Compared {
 impl BestShown {
     /// `best` as it is compared, on an item of `count` modifiers.
     pub(super) fn new(best: &BestReading<'_>, count: usize) -> Self {
-        let chosen: Vec<&Candidate> = best.candidates().collect();
+        let chosen: Vec<&Candidate<'_>> = best.candidates().collect();
         Self {
             lines: best_shown(&chosen, count),
             candidates: chosen
@@ -159,7 +159,7 @@ pub(super) struct BestCandidate {
 /// For each modifier of the item, the modifiers the `chosen` candidates of the best reading read
 /// on its line, each with the affixes and tiers it can be: a modifier, or the two of a split
 /// line, one of which may be in two neighbouring tiers.
-fn best_shown(chosen: &[&Candidate], count: usize) -> Vec<Vec<Vec<Shown>>> {
+fn best_shown(chosen: &[&Candidate<'_>], count: usize) -> Vec<Vec<Vec<Shown>>> {
     let mut shown = vec![Vec::new(); count];
     for candidate in chosen {
         let whole: Vec<Shown> = candidate

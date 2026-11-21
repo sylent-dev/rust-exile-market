@@ -17,7 +17,7 @@ fn every_table_of_the_embedded_file_is_read() {
 fn a_table_rolls_on_the_bases_of_its_domain_only() {
     let charges = TABLES
         .iter()
-        .find(|table| table.kind == "FlaskIncreasedMaxCharges")
+        .find(|table| table.modifier_type == "FlaskIncreasedMaxCharges")
         .expect("the charges of a flask");
     let base = |name| bases::spawn(Language::English, name).expect("a base");
 
@@ -29,11 +29,13 @@ fn a_table_rolls_on_the_bases_of_its_domain_only() {
 
     // A desecrated table rolls on the equipment and the jewels: the presence of Amanamu on
     // the helmets, and a hybrid of the Abyss on the jewels.
-    let desecrated = |kind: &str| {
+    let desecrated = |modifier_type: &str| {
         TABLES
             .iter()
-            .find(|table| table.kind == kind && table.domain == Domain::Desecrated)
-            .expect(kind)
+            .find(|table| {
+                table.modifier_type == modifier_type && table.domain == Domain::Desecrated
+            })
+            .expect(modifier_type)
     };
     let presence = desecrated("PresenceRadius");
     assert!(presence.rolls_on(base("Divine Crown")));
@@ -57,14 +59,14 @@ fn the_tables_are_ordinary_then_of_the_genesis_tree_the_essences_and_the_alloys_
     let genesis = Some(TableSource::Genesis);
     let essence = Some(TableSource::Essence);
     let alloy = Some(TableSource::Alloy);
-    for kind in [
+    for modifier_type in [
         (false, genesis),
         (false, essence),
         (false, alloy),
         (true, None),
         (true, genesis),
     ] {
-        assert!(order.contains(&kind), "{kind:?}");
+        assert!(order.contains(&modifier_type), "{modifier_type:?}");
     }
 }
 
@@ -110,8 +112,8 @@ fn no_line_in_doubt_can_be_the_modifier_of_two_lords_of_one_affix() {
             assert!(
                 !(two_lords && on_one_base && overlap(one, other) && either),
                 "{} and {}",
-                one.kind,
-                other.kind
+                one.modifier_type,
+                other.modifier_type
             );
         }
     }

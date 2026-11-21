@@ -139,9 +139,64 @@ fn the_lines_of_two_origins_arent_read_as_one_modifier() {
 
     let found = found_tiers(&item, &modifiers, (3, 3));
 
-    let read = lines_read(&modifiers, &found);
-    assert_eq!(read[0].0, ["41% increased Energy Shield"]);
-    assert_eq!(read[1].0, ["+34 to maximum Mana"]);
+    // Not the hybrid of the energy shield and the mana, of two marks. Nor each alone: the two
+    // lines of energy shield are each the pure modifier by their value, one type, so that
+    // one of them at most is, and the mana may be a hybrid with the unmarked one. The rarity
+    // is a suffix: one energy shield, the mana and the desecrated line fill the prefixes.
+    let line = |text: &str| vec![text.to_owned()];
+    assert_eq!(
+        lines_read(&modifiers, &found),
+        [
+            (
+                line("18% increased Rarity of Items found"),
+                vec![(Affix::Suffix, 1)]
+            ),
+            (line("+43% to Fire Resistance"), vec![(Affix::Suffix, 1)]),
+            (line("+40% to Cold Resistance"), vec![(Affix::Suffix, 2)]),
+            (
+                line("+69 to maximum Energy Shield"),
+                vec![(Affix::Prefix, 1)]
+            ),
+        ]
+    );
+}
+
+#[test]
+fn a_desecrated_hybrid_is_read_next_to_the_pure_modifier_of_its_stat() {
+    let item = parse(BOW_FR);
+    // Without its `Ajoute 27 à 61 Dégâts Physiques`, a prefix: the bow has room for its two
+    // lines of physical damage and its accuracy read alone, three prefixes, two of them the
+    // pure modifier of one type.
+    let modifiers: Vec<Modifier> = item
+        .modifiers()
+        .iter()
+        .filter(|modifier| !modifier.lines[0].text.starts_with("Ajoute"))
+        .cloned()
+        .collect();
+
+    let found = found_tiers(&item, &modifiers, (3, 4));
+
+    // The desecrated lines are their hybrid, the unmarked one the pure modifier.
+    let mut read = lines_read(&modifiers, &found);
+    read.retain(|(lines, _)| lines.iter().any(|line| line.contains("Dégâts Physiques")));
+    let lines =
+        |lines: &[&str]| -> Vec<String> { lines.iter().map(|&line| line.to_owned()).collect() };
+    assert_eq!(
+        read,
+        [
+            (
+                lines(&["172% d'Augmentation des Dégâts Physiques"]),
+                vec![(Affix::Prefix, 1)]
+            ),
+            (
+                lines(&[
+                    "79% d'Augmentation des Dégâts Physiques",
+                    "+193 au Score de Précision"
+                ]),
+                vec![(Affix::Prefix, 1)]
+            ),
+        ]
+    );
 }
 
 #[test]

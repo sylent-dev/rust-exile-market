@@ -12,10 +12,13 @@
 //! the ways that differ only by the order of the lines. An item has from one prefix to the most
 //! its base can have (three, two on a jewel) and as many suffixes, of other types, every tier
 //! its level allows as likely, every value of a tier as likely. Its lines are written as the
-//! in-game trade writes them: one line per stat, without affix, tier nor range, the values of
-//! two modifiers with the same stat added up. The modifiers of the Genesis tree, of the
-//! essences and of the alloys aren't drawn, nor a modifier one of whose lines no string of the
-//! stats writes back.
+//! in-game trade writes them: one line per stat and mark, without affix, tier nor range, the
+//! values of two modifiers with the same stat and the same mark added up, a marked modifier
+//! written apart from the others (`41% increased Energy Shield (fractured)` and `98% increased
+//! Energy Shield` on the owner's tiara, `172% increased Physical Damage` and `79% increased
+//! Physical Damage (desecrated)` on a mirrored bow). The modifiers of the Genesis
+//! tree, of the essences and of the alloys aren't drawn, nor a modifier one of whose lines no
+//! string of the stats writes back.
 //!
 //! What a real copy does and the draw doesn't: the order of the lines (by stat in the game, in
 //! an order the data don't give: the draw tries the order of the modifiers, and a shuffled
@@ -72,9 +75,12 @@ struct Way {
     shuffled: bool,
     /// The level of the items: at 82, every tier of the tables rolls.
     item_level: u32,
+    /// Whether the draw fractures one modifier of an item: each ordinary one, one time in
+    /// three, until one is.
+    fractures_one: bool,
 }
 
-const WAYS: [Way; 6] = [
+const WAYS: [Way; 9] = [
     Way::PLAIN,
     Way {
         shuffled: true,
@@ -99,6 +105,22 @@ const WAYS: [Way; 6] = [
         item_level: 45,
         ..Way::PLAIN
     },
+    // A stat on two lines: an ordinary modifier marked desecrated, another unmarked.
+    Way {
+        desecrated: Desecrated::Third,
+        revealed: true,
+        ..Way::PLAIN
+    },
+    // A stat on two lines, one of them fractured.
+    Way {
+        fractures_one: true,
+        ..Way::PLAIN
+    },
+    Way {
+        fractures_one: true,
+        shuffled: true,
+        ..Way::PLAIN
+    },
 ];
 
 impl Way {
@@ -108,6 +130,7 @@ impl Way {
         revealed: false,
         shuffled: false,
         item_level: 82,
+        fractures_one: false,
     };
 }
 
@@ -121,11 +144,13 @@ const SHUFFLE_SEED: u64 = 0xD1B5_4A32_D192_ED03;
 /// low, and `wrong_items` the items it shows on. Before step 17e3e, which leaves without tier
 /// the lines pure modifiers and their hybrid both hold, the first way read 858 lines as
 /// another modifier, 656 of them lines of a hybrid read alone, on 559 items.
-const RECORDED: [Counts; 6] = [
+const RECORDED: [Counts; 9] = [
     Counts {
         items: 6400,
         wrong_items: 109,
         discarded: 0,
+        stat_on_two_lines: 0,
+        best_not_met: 0,
         lines: 26789,
         summed_lines: 871,
         right: 24137,
@@ -145,6 +170,8 @@ const RECORDED: [Counts; 6] = [
         items: 6400,
         wrong_items: 105,
         discarded: 0,
+        stat_on_two_lines: 0,
+        best_not_met: 0,
         lines: 26789,
         summed_lines: 871,
         right: 22669,
@@ -164,25 +191,29 @@ const RECORDED: [Counts; 6] = [
         items: 6400,
         wrong_items: 60,
         discarded: 0,
-        lines: 25638,
-        summed_lines: 381,
-        right: 23925,
-        either_affix: 172,
-        without_tier: 1648,
-        in_doubt: 1648,
-        hybrid_without_tier: 1194,
-        summed_without_tier: 287,
-        other_tier: 43,
-        other_modifier: 22,
+        stat_on_two_lines: 21,
+        best_not_met: 0,
+        lines: 25688,
+        summed_lines: 369,
+        right: 24020,
+        either_affix: 175,
+        without_tier: 1603,
+        in_doubt: 1603,
+        hybrid_without_tier: 1164,
+        summed_without_tier: 274,
+        other_tier: 44,
+        other_modifier: 21,
         summed_other_modifier: 11,
         hybrid_other_modifier: 0,
-        most_readings: 16,
+        most_readings: 24,
         most_steps: 456,
     },
     Counts {
         items: 6400,
         wrong_items: 54,
         discarded: 0,
+        stat_on_two_lines: 0,
+        best_not_met: 0,
         lines: 23059,
         summed_lines: 42,
         right: 22705,
@@ -202,6 +233,8 @@ const RECORDED: [Counts; 6] = [
         items: 6400,
         wrong_items: 68,
         discarded: 0,
+        stat_on_two_lines: 0,
+        best_not_met: 0,
         lines: 25022,
         summed_lines: 258,
         right: 23743,
@@ -221,6 +254,8 @@ const RECORDED: [Counts; 6] = [
         items: 6400,
         wrong_items: 42,
         discarded: 0,
+        stat_on_two_lines: 0,
+        best_not_met: 0,
         lines: 26716,
         summed_lines: 904,
         right: 24590,
@@ -235,6 +270,69 @@ const RECORDED: [Counts; 6] = [
         hybrid_other_modifier: 0,
         most_readings: 16,
         most_steps: 580,
+    },
+    Counts {
+        items: 6400,
+        wrong_items: 85,
+        discarded: 0,
+        stat_on_two_lines: 190,
+        best_not_met: 0,
+        lines: 26407,
+        summed_lines: 418,
+        right: 24540,
+        either_affix: 202,
+        without_tier: 1777,
+        in_doubt: 1777,
+        hybrid_without_tier: 1287,
+        summed_without_tier: 317,
+        other_tier: 73,
+        other_modifier: 17,
+        summed_other_modifier: 11,
+        hybrid_other_modifier: 0,
+        most_readings: 25,
+        most_steps: 606,
+    },
+    Counts {
+        items: 6400,
+        wrong_items: 93,
+        discarded: 0,
+        stat_on_two_lines: 358,
+        best_not_met: 0,
+        lines: 27078,
+        summed_lines: 454,
+        right: 25588,
+        either_affix: 227,
+        without_tier: 1390,
+        in_doubt: 1390,
+        hybrid_without_tier: 926,
+        summed_without_tier: 321,
+        other_tier: 86,
+        other_modifier: 14,
+        summed_other_modifier: 14,
+        hybrid_other_modifier: 0,
+        most_readings: 60,
+        most_steps: 778,
+    },
+    Counts {
+        items: 6400,
+        wrong_items: 85,
+        discarded: 0,
+        stat_on_two_lines: 358,
+        best_not_met: 0,
+        lines: 27078,
+        summed_lines: 454,
+        right: 23329,
+        either_affix: 248,
+        without_tier: 3659,
+        in_doubt: 3659,
+        hybrid_without_tier: 2960,
+        summed_without_tier: 377,
+        other_tier: 79,
+        other_modifier: 11,
+        summed_other_modifier: 11,
+        hybrid_other_modifier: 0,
+        most_readings: 45,
+        most_steps: 798,
     },
 ];
 
@@ -367,7 +465,7 @@ fn rolled<'a>(
         if writes {
             rolled.push(Rolled { table, tiers });
         } else {
-            unwritten.push(table.kind.as_str());
+            unwritten.push(table.modifier_type.as_str());
         }
     }
     (rolled, unwritten)
@@ -481,23 +579,24 @@ struct DrawnItem<'a> {
 
 impl<'a> DrawnItem<'a> {
     /// Whether `candidate` can be added: no modifier of its type yet, and none of its lines a
-    /// line of the item it can't add up with (another origin, or no value to add).
+    /// line of the item of its mark it can't add up with, having no value to add. A line of
+    /// another mark is no obstacle: the game writes both.
     fn takes(&self, candidate: Candidate<'_>) -> bool {
         let Candidate { rolled, origin } = candidate;
-        let kind = self
+        let is_type_taken = self
             .modifiers
             .iter()
-            .any(|modifier| modifier.rolled.table.kind == rolled.table.kind);
+            .any(|modifier| modifier.rolled.table.modifier_type == rolled.table.modifier_type);
         let clash = rolled.table.lines.iter().any(|line| {
             self.lines.iter().any(|other| {
-                other.template == line.template
-                    && (other.origin != origin || other.values.is_empty())
+                other.template == line.template && other.origin == origin && other.values.is_empty()
             })
         });
-        !kind && !clash
+        !is_type_taken && !clash
     }
 
-    /// Adds `candidate` in its tier `tier`, its values drawn.
+    /// Adds `candidate` in its tier `tier`, its values drawn, each added up with those of the
+    /// line of its stat and of its mark.
     fn add(&mut self, draw: &mut Draw, candidate: Candidate<'a>, tier: usize) {
         let Candidate { rolled, origin } = candidate;
         let index = self.modifiers.len();
@@ -505,7 +604,9 @@ impl<'a> DrawnItem<'a> {
         for (line, ranges) in rolled.table.lines.iter().zip(&rolled.tiers[tier].ranges) {
             let values: Vec<f64> = ranges.iter().map(|&range| draw.value(range)).collect();
             let same = self.lines.iter().position(|other| {
-                other.template == line.template && other.values.len() == values.len()
+                other.template == line.template
+                    && other.origin == origin
+                    && other.values.len() == values.len()
             });
             if let Some(same) = same {
                 let other = &mut self.lines[same];
@@ -529,6 +630,20 @@ impl<'a> DrawnItem<'a> {
             tier,
             lines,
         });
+    }
+
+    /// Whether a modifier of the item is fractured.
+    fn has_fractured(&self) -> bool {
+        let fractured = Some(ModifierOrigin::Fractured);
+        self.lines.iter().any(|line| line.origin == fractured)
+    }
+
+    /// Whether a stat is on two lines of the item, of two marks.
+    fn has_a_stat_on_two_lines(&self) -> bool {
+        self.lines.iter().enumerate().any(|(index, line)| {
+            let before = &self.lines[..index];
+            before.iter().any(|other| other.template == line.template)
+        })
     }
 
     /// The lines in another order, drawn.
@@ -590,7 +705,14 @@ fn drawn<'a>(draw: &mut Draw, pools: &'a Pools<'a>, way: Way, most: u32) -> Draw
             if pool.is_empty() {
                 continue;
             }
-            let origin = marked.then_some(ModifierOrigin::Desecrated);
+            // A lord's modifier is never fractured, nor one a desecration revealed.
+            let fractured =
+                way.fractures_one && !marked && !item.has_fractured() && draw.below(3) == 0;
+            let origin = if fractured {
+                Some(ModifierOrigin::Fractured)
+            } else {
+                marked.then_some(ModifierOrigin::Desecrated)
+            };
             // A few tries: a type already on the item is drawn again.
             for _ in 0..20 {
                 let rolled = pool[draw.below(pool.len())];
@@ -621,6 +743,12 @@ struct Counts {
     wrong_items: usize,
     /// The items drawn again, a sum of theirs written by no string (a line of two signs).
     discarded: usize,
+    /// The items with a stat on two lines, of two marks, among `items`.
+    stat_on_two_lines: usize,
+    /// The items whose best reading the other readings don't meet (`Outcome::BestNotMet`),
+    /// every line of theirs left without tier, among `items`: a best reading with a type
+    /// twice, on lines whose candidates don't know their type.
+    best_not_met: usize,
     lines: usize,
     /// The lines that add up two modifiers or more, among `lines`.
     summed_lines: usize,
@@ -824,6 +952,12 @@ fn measure(way: Way) -> (Counts, Vec<&'static str>) {
                 without_tier,
             } = tiers;
             counts.items += 1;
+            counts.stat_on_two_lines += usize::from(item.has_a_stat_on_two_lines());
+            counts.best_not_met +=
+                usize::from(effort.ending == Ending::OtherReadings(Outcome::BestNotMet));
+            // Far from its bound (below), the search of the best reading stops only when
+            // every choice is refused, which never happens: one always is a reading.
+            assert_ne!(effort.ending, Ending::ReadingsCut, "{way:?}, {base_type}");
             counts.most_readings = counts.most_readings.max(effort.readings);
             counts.most_steps = counts.most_steps.max(effort.steps);
             let mut wrong = false;

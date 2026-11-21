@@ -26,16 +26,16 @@ pub(super) fn line(
     }
 }
 
-/// A placement of `kind` and `affix` on `lines`, adding `ranges` to the values, of a modifier
-/// that isn't fractured.
+/// A placement of `modifier_type` and `affix` on `lines`, adding `ranges` to the values, of a
+/// modifier that isn't fractured.
 pub(super) fn placement(
-    kind: &'static str,
+    modifier_type: &'static str,
     affix: Affix,
     lines: &[usize],
     ranges: &[(usize, Range)],
 ) -> Placement<'static> {
     Placement {
-        kind,
+        modifier_type,
         fractured: false,
         shown: Shown {
             affix,
