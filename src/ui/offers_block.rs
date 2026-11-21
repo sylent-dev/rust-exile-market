@@ -81,6 +81,9 @@ pub struct OffersBlock<'a> {
     /// The window has the bug report, which the hint of a failed search opens: the main
     /// window only.
     pub has_bug_report: bool,
+    /// How long ago the item was copied, when its price block asks to search its offers: the
+    /// search block beats for it before the first search.
+    pub asked_to_search_since_copy: Option<Duration>,
     pub i18n: &'a Translator,
 }
 

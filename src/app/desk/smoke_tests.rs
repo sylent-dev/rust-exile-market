@@ -33,10 +33,13 @@ fn league() -> League {
 /// A desk showing the copied item `text`.
 fn desk_showing(text: &str) -> Desk {
     let mut desk = Desk::new(Some(league()));
-    desk.apply_clipboard_event(ClipboardEvent::Copied {
-        item: CopiedItem::from_text(text).expect("an item"),
-        hotkey: None,
-    });
+    desk.apply_clipboard_event(
+        ClipboardEvent::Copied {
+            item: CopiedItem::from_text(text).expect("an item"),
+            hotkey: None,
+        },
+        Instant::now(),
+    );
     desk
 }
 
@@ -123,24 +126,26 @@ struct Drawn {
     with_a_fixed_price: usize,
     with_offers_of_items: usize,
     with_offers_of_the_exchange: usize,
-    /// The frames whose price block wrote an estimated price, and those where it wrote the
-    /// line that asks for a modifier to be checked instead.
+    /// The frames whose price block wrote an estimated price, those where it wrote the
+    /// dashes of an item to estimate, and those where it wrote the line that asks for a
+    /// modifier to be checked.
     with_an_estimate: usize,
+    with_dashes: usize,
     with_a_check_hint: usize,
 }
 
-/// Whether one of `shapes`, the shapes of a frame, writes `text`.
-fn writes(shapes: &[egui::epaint::ClippedShape], text: &str) -> bool {
-    fn shape_writes(shape: &egui::Shape, text: &str) -> bool {
+/// Whether one of `shapes`, the shapes of a frame, writes a text that `is` the one looked for.
+fn writes(shapes: &[egui::epaint::ClippedShape], is: &dyn Fn(&str) -> bool) -> bool {
+    fn shape_writes(shape: &egui::Shape, is: &dyn Fn(&str) -> bool) -> bool {
         match shape {
-            egui::Shape::Text(shape) => shape.galley.text() == text,
-            egui::Shape::Vec(shapes) => shapes.iter().any(|shape| shape_writes(shape, text)),
+            egui::Shape::Text(shape) => is(shape.galley.text()),
+            egui::Shape::Vec(shapes) => shapes.iter().any(|shape| shape_writes(shape, is)),
             _ => false,
         }
     }
     shapes
         .iter()
-        .any(|clipped| shape_writes(&clipped.shape, text))
+        .any(|clipped| shape_writes(&clipped.shape, is))
 }
 
 /// How a frame is drawn.
@@ -217,10 +222,14 @@ impl Scene {
         drawn.with_a_tooltip += usize::from(above);
         drawn.with_a_fixed_price += usize::from(self.desk.session.fixed_price(self.item()).is_ok());
         // By what the price block wrote, not by its rule told again.
-        let wrote = |text: &str| usize::from(writes(&output.shapes, text));
-        let estimated = self.i18n.text(Message::EstimatedPriceLabel).to_uppercase();
-        drawn.with_an_estimate += wrote(&estimated);
-        drawn.with_a_check_hint += wrote(&self.i18n.text(Message::CheckToEstimate));
+        let wrote = |is: &dyn Fn(&str) -> bool| usize::from(writes(&output.shapes, is));
+        // The note of an estimate, which only an estimated price writes: from its only offer,
+        // as the answers of this test give it.
+        let note = self.i18n.estimate_median(1, None, None);
+        drawn.with_an_estimate += wrote(&|text| text == note);
+        drawn.with_dashes += wrote(&|text| text == "—");
+        let check = self.i18n.text(Message::CheckToEstimate);
+        drawn.with_a_check_hint += wrote(&|text| text == check);
         match self.desk.search.offers.state() {
             OffersState::Items(_) => drawn.with_offers_of_items += 1,
             OffersState::Exchange { .. } => drawn.with_offers_of_the_exchange += 1,
@@ -425,6 +434,7 @@ fn draw_every_test_item(interface: Language) {
     );
     assert!(drawn.with_a_tooltip > items, "{}", drawn.with_a_tooltip);
     assert!(drawn.with_an_estimate > items, "{}", drawn.with_an_estimate);
+    assert!(drawn.with_dashes > items, "{}", drawn.with_dashes);
     assert!(
         drawn.with_a_check_hint > items,
         "{}",

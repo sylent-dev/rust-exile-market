@@ -1,13 +1,13 @@
 //! The price block, on band A under the item block: the price of a fixed-name item in the
 //! three currencies, with its stack, its offers and its trend; the estimated price of the
-//! other items, once their similar offers are searched; the possible uniques of an
-//! unidentified item; or, without a price, why.
+//! other items, once their similar offers are searched, or else what to do to get one; the
+//! possible uniques of an unidentified item; or, without a price, why.
 //!
 //! What the block shows is decided apart from the drawing ([`view`]), and tested.
 
 use egui::{
-    Align, Frame, Image, ImageSource, Label, Layout, Rect, Response, RichText, Sense, Ui, Vec2,
-    pos2, vec2,
+    Align, Color32, Frame, Image, ImageSource, Label, Layout, Rect, Response, RichText, Sense, Ui,
+    Vec2, pos2, vec2,
 };
 
 use super::images;
@@ -17,7 +17,7 @@ use crate::exchange_currencies;
 use crate::filters::{Filter, FilterKey};
 use crate::format;
 use crate::i18n::{Message, Translator, WrittenRange};
-use crate::item::{Item, Rarity};
+use crate::item::Item;
 use crate::language::Language;
 use crate::market::Failure;
 use crate::price::Orb;
@@ -34,8 +34,8 @@ const PADDING_Y: f32 = 12.0;
 const TITLE_GAP: f32 = 8.0;
 /// The space above the lines under the amounts.
 const LINE_GAP: f32 = 9.0;
-/// The space between two messages.
-const MESSAGE_GAP: f32 = 2.0;
+/// How much of an orb shows where an estimate will go, as the mock-up fades it (35 %).
+const PENDING_ORB_ALPHA: u8 = 90;
 /// The orbs beside the amounts, and in a list.
 const ORB_SIZE: f32 = 24.0;
 const LIST_ORB_SIZE: f32 = 18.0;
@@ -59,6 +59,9 @@ enum PriceView<'a> {
     Priced(MarketPrice<'a>),
     /// The price of a rare, magic or normal item, from its similar offers.
     Estimated(Estimate<'a>),
+    /// A rare, magic or normal item, or a skill gem, priced from similar offers, before an
+    /// estimate: what to do to get one.
+    ToEstimate,
     /// The uniques an unidentified item can be.
     Candidates {
         candidates: &'a [Candidate<'a>],
@@ -109,7 +112,7 @@ fn low_reliability(view: &PriceView) -> Option<LowReliability> {
         PriceView::Estimated(estimate) => {
             (estimate.counted < COUNTED).then_some(LowReliability::SimilarOffers(estimate.counted))
         }
-        PriceView::Candidates { .. } | PriceView::Notice(_) => None,
+        PriceView::ToEstimate | PriceView::Candidates { .. } | PriceView::Notice(_) => None,
     }
 }
 
@@ -168,7 +171,28 @@ impl StatChecks {
     }
 }
 
-/// The line under "No market price…" of an item without estimate, given the `checks` of its
+/// What the line under the dashes of an item without estimate asks or says.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum EstimateHint {
+    /// Search the offers: the search block beats for it.
+    Search,
+    /// Check a stat that sets the item apart first.
+    CheckStat,
+    /// No offer found is paid in a currency the estimate counts.
+    NoCountedCurrency,
+}
+
+impl EstimateHint {
+    fn message(self) -> Message {
+        match self {
+            Self::Search => Message::SearchToEstimate,
+            Self::CheckStat => Message::CheckToEstimate,
+            Self::NoCountedCurrency => Message::NoOfferCountedToEstimate,
+        }
+    }
+}
+
+/// The line under the dashes of an item without estimate, given the `checks` of its
 /// filters and why it has `no_estimate`: an item priced by its stats ([`Item::is_priced_by_stats`]) is
 /// estimated only from a search that compares some, so that it asks for one to be checked, and
 /// says nothing when none can be (the offers of any item of its base would say nothing of its
@@ -177,26 +201,24 @@ fn estimate_hint(
     is_priced_by_stats: bool,
     checks: StatChecks,
     no_estimate: NoEstimate,
-) -> Option<Message> {
+) -> Option<EstimateHint> {
     if is_priced_by_stats {
         match checks {
             StatChecks::Checked => {}
-            StatChecks::Unchecked => return Some(Message::CheckToEstimate),
+            StatChecks::Unchecked => return Some(EstimateHint::CheckStat),
             StatChecks::NoneToCheck => return None,
         }
     }
     match no_estimate {
-        NoEstimate::NotSearched => Some(Message::SearchToEstimate),
+        NoEstimate::NotSearched => Some(EstimateHint::Search),
         NoEstimate::NothingCounted => None,
-        NoEstimate::CurrenciesNotCounted => Some(Message::NoOfferCountedToEstimate),
+        NoEstimate::CurrenciesNotCounted => Some(EstimateHint::NoCountedCurrency),
     }
 }
 
 /// Why the price block shows no price.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Notice<'a> {
-    /// A rare, magic or normal item, or a skill gem, priced from similar offers.
-    NoMarketPrice(Rarity),
     /// The prices of the league are downloading; the league once it is known.
     PricesDownloading(Option<&'a str>),
     /// No price of the league, and the price database can't be read for this reason.
@@ -213,12 +235,11 @@ pub struct ShownLeague<'a> {
     pub prices: PricesState,
 }
 
-/// What the block shows for the fixed `price` of an item of `rarity`, or else its
-/// `estimate`, given the prices of the `league` shown.
+/// What the block shows for the fixed `price` of an item, or else its `estimate`, given the
+/// prices of the `league` shown.
 fn view<'a>(
     price: &'a Result<(FixedPrice<'a>, Rates), NoFixedPrice>,
     estimate: Option<Estimate<'a>>,
-    rarity: Rarity,
     league: ShownLeague<'a>,
 ) -> PriceView<'a> {
     let ShownLeague { name, prices } = league;
@@ -249,7 +270,7 @@ fn view<'a>(
         },
         Err(NoFixedPrice::NotFixedName) => match estimate {
             Some(estimate) => PriceView::Estimated(estimate),
-            None => PriceView::Notice(Notice::NoMarketPrice(rarity)),
+            None => PriceView::ToEstimate,
         },
         Err(NoFixedPrice::NamesUnknown) => PriceView::Notice(Notice::FrenchNamesDownloading),
         Err(NoFixedPrice::PricesUnknown) => PriceView::Notice(downloading),
@@ -278,14 +299,25 @@ pub struct PriceBlock<'a> {
 }
 
 impl PriceBlock<'_> {
+    /// Whether the block asks to search the offers to estimate the item, before its search:
+    /// the search block beats for it.
+    #[must_use]
+    pub fn asks_to_search(&self) -> bool {
+        view(&self.price, self.estimate.ok(), self.league) == PriceView::ToEstimate
+            && self.estimate_hint() == Some(EstimateHint::Search)
+    }
+
+    /// The line under the dashes of an item without estimate ([`estimate_hint`]).
+    fn estimate_hint(&self) -> Option<EstimateHint> {
+        let Err(no_estimate) = self.estimate else {
+            return None;
+        };
+        estimate_hint(self.item.is_priced_by_stats(), self.checks, no_estimate)
+    }
+
     /// Draws the block, the whole width of `ui`.
     pub fn show(self, ui: &mut Ui) {
-        let view = view(
-            &self.price,
-            self.estimate.ok(),
-            self.item.rarity(),
-            self.league,
-        );
+        let view = view(&self.price, self.estimate.ok(), self.league);
         Frame::NONE
             .fill(color::BAND_A)
             .inner_margin(vec2(size::BAND_PADDING, PADDING_Y))
@@ -297,6 +329,7 @@ impl PriceBlock<'_> {
                 match view {
                     PriceView::Priced(market_price) => self.priced(ui, market_price),
                     PriceView::Estimated(estimate) => self.estimated(ui, estimate),
+                    PriceView::ToEstimate => self.to_estimate(ui),
                     PriceView::Candidates { candidates, rates } => {
                         self.candidates(ui, candidates, rates);
                     }
@@ -309,8 +342,10 @@ impl PriceBlock<'_> {
     /// a stack; under it, why the price has a low reliability.
     fn title_row(&self, ui: &mut Ui, view: &PriceView) {
         let title = match view {
-            PriceView::Estimated(_) => Message::EstimatedPriceLabel,
-            _ => Message::PriceLabel,
+            PriceView::Estimated(_) | PriceView::ToEstimate => Message::EstimatedPriceLabel,
+            PriceView::Priced(_) | PriceView::Candidates { .. } | PriceView::Notice(_) => {
+                Message::PriceLabel
+            }
         };
         let label = widgets::small_title_line(ui, &self.i18n.text(title));
         let caption = match *view {
@@ -324,7 +359,7 @@ impl PriceBlock<'_> {
                 ..
             }) => self.stack_size().map(|size| self.i18n.stack_of(size)),
             PriceView::Estimated(estimate) => Some(self.i18n.similar(estimate.total)),
-            PriceView::Candidates { .. } | PriceView::Notice(_) => None,
+            PriceView::ToEstimate | PriceView::Candidates { .. } | PriceView::Notice(_) => None,
         };
         ui.horizontal(|ui| {
             let (rect, _) = ui.allocate_exact_size(label.size(), Sense::hover());
@@ -418,6 +453,16 @@ impl PriceBlock<'_> {
         line(ui, &note, color::WEAK);
     }
 
+    /// Faint dashes where the estimate will go, then what to do to get one, or why the search
+    /// gave none.
+    fn to_estimate(&self, ui: &mut Ui) {
+        pending_amounts(ui);
+        if let Some(hint) = self.estimate_hint() {
+            ui.add_space(LINE_GAP);
+            line(ui, &self.i18n.text(hint.message()), color::WEAK);
+        }
+    }
+
     /// The uniques an unidentified item can be, each with its price in its own currency and the
     /// tooltip of its orb ([`orb_tooltip`]); a name too long is cut with "…", and shown whole
     /// under the pointer.
@@ -498,28 +543,14 @@ impl PriceBlock<'_> {
     /// Why the item has no price.
     fn notice(&self, ui: &mut Ui, notice: Notice) {
         let i18n = self.i18n;
-        let first = match notice {
-            Notice::NoMarketPrice(rarity) => i18n.text(match rarity {
-                Rarity::Magic => Message::NoMarketPriceMagic,
-                Rarity::Normal => Message::NoMarketPriceNormal,
-                Rarity::Gem => Message::NoMarketPriceSkillGem,
-                Rarity::Rare | Rarity::Unique | Rarity::Currency => Message::NoMarketPriceRare,
-            }),
+        let text = match notice {
             Notice::PricesDownloading(Some(league)) => i18n.prices_downloading(league),
             Notice::PricesDownloading(None) => i18n.text(Message::PricesDownloadingNoLeague),
             Notice::PricesUnavailable(failure) => i18n.prices_unavailable(failure),
             Notice::FrenchNamesDownloading => i18n.text(Message::FrenchNamesDownloading),
             Notice::NoPriceFound(league) => i18n.no_price_found(league),
         };
-        message(ui, &first, color::TEXT);
-        if let Notice::NoMarketPrice(_) = notice
-            && let Err(no_estimate) = self.estimate
-            && let Some(second) =
-                estimate_hint(self.item.is_priced_by_stats(), self.checks, no_estimate)
-        {
-            ui.add_space(MESSAGE_GAP);
-            message(ui, &i18n.text(second), color::WEAK);
-        }
+        message(ui, &text, color::TEXT);
     }
 }
 
@@ -533,22 +564,40 @@ fn amounts(ui: &mut Ui, exalted: f64, rates: Rates, i18n: &Translator) {
             let Some((amount, _)) = shown_amount(exalted, currency, rates) else {
                 continue;
             };
-            let shown = ui.allocate_ui_with_layout(
-                vec2(width, ORB_SIZE),
-                Layout::left_to_right(Align::Center),
-                |ui| {
-                    // A third of the width each, whatever the length of the amount.
-                    ui.set_min_width(width);
-                    ui.spacing_mut().item_spacing.x = ORB_GAP;
-                    let icon = ui.add(orb(currency, ORB_SIZE));
-                    let amount =
-                        ui.label(RichText::new(amount).font(text::price()).color(color::TEXT));
-                    icon.union(amount)
-                },
-            );
-            orb_tooltip(shown.inner, currency, rates, i18n);
+            let amount = RichText::new(amount).color(color::TEXT);
+            let shown = amount_cell(ui, width, orb(currency, ORB_SIZE), amount);
+            orb_tooltip(shown, currency, rates, i18n);
         }
     });
+}
+
+/// Where the amounts of an estimate will go: each orb faint, a dash in place of its amount.
+fn pending_amounts(ui: &mut Ui) {
+    let width = ui.available_width() / 3.0;
+    let faded = Color32::from_white_alpha(PENDING_ORB_ALPHA);
+    ui.horizontal(|ui| {
+        for currency in Orb::ALL {
+            let icon = orb(currency, ORB_SIZE).tint(faded);
+            amount_cell(ui, width, icon, RichText::new("—").color(color::FAINT));
+        }
+    });
+}
+
+/// An `orb` and its `amount`, in the font of the prices, in a cell `width` across, whatever the
+/// length of the amount; the part they take.
+fn amount_cell(ui: &mut Ui, width: f32, orb: Image, amount: RichText) -> Response {
+    ui.allocate_ui_with_layout(
+        vec2(width, ORB_SIZE),
+        Layout::left_to_right(Align::Center),
+        |ui| {
+            ui.set_min_width(width);
+            ui.spacing_mut().item_spacing.x = ORB_GAP;
+            let icon = ui.add(orb);
+            let amount = ui.label(amount.font(text::price()));
+            icon.union(amount)
+        },
+    )
+    .inner
 }
 
 /// Under the pointer over an orb or its amount, the name of the orb in the language of the
@@ -672,12 +721,12 @@ fn rounded_percent(change: f64) -> u32 {
 }
 
 /// A line under the amounts, in `tint`.
-fn line(ui: &mut Ui, text: &str, tint: egui::Color32) {
+fn line(ui: &mut Ui, text: &str, tint: Color32) {
     ui.add(Label::new(RichText::new(text).font(text::item_line()).color(tint)).wrap());
 }
 
 /// A message in place of the price, in `tint`.
-fn message(ui: &mut Ui, text: &str, tint: egui::Color32) {
+fn message(ui: &mut Ui, text: &str, tint: Color32) {
     ui.add(Label::new(RichText::new(text).font(text::message()).color(tint)).wrap());
 }
 

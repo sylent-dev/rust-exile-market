@@ -314,14 +314,15 @@ impl ExileMarketApp {
         self.act_on_request(request);
     }
 
-    /// Takes in an event of the clipboard watching: an item copied opens the window over the
-    /// game when the hotkey copied it, and closes the settings and the bug report.
-    fn apply_clipboard_event(&mut self, event: ClipboardEvent) {
+    /// Takes in an event of the clipboard watching, received at `now`: an item copied opens the
+    /// window over the game when the hotkey copied it, and closes the settings and the bug
+    /// report.
+    fn apply_clipboard_event(&mut self, event: ClipboardEvent, now: Instant) {
         if let ClipboardEvent::Copied { hotkey, .. } = &event {
             self.overlay_window.copied(*hotkey);
         }
         self.view = self.view.after(&event);
-        self.desk.apply_clipboard_event(event);
+        self.desk.apply_clipboard_event(event, now);
     }
 }
 
@@ -337,7 +338,7 @@ impl App for ExileMarketApp {
         self.clipboard.receive(|event| events.push(event));
         self.overlay_window.receive(&mut self.hotkey, now);
         for event in events {
-            self.apply_clipboard_event(event);
+            self.apply_clipboard_event(event, now);
         }
         self.overlay_window.follow(ctx, &self.hotkey, now);
         let main_focused = ctx.input(|input| input.viewport().focused.unwrap_or(false));

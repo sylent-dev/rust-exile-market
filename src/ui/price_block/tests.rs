@@ -1,5 +1,6 @@
 use super::*;
 use crate::game_data::UniqueModifiers;
+use crate::item::CopiedItem;
 use crate::price::estimate::{Reference, Worth};
 use crate::price::{CurrencyPrice, UniquePrice};
 use std::time::Duration;
@@ -31,7 +32,6 @@ fn notice<'a>(
     view(
         price,
         None,
-        Rarity::Currency,
         ShownLeague {
             name: league,
             prices,
@@ -40,13 +40,10 @@ fn notice<'a>(
 }
 
 #[test]
-fn a_rare_item_has_no_market_price() {
+fn an_item_without_fixed_name_is_to_estimate_before_its_search() {
     let price = Err(NoFixedPrice::NotFixedName);
 
-    assert_eq!(
-        view(&price, None, Rarity::Magic, STANDARD),
-        PriceView::Notice(Notice::NoMarketPrice(Rarity::Magic))
-    );
+    assert_eq!(view(&price, None, STANDARD), PriceView::ToEstimate);
 }
 
 #[test]
@@ -57,11 +54,11 @@ fn a_rare_or_magic_item_asks_for_a_stat_to_estimate_it_and_says_nothing_when_non
     // A rare or magic item.
     assert_eq!(
         estimate_hint(true, Checked, NotSearched),
-        Some(Message::SearchToEstimate)
+        Some(EstimateHint::Search)
     );
     assert_eq!(
         estimate_hint(true, Unchecked, NotSearched),
-        Some(Message::CheckToEstimate)
+        Some(EstimateHint::CheckStat)
     );
     assert_eq!(estimate_hint(true, NoneToCheck, NotSearched), None);
     // A normal item, a gem or a waystone: priced by its base, its quality, its level or
@@ -69,7 +66,7 @@ fn a_rare_or_magic_item_asks_for_a_stat_to_estimate_it_and_says_nothing_when_non
     for checks in [Checked, Unchecked, NoneToCheck] {
         assert_eq!(
             estimate_hint(false, checks, NotSearched),
-            Some(Message::SearchToEstimate),
+            Some(EstimateHint::Search),
             "{checks:?}"
         );
     }
@@ -83,7 +80,7 @@ fn after_a_search_without_estimate_the_hint_says_why_or_leaves_it_to_the_offers(
     for is_priced_by_stats in [true, false] {
         assert_eq!(
             estimate_hint(is_priced_by_stats, Checked, CurrenciesNotCounted),
-            Some(Message::NoOfferCountedToEstimate)
+            Some(EstimateHint::NoCountedCurrency)
         );
         assert_eq!(
             estimate_hint(is_priced_by_stats, Checked, NothingCounted),
@@ -93,18 +90,56 @@ fn after_a_search_without_estimate_the_hint_says_why_or_leaves_it_to_the_offers(
     // Its stats unchecked since: what to do first.
     assert_eq!(
         estimate_hint(true, Unchecked, CurrenciesNotCounted),
-        Some(Message::CheckToEstimate)
+        Some(EstimateHint::CheckStat)
     );
 }
 
-#[test]
-fn a_skill_gem_has_no_market_price_either() {
-    let price = Err(NoFixedPrice::NotFixedName);
+/// The item of the copied `text`.
+fn item_of(text: &str) -> Item {
+    let copied = CopiedItem::from_text(text).expect("an item");
+    Item::parse(&copied).expect("an item the parser reads")
+}
 
-    assert_eq!(
-        view(&price, None, Rarity::Gem, STANDARD),
-        PriceView::Notice(Notice::NoMarketPrice(Rarity::Gem))
-    );
+#[test]
+fn the_block_asks_to_search_only_an_item_to_estimate_whose_line_says_so() {
+    use NoEstimate::{CurrenciesNotCounted, NotSearched};
+    use StatChecks::{Checked, Unchecked};
+
+    let i18n = Translator::new(Language::English);
+    let rare = item_of(include_str!("../../item/test-items/en-plain-rare-ring.txt"));
+    let gem = item_of(include_str!("../../item/test-items/en-owner-skill-gem.txt"));
+    let rune = CurrencyPrice {
+        name: "Lesser Charging Rune".to_owned(),
+        exchange_id: "lesser-charging-rune".to_owned(),
+        price: Price {
+            exalted: 120.0,
+            quantity: 40,
+            history: Vec::new(),
+        },
+    };
+    let to_estimate = || Err(NoFixedPrice::NotFixedName);
+    let asks = |item: &Item, price, estimate, checks| {
+        PriceBlock {
+            item,
+            price,
+            estimate: Err(estimate),
+            checks,
+            league: STANDARD,
+            i18n: &i18n,
+        }
+        .asks_to_search()
+    };
+
+    assert!(asks(&rare, to_estimate(), NotSearched, Checked));
+    // Its line asks to check a stat first.
+    assert!(!asks(&rare, to_estimate(), NotSearched, Unchecked));
+    // A skill gem is priced by its level and its quality: nothing to check.
+    assert!(asks(&gem, to_estimate(), NotSearched, Unchecked));
+    // Searched, no offer counted.
+    assert!(!asks(&rare, to_estimate(), CurrenciesNotCounted, Checked));
+    // A fixed price.
+    let fixed = Ok((FixedPrice::Currency(&rune), RATES));
+    assert!(!asks(&rare, fixed, NotSearched, Checked));
 }
 
 /// An estimate of `exalted` Exalted Orbs from `counted` offers, from `cheapest` to `dearest`.
@@ -128,12 +163,7 @@ fn once_its_offers_are_searched_a_rare_item_has_an_estimated_price() {
     let estimate = estimate(1680.0, 5, (1500.0, 2250.0));
 
     assert_eq!(
-        view(
-            &Err(NoFixedPrice::NotFixedName),
-            Some(estimate),
-            Rarity::Rare,
-            STANDARD
-        ),
+        view(&Err(NoFixedPrice::NotFixedName), Some(estimate), STANDARD),
         PriceView::Estimated(estimate)
     );
 }
@@ -171,10 +201,7 @@ fn an_estimate_from_too_few_offers_has_a_low_reliability() {
 
     assert_eq!(low(estimated(4)), Some(LowReliability::SimilarOffers(4)));
     assert_eq!(low(estimated(5)), None);
-    assert_eq!(
-        low(PriceView::Notice(Notice::NoMarketPrice(Rarity::Rare))),
-        None
-    );
+    assert_eq!(low(PriceView::ToEstimate), None);
 }
 
 #[test]
@@ -284,9 +311,7 @@ fn a_fixed_price_on_too_little_has_a_low_reliability_and_says_on_what() {
         price: price(quantity),
         modifiers: UniqueModifiers::default(),
     };
-    let low = |fixed: FixedPrice| {
-        low_reliability(&view(&Ok((fixed, RATES)), None, Rarity::Unique, STANDARD))
-    };
+    let low = |fixed: FixedPrice| low_reliability(&view(&Ok((fixed, RATES)), None, STANDARD));
 
     assert_eq!(
         low(FixedPrice::Currency(&currency(9))),

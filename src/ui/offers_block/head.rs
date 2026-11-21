@@ -5,6 +5,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use egui::emath::easing;
 use egui::text::{LayoutJob, TextFormat};
 use egui::{
     Color32, CursorIcon, Galley, Rect, Role, Sense, Stroke, Ui, Vec2, WidgetInfo, pos2, vec2,
@@ -15,6 +16,7 @@ use super::{
     overshoot,
 };
 use crate::i18n::{Linked, Message, Translator};
+use crate::offers_state::OffersState;
 use crate::trade::search::{Failure, WaitCause};
 use crate::ui::theme::{color, size, text};
 use crate::ui::{icons, widgets};
@@ -33,6 +35,52 @@ const REFRESH_ICON: f32 = 18.0;
 /// The growth of the icons under the pointer, and the quarter turn of the refresh icon.
 const SEARCH_GROWTH: f32 = 0.15;
 const REFRESH_GROWTH: f32 = 0.12;
+
+/// The beats of the search block when the price block asks to search (the mock-up section "Call
+/// to estimate (22n)"): from a while after the item is copied, so that the eye has found the
+/// window, a ring of the white of the block spreads around it and fades, a few times.
+const BEAT_DELAY: Duration = Duration::from_millis(300);
+const BEAT_TIME: Duration = Duration::from_millis(700);
+const BEATS: u32 = 2;
+/// How far the ring spreads, and how much of its white it starts with.
+const RING_SPREAD: f32 = 12.0;
+const RING_OPACITY: f32 = 0.6;
+
+/// Where the beats of the search block are, some time after the item was copied.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Beat {
+    /// Not yet: the first beat comes after this time.
+    Before(Duration),
+    /// A beat, this far through it, from 0 to 1.
+    Ring(f32),
+    Over,
+}
+
+/// The beat of the search block in the `state` of the offers, the price block having asked to
+/// search them `asked_since_copy`, since the item was copied: only before the first search, the
+/// block of an item searched once (a failure, a wait of the trade site) beating no more.
+fn search_beat(state: &OffersState, asked_since_copy: Option<Duration>) -> Beat {
+    match state {
+        OffersState::Idle => asked_since_copy.map_or(Beat::Over, beat),
+        OffersState::Searching
+        | OffersState::Items(_)
+        | OffersState::Exchange { .. }
+        | OffersState::Failed(_)
+        | OffersState::Limited(_) => Beat::Over,
+    }
+}
+
+/// The beat of the search block `since_copy` after the item was copied.
+fn beat(since_copy: Duration) -> Beat {
+    let Some(beating) = since_copy.checked_sub(BEAT_DELAY) else {
+        return Beat::Before(BEAT_DELAY.saturating_sub(since_copy));
+    };
+    if beating >= BEAT_TIME * BEATS {
+        return Beat::Over;
+    }
+    let through = beating.as_secs_f32() / BEAT_TIME.as_secs_f32();
+    Beat::Ring(through.fract())
+}
 
 /// The action block of the band.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -351,6 +399,8 @@ impl OffersBlock<'_> {
         let painter = ui.painter();
         match block {
             Block::Search => {
+                self.search_ring(ui, rect);
+                let painter = ui.painter();
                 painter.rect_filled(rect, 0.0, color::ACCENT);
                 let size = SEARCH_ICON * (1.0 + SEARCH_GROWTH * hover);
                 let square = Rect::from_center_size(rect.center(), Vec2::splat(size));
@@ -380,6 +430,23 @@ impl OffersBlock<'_> {
         response.widget_info(|| WidgetInfo::labeled(Role::Button, clickable, &tooltip));
         let response = response.on_hover_text(tooltip);
         clickable && response.on_hover_cursor(CursorIcon::PointingHand).clicked()
+    }
+
+    /// Before the first search of an item whose price block asks for it, the ring of a beat
+    /// around the search block in `rect`, drawn under it, the window drawn again until the
+    /// beats are over.
+    fn search_ring(&self, ui: &Ui, rect: Rect) {
+        match search_beat(self.offers.state(), self.asked_to_search_since_copy) {
+            Beat::Before(wait) => ui.ctx().request_repaint_after(wait),
+            Beat::Ring(through) => {
+                let spread = easing::cubic_out(through);
+                let white = color::ACCENT.gamma_multiply(RING_OPACITY * (1.0 - spread));
+                ui.painter()
+                    .rect_filled(rect.expand(RING_SPREAD * spread), 0.0, white);
+                ui.ctx().request_repaint();
+            }
+            Beat::Over => {}
+        }
     }
 }
 

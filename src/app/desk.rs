@@ -66,6 +66,9 @@ pub(super) struct Desk {
     stats_open: bool,
     /// An item was copied: the content scrolls back to the top, to its name and its price.
     scroll_to_top: bool,
+    /// When the last item was copied, the same one by the hotkey too, which the search block
+    /// beats from.
+    copied_at: Instant,
 }
 
 impl Desk {
@@ -78,6 +81,7 @@ impl Desk {
             search: ShownSearch::default(),
             stats_open: false,
             scroll_to_top: false,
+            copied_at: Instant::now(),
         }
     }
 
@@ -90,12 +94,13 @@ impl Desk {
         self.recent.shown()
     }
 
-    /// Takes in an event of the clipboard watching. The item shown, copied again, keeps its
-    /// filters and offers; another item copied leaves them to the items remembered, and shows
-    /// its own.
-    pub(super) fn apply_clipboard_event(&mut self, event: ClipboardEvent) {
+    /// Takes in an event of the clipboard watching, received at `now`. The item shown, copied
+    /// again, keeps its filters and offers; another item copied leaves them to the items
+    /// remembered, and shows its own.
+    pub(super) fn apply_clipboard_event(&mut self, event: ClipboardEvent, now: Instant) {
         let mut back = None;
         if let ClipboardEvent::Copied { item, hotkey } = &event {
+            self.copied_at = now;
             // The clipboard watching alone tells the copy of the hotkey.
             if copied_again(hotkey.is_some(), self.recent.shown(), item) {
                 // Its filters and offers stay.
@@ -253,6 +258,7 @@ impl Desk {
             prices: around.prices,
             kind: around.kind,
             has_bug_report: around.window == Window::Main,
+            since_copy: self.copied_at.elapsed(),
             i18n,
         };
         let ((action, offers_action), height) = ui::content(ui, around.to_top, |ui| view.show(ui));

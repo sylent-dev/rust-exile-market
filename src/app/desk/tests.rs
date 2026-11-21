@@ -108,17 +108,17 @@ fn an_item_copied_again_after_another_comes_back_with_its_filters() {
         };
         let mut desk = Desk::new(Some(League::new("Standard")));
 
-        desk.apply_clipboard_event(copied(&first));
+        desk.apply_clipboard_event(copied(&first), Instant::now());
         assert!(
             desk.session
                 .item()
                 .is_some_and(|shown| shown.parsed().is_ok())
         );
         desk.search.filters.set(life, filter(true, "25"));
-        desk.apply_clipboard_event(copied(&second));
+        desk.apply_clipboard_event(copied(&second), Instant::now());
         let on_second = desk.search.filters.get(life, by_default);
         let _ = desk.take_scroll_to_top();
-        desk.apply_clipboard_event(copied(&first));
+        desk.apply_clipboard_event(copied(&first), Instant::now());
 
         assert_eq!(on_second, by_default(), "{hotkey:?}");
         assert_eq!(
@@ -142,21 +142,29 @@ fn the_item_shown_copied_again_by_the_hotkey_stays_as_it_is() {
         line: 0,
     });
     let mut desk = Desk::new(Some(League::new("Standard")));
-    desk.apply_clipboard_event(ClipboardEvent::Copied {
-        item: ring.clone(),
-        hotkey: None,
-    });
+    desk.apply_clipboard_event(
+        ClipboardEvent::Copied {
+            item: ring.clone(),
+            hotkey: None,
+        },
+        Instant::now(),
+    );
     desk.search.filters.set(life, filter(true, "25"));
     let _ = desk.take_scroll_to_top();
 
-    desk.apply_clipboard_event(ClipboardEvent::Copied {
-        item: ring,
-        hotkey: Some(Instant::now()),
-    });
+    let again = Instant::now() + Duration::from_secs(5);
+    desk.apply_clipboard_event(
+        ClipboardEvent::Copied {
+            item: ring,
+            hotkey: Some(again),
+        },
+        again,
+    );
 
     assert_eq!(
         desk.search.filters.get(life, || filter(false, "")),
         filter(true, "25")
     );
     assert!(!desk.take_scroll_to_top(), "it stays where the player is");
+    assert_eq!(desk.copied_at, again, "the search block beats again");
 }

@@ -409,13 +409,9 @@ identify-to-price = Identifiez l'objet pour obtenir son prix.
 possible-uniques = Uniques possibles
 # À la place du prix d'un unique possible sans offre.
 no-offers = Aucune offre
-# Les objets rares, magiques et normaux, dont le prix s'estime d'après les offres d'objets similaires.
-no-market-price-rare = Pas de prix de marché pour les objets rares.
-# Une gemme d'aptitude, qu'aucune base de prix ne liste, dont le prix s'estime d'après les offres de gemmes similaires.
-no-market-price-skill-gem = Pas de prix de marché pour les gemmes d'aptitude.
-no-market-price-magic = Pas de prix de marché pour les objets magiques.
-no-market-price-normal = Pas de prix de marché pour les objets normaux.
-search-to-estimate = Cherchez des offres similaires pour l'estimer.
+# Sous les tirets du prix estimé d'un objet rare, magique ou normal, ou d'une gemme d'aptitude, avant sa
+# recherche : quoi faire, le bloc des offres étant sous le bloc du prix.
+search-to-estimate = Cherchez les offres ci-dessous pour estimer son prix.
 # Un objet rare ou magique dont aucun filtre ne compare les statistiques : les offres de tout
 # objet de sa base ne diraient rien de son prix.
 check-to-estimate = Cochez une statistique qui distingue cet objet pour l'estimer.
