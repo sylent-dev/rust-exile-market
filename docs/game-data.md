@@ -56,7 +56,7 @@ Each line, and each run of up to three consecutive lines of the same origin, is 
 - The runs are of consecutive lines: the lines of the hybrids follow each other on the owner's copies ([The order of the lines](#the-order-of-the-lines)).
 - Each way one of these lines adds up two modifiers is a candidate too ([The split lines](#the-split-lines)).
 - A line no tier holds is read without tier and isn't counted as a prefix or a suffix: a stat the tables don't know, or a line split in more than one way.
-- A candidate knows the type of its modifier when modifiers of one type alone hold its lines, in a tier the item level allows and in each affix it can be (`Found::kind` in `lookup.rs`, `Candidate::kinds`); the candidate of a split line knows both its types. A line that modifiers of two types hold has none: a desecrated line a lord's modifier and an ordinary one both hold, a line a prefix of one type or a suffix of another holds.
+- A candidate knows the type of its modifier when modifiers of one type alone hold its lines, in a tier the item level allows and in each affix it can be (`FoundModifier::modifier_type` in `lookup.rs`, `Candidate::types`); the candidate of a split line knows both its types. A line that modifiers of two types hold has none: a desecrated line a lord's modifier and an ordinary one both hold, a line a prefix of one type or a suffix of another holds.
 
 ### The best reading
 

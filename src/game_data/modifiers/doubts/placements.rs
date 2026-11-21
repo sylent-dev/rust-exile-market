@@ -10,7 +10,7 @@ use crate::item::{ModifierOrigin, Range};
 /// A tier of a modifier of the tables on some lines of the item.
 pub(super) struct Placement<'a> {
     /// Two modifiers of one type can't be on the same item.
-    pub(super) kind: &'a str,
+    pub(super) modifier_type: &'a str,
     pub(super) fractured: bool,
     pub(super) shown: Shown,
     /// Its lines, by index among the [`Line`]s, in their order.
@@ -99,7 +99,7 @@ fn placed<'a>(
         .iter()
         .filter(|tier| tables.allows(tier) && tier.ranges.len() == indexes.len())
         .map(|tier| Placement {
-            kind: &table.kind,
+            modifier_type: &table.modifier_type,
             fractured: origin == Some(ModifierOrigin::Fractured),
             shown: Shown {
                 affix: table.affix.into(),

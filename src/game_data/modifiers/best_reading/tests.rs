@@ -101,7 +101,7 @@ fn candidate(
             .map(|&affix| (affix, tiers.clone()))
             .collect(),
         added: None,
-        kinds: Vec::new(),
+        types: Vec::new(),
     }
 }
 
@@ -343,10 +343,10 @@ fn as_many_readings_as_the_bound_all_looked_at_arent_cut() {
     assert_eq!(best.readings, MAX_READINGS);
 }
 
-/// `candidate`, its modifiers of the types `kinds`.
-fn typed(candidate: Candidate<'static>, kinds: &[&'static str]) -> Candidate<'static> {
+/// `candidate`, its modifiers of the types `types`.
+fn typed(candidate: Candidate<'static>, types: &[&'static str]) -> Candidate<'static> {
     Candidate {
-        kinds: kinds.to_vec(),
+        types: types.to_vec(),
         ..candidate
     }
 }
@@ -369,8 +369,9 @@ fn a_reading_with_two_modifiers_of_one_type_isnt_one() {
     let untyped = lines
         .clone()
         .map(|(modifiers, _)| candidate(modifiers, &[Prefix], false));
-    let candidates =
-        lines.map(|(modifiers, kind)| typed(candidate(modifiers, &[Prefix], false), &[kind]));
+    let candidates = lines.map(|(modifiers, modifier_type)| {
+        typed(candidate(modifiers, &[Prefix], false), &[modifier_type])
+    });
 
     // Read alone, they would be two modifiers of one type: the hybrid and the pure one.
     let best = best_reading(&candidates, 3, room, 0).expect("every reading looked at");
@@ -379,7 +380,7 @@ fn a_reading_with_two_modifiers_of_one_type_isnt_one() {
     assert_eq!(chosen(&untyped, 3, room, 0), [0, 2, 3]);
     // Nor are two types.
     let mut candidates = candidates;
-    candidates[3].kinds = vec!["Evasion"];
+    candidates[3].types = vec!["Evasion"];
     assert_eq!(chosen(&candidates, 3, room, 0), [0, 2, 3]);
 }
 

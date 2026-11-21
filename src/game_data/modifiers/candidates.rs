@@ -4,7 +4,7 @@
 use super::ModifierTiers;
 use super::copied::{Copied, CopiedTier};
 use super::item_tables::ItemTables;
-use super::lookup::{Found, Tie, find};
+use super::lookup::{FoundModifier, Tie, find};
 use super::split_lines::{AddedTiers, splits};
 use super::tables::{Table, TableAffix};
 use crate::item::{Affix, ModifierOrigin};
@@ -21,9 +21,10 @@ pub(super) struct Candidate<'a> {
     pub(super) added: Option<AddedTiers>,
     /// The types of its modifiers that are sure, two modifiers of one type never being on an
     /// item: both for a split line; for the others its type when modifiers of that type alone
-    /// hold its lines, in each affix it can be, none otherwise ([`Found::kind`]; a line
-    /// modifiers of two types hold as a prefix and as a suffix).
-    pub(super) kinds: Vec<&'a str>,
+    /// hold its lines, in each affix it can be, none otherwise
+    /// ([`FoundModifier::modifier_type`]; a line modifiers of two types hold as a prefix and
+    /// as a suffix).
+    pub(super) types: Vec<&'a str>,
 }
 
 impl Candidate<'_> {
@@ -55,7 +56,7 @@ impl Candidate<'_> {
     /// Whether a modifier of it is of the type of a modifier of `other`, as far as their
     /// types are sure: an item never has both.
     pub(super) fn shares_a_type_with(&self, other: &Self) -> bool {
-        self.kinds.iter().any(|kind| other.kinds.contains(kind))
+        self.types.iter().any(|held| other.types.contains(held))
     }
 }
 
@@ -128,7 +129,7 @@ fn run_candidates<'a>(
     modifiers: std::ops::Range<usize>,
 ) -> Vec<Candidate<'a>> {
     let fractured = joined.origin == Some(ModifierOrigin::Fractured);
-    let found: Vec<(Affix, Found<'a>)> = [
+    let found: Vec<(Affix, FoundModifier<'a>)> = [
         (Affix::Prefix, TableAffix::Prefix),
         (Affix::Suffix, TableAffix::Suffix),
     ]
@@ -140,7 +141,7 @@ fn run_candidates<'a>(
     let whole = (!found.is_empty()).then(|| Candidate {
         modifiers: modifiers.clone(),
         fractured,
-        kinds: shared_kind(&found).into_iter().collect(),
+        types: shared_type(&found).into_iter().collect(),
         affixes: found
             .into_iter()
             .map(|(affix, found)| (affix, found.tiers))
@@ -159,7 +160,7 @@ fn run_candidates<'a>(
             fractured,
             affixes: vec![(split.affix, split.tiers)],
             added: Some(split.added),
-            kinds: split.kinds.to_vec(),
+            types: split.types.to_vec(),
         });
     whole.into_iter().chain(split).collect()
 }
@@ -167,10 +168,10 @@ fn run_candidates<'a>(
 /// The type of the modifiers that hold the lines of a candidate, `found` for each affix it
 /// can be: none when those of an affix are of two types, or those of the prefix of another
 /// type than those of the suffix.
-fn shared_kind<'a>(found: &[(Affix, Found<'a>)]) -> Option<&'a str> {
-    let mut kinds = found.iter().map(|(_, found)| found.kind);
-    let first = kinds.next()??;
-    kinds.all(|kind| kind == Some(first)).then_some(first)
+fn shared_type<'a>(found: &[(Affix, FoundModifier<'a>)]) -> Option<&'a str> {
+    let mut types = found.iter().map(|(_, found)| found.modifier_type);
+    let first = types.next()??;
+    types.all(|held| held == Some(first)).then_some(first)
 }
 
 #[cfg(test)]

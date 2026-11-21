@@ -458,9 +458,11 @@ fn a_candidate_makes_one_modifier_or_two_when_its_line_adds_up_two() {
 
 #[test]
 fn a_candidate_tells_the_types_of_its_modifiers_that_are_sure() {
-    let life = |kind: &str, affix: &str| table(kind, affix, &[LIFE], &[(1, &[(21, 30)])]);
+    let life = |modifier_type: &str, affix: &str| {
+        table(modifier_type, affix, &[LIFE], &[(1, &[(21, 30)])])
+    };
     // The types of each candidate of the lines `copied` among `tables`.
-    let kinds = |tables: &[Table], copied: Copied<'static>| -> Vec<Vec<String>> {
+    let types = |tables: &[Table], copied: Copied<'static>| -> Vec<Vec<String>> {
         let lines: Vec<_> = copied
             .lines
             .iter()
@@ -470,22 +472,22 @@ fn a_candidate_tells_the_types_of_its_modifiers_that_are_sure() {
             .iter()
             .map(|candidate| {
                 candidate
-                    .kinds
+                    .types
                     .iter()
-                    .map(|&kind| kind.to_owned())
+                    .map(|&modifier_type| modifier_type.to_owned())
                     .collect()
             })
             .collect()
     };
     let a_life = || one_line(LIFE, 25.0);
 
-    assert_eq!(kinds(&[life("Life", "prefix")], a_life()), [["Life"]]);
+    assert_eq!(types(&[life("Life", "prefix")], a_life()), [["Life"]]);
     // A prefix or a suffix of one type: that type.
     let either = [life("Life", "prefix"), life("Life", "suffix")];
-    assert_eq!(kinds(&either, a_life()), [["Life"]]);
+    assert_eq!(types(&either, a_life()), [["Life"]]);
     // A prefix of one type or a suffix of another: nothing tells which.
     let two_types = [life("Life", "prefix"), life("OtherLife", "suffix")];
-    assert_eq!(kinds(&two_types, a_life()), [[""; 0]]);
+    assert_eq!(types(&two_types, a_life()), [[""; 0]]);
     // A split line: the type of the modifier of every line, then the one of the pure
     // modifier added.
     let hybrid_and_pure = [
@@ -498,5 +500,5 @@ fn a_candidate_tells_the_types_of_its_modifiers_that_are_sure() {
         table("Life", "prefix", &[LIFE], &[(1, &[(30, 39)])]),
     ];
     let summed = copied(&[(ENERGY_SHIELD, 15.0), (LIFE, 60.0)]);
-    assert_eq!(kinds(&hybrid_and_pure, summed), [["LifeAndShield", "Life"]]);
+    assert_eq!(types(&hybrid_and_pure, summed), [["LifeAndShield", "Life"]]);
 }

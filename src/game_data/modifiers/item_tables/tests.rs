@@ -215,7 +215,8 @@ fn modifiers<'a>(held: impl Iterator<Item = Held<'a>>) -> HeldModifiers {
 /// of a lookup rules out, and those another origin or another affix give.
 fn lookup_tables() -> Vec<Table> {
     let life_tiers: &[(u32, &[(u32, u32)])] = &[(1, &[(1, 30)]), (40, &[(31, 60)])];
-    let life_as = |kind: &str, affix: &str| table(kind, affix, &[LIFE], life_tiers);
+    let life_as =
+        |modifier_type: &str, affix: &str| table(modifier_type, affix, &[LIFE], life_tiers);
     let two_ranges = TableTier {
         level: 1,
         ranges: vec![vec![[1.0, 30.0], [31.0, 60.0]]],

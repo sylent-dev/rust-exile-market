@@ -90,9 +90,9 @@ fn of_two_tiers_as_good_the_one_the_advanced_copy_wrote_is_taken() {
 
 #[test]
 fn two_tables_with_the_same_lines_in_another_order_are_two_modifiers() {
-    let table = |kind: &str, lines: [&str; 2], level: u32| {
+    let table = |modifier_type: &str, lines: [&str; 2], level: u32| {
         format!(
-            r#"{{"type": "{kind}", "affix": "prefix", "lines": [{{"template": "{}"}}, {{"template": "{}"}}], "spawn": [["weapon", 1]], "tiers": [{{"level": {level}, "ranges": [[[1, 5]], [[10, 20]]]}}]}}"#,
+            r#"{{"type": "{modifier_type}", "affix": "prefix", "lines": [{{"template": "{}"}}, {{"template": "{}"}}], "spawn": [["weapon", 1]], "tiers": [{{"level": {level}, "ranges": [[[1, 5]], [[10, 20]]]}}]}}"#,
             lines[0], lines[1]
         )
     };
@@ -211,11 +211,11 @@ fn a_line_an_essence_and_an_alloy_hold_as_well_names_no_currency() {
 
 #[test]
 fn the_type_of_a_copied_modifier_is_told_when_modifiers_of_one_type_alone_hold_it() {
-    let life = |kind: &str, level: u32, range: (u32, u32)| {
-        table_json(kind, "prefix", &[LIFE], &[(level, &[range])])
+    let life = |modifier_type: &str, level: u32, range: (u32, u32)| {
+        table_json(modifier_type, "prefix", &[LIFE], &[(level, &[range])])
     };
     // The type found for a life of 25 on an item of `item_level`, among `tables`.
-    let kind = |tables: &[String], item_level: Option<u32>| {
+    let modifier_type = |tables: &[String], item_level: Option<u32>| {
         let tables = read_tables(tables);
         let tables = ItemTables {
             all: &tables,
@@ -228,26 +228,29 @@ fn the_type_of_a_copied_modifier_is_told_when_modifiers_of_one_type_alone_hold_i
             &copied(&[(LIFE, 25.0)]),
             Tie::Worst,
         );
-        found.map(|found| found.kind.map(str::to_owned))
+        found.map(|found| found.modifier_type.map(str::to_owned))
     };
-    let told = |kind: &str| Some(Some(kind.to_owned()));
+    let told = |modifier_type: &str| Some(Some(modifier_type.to_owned()));
 
-    assert_eq!(kind(&[life("Life", 1, (21, 30))], None), told("Life"));
+    assert_eq!(
+        modifier_type(&[life("Life", 1, (21, 30))], None),
+        told("Life")
+    );
     // Modifiers of two types hold it: nothing tells which rolled.
     let two_types = [life("Life", 1, (21, 30)), life("OtherLife", 1, (20, 31))];
-    assert_eq!(kind(&two_types, None), Some(None));
+    assert_eq!(modifier_type(&two_types, None), Some(None));
     // A modifier that has its lines without holding its values isn't one of them.
     let out_of_range = [life("Life", 1, (21, 30)), life("OtherLife", 1, (40, 50))];
-    assert_eq!(kind(&out_of_range, None), told("Life"));
+    assert_eq!(modifier_type(&out_of_range, None), told("Life"));
     // Nor one whose tier the level of the item doesn't allow.
     let above = [life("Life", 1, (21, 30)), life("OtherLife", 70, (20, 31))];
-    assert_eq!(kind(&above, Some(60)), told("Life"));
-    assert_eq!(kind(&above, None), Some(None));
+    assert_eq!(modifier_type(&above, Some(60)), told("Life"));
+    assert_eq!(modifier_type(&above, None), Some(None));
     // Two modifiers of one type, an ordinary one and an essence's: that type.
     let essence = concat!(
         r##"{"type": "Life", "affix": "prefix", "source": "essence", "lines": [{"template": "# to maximum Life"}], "##,
         r#""spawn": [["helmet", 1]], "tiers": [{"level": 1, "ranges": [[[20, 31]]]}]}"#
     );
     let one_type = [life("Life", 1, (21, 30)), essence.to_owned()];
-    assert_eq!(kind(&one_type, None), told("Life"));
+    assert_eq!(modifier_type(&one_type, None), told("Life"));
 }

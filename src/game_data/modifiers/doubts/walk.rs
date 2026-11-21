@@ -201,11 +201,11 @@ impl State {
         let Some(placement) = ground.placements.get(index) else {
             return false;
         };
-        let kind = self
+        let type_taken = self
             .chosen
             .iter()
             .filter_map(|&chosen| ground.placements.get(chosen))
-            .any(|chosen| chosen.kind == placement.kind);
+            .any(|chosen| chosen.modifier_type == placement.modifier_type);
         let room = match placement.shown.affix {
             Affix::Prefix => self.prefixes < ground.room.prefixes,
             Affix::Suffix => self.suffixes < ground.room.suffixes,
@@ -219,7 +219,7 @@ impl State {
                 .is_some_and(|line| line.values.is_empty())
                 && self.counts.get(line).is_some_and(|&count| count > 0)
         });
-        !kind && room && fractured && !shared
+        !type_taken && room && fractured && !shared
     }
 
     /// Adds the placement of `index` to the chosen ones.

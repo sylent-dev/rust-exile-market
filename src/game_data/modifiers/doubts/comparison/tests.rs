@@ -68,7 +68,7 @@ fn a_part_of_a_split_in_two_neighbouring_tiers_is_read_the_same_in_either() {
             affix: Prefix,
             tiers: tiers(0, None),
         }),
-        kinds: Vec::new(),
+        types: Vec::new(),
     };
 
     let best = best_shown(&[&split], 1);

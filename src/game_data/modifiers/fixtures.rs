@@ -169,7 +169,7 @@ pub(super) fn marked(
 /// The line of the file of a table that rolls on the helmets: its type, its affix, the
 /// template of each of its lines, and for each tier its level and the range of each line.
 pub(super) fn table_json(
-    kind: &str,
+    modifier_type: &str,
     affix: &str,
     templates: &[&str],
     tiers: &[(u32, &[(u32, u32)])],
@@ -189,7 +189,7 @@ pub(super) fn table_json(
         })
         .collect();
     format!(
-        r#"{{"type": "{kind}", "affix": "{affix}", "lines": [{}], "spawn": [["helmet", 1]], "tiers": [{}]}}"#,
+        r#"{{"type": "{modifier_type}", "affix": "{affix}", "lines": [{}], "spawn": [["helmet", 1]], "tiers": [{}]}}"#,
         lines.join(", "),
         tiers.join(", ")
     )
@@ -202,14 +202,15 @@ pub(super) fn read_tables(lines: &[String]) -> Vec<Table> {
     tables
 }
 
-/// The table of the line [`table_json`] writes with `kind`, `affix`, `templates` and `tiers`.
+/// The table of the line [`table_json`] writes with `modifier_type`, `affix`, `templates` and
+/// `tiers`.
 pub(super) fn table(
-    kind: &str,
+    modifier_type: &str,
     affix: &str,
     templates: &[&str],
     tiers: &[(u32, &[(u32, u32)])],
 ) -> Table {
-    read_tables(&[table_json(kind, affix, templates, tiers)]).remove(0)
+    read_tables(&[table_json(modifier_type, affix, templates, tiers)]).remove(0)
 }
 
 /// The template of the life, as the tables write it. The templates of the tables written by

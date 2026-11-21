@@ -167,7 +167,7 @@ fn tables_of_one_source_type_affix_and_lines_are_tiers_of_one_modifier() {
         (
             "type",
             Table {
-                kind: "Mana".to_owned(),
+                modifier_type: "Mana".to_owned(),
                 ..life()
             },
         ),
@@ -239,7 +239,7 @@ fn a_modifier_is_looked_at_once_at_its_first_table() {
     let tables = [
         life(),
         Table {
-            kind: "Mana".to_owned(),
+            modifier_type: "Mana".to_owned(),
             ..life()
         },
         // The life again, on other bases: the modifier of the first table.
@@ -358,7 +358,10 @@ fn a_line_of_the_file_that_cant_be_read_is_left_out() {
     ]
     .join("\n");
 
-    let kinds: Vec<String> = read(&text).into_iter().map(|table| table.kind).collect();
+    let types: Vec<String> = read(&text)
+        .into_iter()
+        .map(|table| table.modifier_type)
+        .collect();
 
-    assert_eq!(kinds, ["Life", "Mana"]);
+    assert_eq!(types, ["Life", "Mana"]);
 }

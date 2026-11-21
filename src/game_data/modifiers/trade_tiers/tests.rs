@@ -624,9 +624,9 @@ fn a_doubt_stays_in_the_part_of_the_item_it_is_about() {
 #[test]
 fn two_hybrids_that_share_a_line_leave_it_without_tier_when_both_follow_it() {
     use Affix::{Prefix, Suffix};
-    let hybrid = |kind, affix, other| {
+    let hybrid = |modifier_type, affix, other| {
         table_json(
-            kind,
+            modifier_type,
             affix,
             &[ENERGY_SHIELD, other],
             &[(1, &[(20, 29), (10, 19)])],
@@ -673,9 +673,9 @@ fn two_hybrids_that_share_a_line_leave_it_without_tier_when_both_follow_it() {
 fn a_line_split_in_two_ways_as_good_has_no_tier_and_keeps_its_room() {
     use Affix::Prefix;
     // The rarity, 30, adds up a prefix and a suffix in two ways: T1 and T2, or T2 and T1.
-    let rarity = |kind, affix| {
+    let rarity = |modifier_type, affix| {
         table_json(
-            kind,
+            modifier_type,
             affix,
             &[RARITY],
             &[(1, &[(10, 14)]), (30, &[(16, 20)])],
@@ -786,8 +786,9 @@ fn a_best_reading_out_of_the_room_keeps_only_the_tiers_every_reading_in_the_room
     // Three pure suffixes of each stat: two readings in the room, each with one of the
     // prefixes and the suffixes of the other stat. Each prefix has a reading that gives
     // it, none gives both.
-    let suffix =
-        |kind: &str, template, range| table_json(kind, "suffix", &[template], &[(1, &[range])]);
+    let suffix = |modifier_type: &str, template, range| {
+        table_json(modifier_type, "suffix", &[template], &[(1, &[range])])
+    };
     let tables = with(&[
         suffix("LifeA", LIFE, (15, 18)),
         suffix("LifeB", LIFE, (15, 18)),

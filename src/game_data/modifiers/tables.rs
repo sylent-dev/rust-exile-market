@@ -18,7 +18,7 @@ use crate::item::{Affix, Currency, Lord, ModifierOrigin};
 pub(super) struct Table {
     /// The modifiers of one type can't be on the same item: its tiers.
     #[serde(rename = "type")]
-    pub(super) kind: String,
+    pub(super) modifier_type: String,
     pub(super) affix: TableAffix,
     /// The domain of the bases it rolls on: `default`, a tag of every base, rolls on those of
     /// its domain only (the charges of a flask); a desecrated table rolls on the equipment and
@@ -187,7 +187,7 @@ impl Table {
             return std::ptr::eq(self, other);
         }
         self.source == other.source
-            && self.kind == other.kind
+            && self.modifier_type == other.modifier_type
             && self.affix == other.affix
             && self.lines == other.lines
     }

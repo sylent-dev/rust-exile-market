@@ -465,7 +465,7 @@ fn rolled<'a>(
         if writes {
             rolled.push(Rolled { table, tiers });
         } else {
-            unwritten.push(table.kind.as_str());
+            unwritten.push(table.modifier_type.as_str());
         }
     }
     (rolled, unwritten)
@@ -583,16 +583,16 @@ impl<'a> DrawnItem<'a> {
     /// another mark is no obstacle: the game writes both.
     fn takes(&self, candidate: Candidate<'_>) -> bool {
         let Candidate { rolled, origin } = candidate;
-        let kind = self
+        let type_taken = self
             .modifiers
             .iter()
-            .any(|modifier| modifier.rolled.table.kind == rolled.table.kind);
+            .any(|modifier| modifier.rolled.table.modifier_type == rolled.table.modifier_type);
         let clash = rolled.table.lines.iter().any(|line| {
             self.lines.iter().any(|other| {
                 other.template == line.template && other.origin == origin && other.values.is_empty()
             })
         });
-        !kind && !clash
+        !type_taken && !clash
     }
 
     /// Adds `candidate` in its tier `tier`, its values drawn, each added up with those of the

@@ -28,7 +28,7 @@ pub(super) struct Split<'a> {
     /// The indexes among the tables of both modifiers, the summed one first.
     tables: (usize, usize),
     /// The types of both modifiers, the summed one first: two types.
-    pub(super) kinds: [&'a str; 2],
+    pub(super) types: [&'a str; 2],
     pub(super) affix: Affix,
     pub(super) tiers: ModifierTiers,
     pub(super) added: AddedTiers,
@@ -71,7 +71,7 @@ pub(super) fn splits<'a>(
     for whole in tables.holding(copied) {
         for added in &pure {
             // Each pair of pure modifiers once, the prefix first.
-            if added.table.kind == whole.table.kind
+            if added.table.modifier_type == whole.table.modifier_type
                 || (whole.table.lines.len() == 1 && rank(added) <= rank(&whole))
             {
                 continue;
@@ -87,7 +87,7 @@ pub(super) fn splits<'a>(
                     };
                     ways.push(Split {
                         tables: (whole.index, added.index),
-                        kinds: [&whole.table.kind, &added.table.kind],
+                        types: [&whole.table.modifier_type, &added.table.modifier_type],
                         affix: whole.table.affix.into(),
                         tiers: whole.clone().into_tiers(found, copied),
                         added: AddedTiers {

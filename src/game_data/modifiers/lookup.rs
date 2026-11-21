@@ -93,18 +93,18 @@ pub(super) enum Tie {
 }
 
 /// What [`find`] found for a copied modifier.
-pub(super) struct Found<'a> {
+pub(super) struct FoundModifier<'a> {
     /// The tiers of the modifier that holds it best.
     pub(super) tiers: ModifierTiers,
     /// The type of the modifiers that hold it, in a tier that could be its own; none when
     /// modifiers of two types do (a desecrated line a lord's modifier and an ordinary one both
     /// hold): nothing then tells the type of the one that rolled.
-    pub(super) kind: Option<&'a str>,
+    pub(super) modifier_type: Option<&'a str>,
 }
 
 /// The tiers of `copied` among `tables`, on the base of the item: those of the modifier of
 /// `affix` that holds it best, the tier taken on a `tie`, with the type of the modifiers that
-/// hold it ([`Found::kind`]). Of two tiers that hold it as well,
+/// hold it ([`FoundModifier::modifier_type`]). Of two tiers that hold it as well,
 /// the one of the number the advanced copy wrote, maybe of another modifier: a modifier of one
 /// tier only, a lord's, can't hide a T3 of an ordinary one with the same lines and ranges;
 /// when the copy wrote the header without tier, one whose tier the game doesn't write: the `+3
@@ -115,7 +115,7 @@ pub(super) fn find<'a>(
     affix: TableAffix,
     copied: &Copied<'_>,
     tie: Tie,
-) -> Option<Found<'a>> {
+) -> Option<FoundModifier<'a>> {
     // Whether a tier of `table` isn't the one the advanced copy wrote.
     let other_number = |table: &Table, tier: &Tier| match copied.tier {
         CopiedTier::Written(number) => tier.number != number,
@@ -123,7 +123,7 @@ pub(super) fn find<'a>(
         CopiedTier::Unknown => false,
     };
     let mut best: Option<((Fit, bool), ModifierTiers)> = None;
-    let mut kind: Option<&str> = None;
+    let mut modifier_type: Option<&str> = None;
     let mut is_of_one_type = true;
     for held in tables.holding_as(copied, affix) {
         let table = held.table;
@@ -149,8 +149,8 @@ pub(super) fn find<'a>(
                 fit.cmp(&other_fit).then(tier)
             });
         if found.is_some() {
-            is_of_one_type &= kind.is_none_or(|kind| kind == table.kind);
-            kind = Some(&table.kind);
+            is_of_one_type &= modifier_type.is_none_or(|held| held == table.modifier_type);
+            modifier_type = Some(&table.modifier_type);
         }
         if let Some((fit, found)) = found
             && best.as_ref().is_none_or(|(best, _)| fit < *best)
@@ -175,9 +175,9 @@ pub(super) fn find<'a>(
             }
         }
     }
-    best.map(|(_, tiers)| Found {
+    best.map(|(_, tiers)| FoundModifier {
         tiers,
-        kind: kind.filter(|_| is_of_one_type),
+        modifier_type: modifier_type.filter(|_| is_of_one_type),
     })
 }
 
