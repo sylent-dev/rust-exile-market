@@ -35,6 +35,8 @@
 .sys-dialog-body { display: flex; gap: 14px; padding: 18px 18px 8px; }
 .sys-dialog-sign { flex: none; width: 32px; height: 32px; border-radius: 50%; background: #da4453; color: #fff;
   display: grid; place-items: center; font: 700 20px/1 sans-serif; }
+/* The sign of information, for a message that tells no failure (22m). */
+.sys-dialog-sign.is-info { background: #3daee9; }
 .sys-dialog-text p { margin: 0 0 10px; }
 .sys-dialog-text .is-details { color: #a0a4a8; font-size: 12px; word-break: break-word; }
 .sys-dialog-buttons { display: flex; justify-content: flex-end; padding: 6px 18px 16px; }
