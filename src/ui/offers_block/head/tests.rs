@@ -26,6 +26,21 @@ fn the_block_searches_only_once_the_wait_is_over_and_no_answer_is_awaited() {
     );
 }
 
+#[test]
+fn the_search_block_beats_twice_from_a_while_after_the_copy() {
+    let at = Duration::from_millis;
+
+    assert_eq!(beat(at(0)), Beat::Before(at(300)));
+    assert_eq!(beat(at(100)), Beat::Before(at(200)));
+    assert_eq!(beat(at(300)), Beat::Ring(0.0));
+    assert_eq!(beat(at(650)), Beat::Ring(0.5));
+    // The second beat.
+    assert_eq!(beat(at(1000)), Beat::Ring(0.0));
+    assert_eq!(beat(at(1350)), Beat::Ring(0.5));
+    assert_eq!(beat(at(1700)), Beat::Over);
+    assert_eq!(beat(Duration::from_secs(60)), Beat::Over);
+}
+
 /// The characters of `galley` inside each of `rects`, its spaces left out.
 fn found_in(galley: &Galley, rects: &[Rect]) -> Vec<String> {
     rects
@@ -153,6 +168,7 @@ impl HintWindow {
             item: &self.item,
             lines: &self.lines,
             has_bug_report: self.has_bug_report,
+            search_called_since: None,
             i18n: &self.i18n,
         }
     }

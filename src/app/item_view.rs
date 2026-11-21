@@ -1,6 +1,8 @@
 //! The blocks of the item shown, one under the other, and what they are drawn from: the
 //! filters of its search, its estimated price and the reference of its suspicious offers.
 
+use std::time::Duration;
+
 use egui::{OpenUrl, Ui};
 
 use crate::filters::{Filter, FilterKey, Filters};
@@ -78,6 +80,8 @@ pub(super) struct ItemView<'a> {
     /// The window has the bug report, which the hint of a failed search opens: the main
     /// window only.
     pub(super) has_bug_report: bool,
+    /// How long ago the item was copied.
+    pub(super) since_copy: Duration,
     pub(super) i18n: &'a Translator,
 }
 
@@ -96,6 +100,7 @@ impl ItemView<'_> {
             prices,
             kind,
             has_bug_report,
+            since_copy,
             i18n,
         } = self;
         let trade = session.trade(item);
@@ -119,7 +124,7 @@ impl ItemView<'_> {
         {
             ui.ctx().open_url(OpenUrl::new_tab(url));
         }
-        PriceBlock {
+        let price_block = PriceBlock {
             item,
             price: fixed_price,
             estimate,
@@ -129,8 +134,9 @@ impl ItemView<'_> {
                 prices,
             },
             i18n,
-        }
-        .show(ui);
+        };
+        let asks_to_search = price_block.asks_to_search();
+        price_block.show(ui);
         let offers_action = if let Some(kind) = kind {
             OffersBlock {
                 offers,
@@ -140,6 +146,7 @@ impl ItemView<'_> {
                 item,
                 lines: shown.lines(),
                 has_bug_report,
+                search_called_since: asks_to_search.then_some(since_copy),
                 i18n,
             }
             .show(ui)

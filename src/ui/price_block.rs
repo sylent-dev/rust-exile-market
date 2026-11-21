@@ -278,6 +278,22 @@ pub struct PriceBlock<'a> {
 }
 
 impl PriceBlock<'_> {
+    /// Whether the block asks to search the offers to estimate the item, before its search:
+    /// the search block beats for it.
+    #[must_use]
+    pub fn asks_to_search(&self) -> bool {
+        matches!(self.price, Err(NoFixedPrice::NotFixedName))
+            && self.estimate_hint() == Some(Message::SearchToEstimate)
+    }
+
+    /// The line under the dashes of an item without estimate ([`estimate_hint`]).
+    fn estimate_hint(&self) -> Option<Message> {
+        let Err(no_estimate) = self.estimate else {
+            return None;
+        };
+        estimate_hint(self.item.is_priced_by_stats(), self.checks, no_estimate)
+    }
+
     /// Draws the block, the whole width of `ui`.
     pub fn show(self, ui: &mut Ui) {
         let view = view(&self.price, self.estimate.ok(), self.league);
@@ -420,10 +436,7 @@ impl PriceBlock<'_> {
     /// gave none.
     fn to_estimate(&self, ui: &mut Ui) {
         pending_amounts(ui);
-        if let Err(no_estimate) = self.estimate
-            && let Some(hint) =
-                estimate_hint(self.item.is_priced_by_stats(), self.checks, no_estimate)
-        {
+        if let Some(hint) = self.estimate_hint() {
             ui.add_space(LINE_GAP);
             line(ui, &self.i18n.text(hint), color::WEAK);
         }
