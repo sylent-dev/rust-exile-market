@@ -56,6 +56,7 @@ Each line, and each run of up to three consecutive lines of the same origin, is 
 - The runs are of consecutive lines: the lines of the hybrids follow each other on the owner's copies ([The order of the lines](#the-order-of-the-lines)).
 - Each way one of these lines adds up two modifiers is a candidate too ([The split lines](#the-split-lines)).
 - A line no tier holds is read without tier and isn't counted as a prefix or a suffix: a stat the tables don't know, or a line split in more than one way.
+- A candidate knows the type of its modifier when modifiers of one type alone hold its lines, in a tier the item level allows and in each affix it can be (`Found::kind` in `lookup.rs`, `Candidate::kinds`); the candidate of a split line knows both its types. A line that modifiers of two types hold has none: a desecrated line a lord's modifier and an ordinary one both hold, a line a prefix of one type or a suffix of another holds.
 
 ### The best reading
 
@@ -68,6 +69,12 @@ The readings of the item are looked at, at most 4096, the lines alone first: eac
 5. makes the most modifiers: the lines are read alone unless they must be a hybrid.
 
 On a tie, the first reading is kept. Where a hybrid holds lines read alone too, in the room of the item, the other readings leave them without tier ([The other readings and their doubts](#the-other-readings-and-their-doubts)).
+
+**One modifier of a type.** A choice among the candidates is a reading only when it holds no type twice, an item never having two modifiers of one type (`Search::is_reading`). The case needs a stat on two lines, which the game writes when their marks differ ([The desecrated lines](#the-desecrated-lines)): read alone, each is the pure modifier of that stat.
+
+- The marked lines are then their hybrid, the other one the pure modifier: `79% d'Augmentation des Dégâts Physiques (desecrated)` and `+193 au Score de Précision (desecrated)` of a mirrored bow next to its `172% d'Augmentation des Dégâts Physiques`, also when the three lines read alone fit the prefixes (the bow without its added damage).
+- A line a candidate reads alone is left without tier only in a reading where another candidate has taken its type (`Unread::WhenItsTypeIsTaken`), never to make room for the others. Two lines only the pure modifier holds are each left so in turn, two readings as good: both stay without tier, the other lines read.
+- A candidate that doesn't know its type refuses nothing. The best reading may then hold a type twice, which the other readings never make: every line of the item stays without tier ([The bounds and the end of the search](#the-bounds-and-the-end-of-the-search)).
 
 A line that has no tier alone for another reason than being a line of a hybrid (a line copied before a patch) may be taken into a hybrid with the line next to it when its values fall in it: far rarer, and none on the checked items.
 
@@ -85,6 +92,8 @@ The other lines are read as the best of these readings does, with the room the s
 **Decisions**
 
 - The most lines read with a tier, before the most modifiers: second code review of 13k2e3b, for the `30% increased Physical Damage` only a hybrid holds.
+- One modifier of a type in a reading: step 22l (2026-11-21), measured first ([The measures of the draw](#the-measures-of-the-draw)). Until then the best reading read such lines alone, the other readings didn't meet it, and every line of the item lost its tier.
+- A line left without tier only where its type is taken: with the rule. The prototype measured let such a line go in any reading, also to make room, and read 7 lines more on the shuffled way of the draw, right ones; the rule as coded keeps to the type.
 - The affix the room rules out, left out without a word: owner's choice in step 13k2e3c2.
 - The other lines read as the best of the readings as good does, with the room the split takes: second code review of 13k2e4a (the `248%` of the bow); third code review of 13k2e4a (the `33%` of the tiara), against searching again without the line, which freed a prefix it takes.
 - The lines two readings as good join otherwise or don't both read, without tier, and both affixes kept by a line these readings leave another room to: since step 17e3e (code review of 17e3e). The order of the lines chose one of the two hybrids until then; the counts of the draw don't move.
@@ -141,7 +150,7 @@ The candidates only split a line into a pure modifier and another whose lines ar
 How the search ends: the cut of its readings (`Ending::ReadingsCut` in `trade_tiers.rs`), or the end of the search of the other readings (`Outcome` in `doubts.rs`, decided once by `Outcome::of`):
 
 - **Past the readings** (`Ending::ReadingsCut`: at most 4,096 readings of the candidates are looked at), as past the steps, every line is left without tier, and the log says so.
-- **When the search of the other readings is cut at its bound** (`Outcome::Cut`: 50,000 steps at most), **or doesn't meet the best reading among the others** (`Outcome::BestNotMet`: a line it can't read, a table out of step with the candidates, a best reading with two modifiers of one type, which the candidates don't rule out), every line read is left without tier, and the log tells which.
+- **When the search of the other readings is cut at its bound** (`Outcome::Cut`: 50,000 steps at most), **or doesn't meet the best reading among the others** (`Outcome::BestNotMet`: a line it can't read, a table out of step with the candidates, a best reading with two modifiers of one type on lines that modifiers of two types hold, the candidates not knowing theirs then), every line read is left without tier, and the log tells which.
 - **When no reading fits** (`Outcome::NoneFits`), every affix is kept, and the log says so (a warning).
 - **A hybrid whose lines don't follow each other** is never read as one modifier, a modifier being read on consecutive lines (`FoundTiers::modifiers`, a range): when the room of the item leaves no other reading (the lines read alone overflow it), its lines stay without tier, the other lines keep every affix, and the log tells it apart from the case above (`Outcome::OnlyAnotherFits`, a debug line: another reading fits).
 - **A best reading that overflows the room** isn't a reading of the item: once another reading fits, a line keeps its tier only if every reading in the room reads it as the best one does, whatever they make of the other lines, more modifiers adding up or another tier (`+50 to maximum Life` and `+30 to maximum Mana` read as two prefixes with room for one, while a hybrid suffix and two pure suffixes add up to them, or each prefix with three suffixes of the other stat: no tier). As the best one does means in its tier too: a value that two tiers of its modifier hold has no tier then, a reading in the room reading it in the worst tier, as the best one does, and another in the other, where it takes the worst while the best reading fits the room (`15% increased Rarity of Items found` on a prefix whose tiers `10–16` and `14–20` both hold it). On the draw, 18 lines lose their tier by it, 11 with the tier they rolled and 7 in another tier of their modifier; on the draw, 16 of 6,400 items in the order of the modifiers and 159 with the lines shuffled (2.5 %; [backlog.md](../backlog.md)).
@@ -169,7 +178,7 @@ Only a line the game marks desecrated (` (desecrated)`) may be read with a desec
 
 - A desecrated line the tables of a lord and those of an ordinary modifier hold as well is read as the ordinary one, the first of the file.
 - One that a modifier of one tier only of an affix and an ordinary modifier of the other hold keeps both (`Grenade Skills have +1 Cooldown Use (desecrated)` of a cannon, the prefix of Amanamu or the T2 of the suffix; without the mark, the T2 of the suffix), the row of the first without tier number.
-- The game writes a desecrated modifier apart from an unmarked one of the same stat, on two lines, as it does a fractured one: `172% d'Augmentation des Dégâts Physiques` and `79% d'Augmentation des Dégâts Physiques (desecrated)` on the owner's mirrored bow (`fr-trade-rare-bow-mirrored.txt`), `41% increased Energy Shield (fractured)` and `98% increased Energy Shield` on the owner's tiara (`en-owner-trade-rare-helmet-fractured.txt`). Whether it adds up two modifiers of one mark, a lord's and an ordinary one a desecration revealed, isn't seen on a copy yet: the draw adds them up ([The measures of the draw](#the-measures-of-the-draw)).
+- The game writes a desecrated modifier apart from an unmarked one of the same stat, on two lines, as it does a fractured one: `172% d'Augmentation des Dégâts Physiques` and `79% d'Augmentation des Dégâts Physiques (desecrated)` on a mirrored bow (`fr-trade-rare-bow-mirrored.txt`), `41% increased Energy Shield (fractured)` and `98% increased Energy Shield` on the owner's tiara (`en-owner-trade-rare-helmet-fractured.txt`). Whether it adds up two modifiers of one mark, a lord's and an ordinary one a desecration revealed, isn't seen on a copy yet: the draw adds them up ([The measures of the draw](#the-measures-of-the-draw)).
 
 **Decisions**
 
@@ -210,18 +219,17 @@ The draw isn't the game's: every modifier and tier as likely, the order of the l
 
 - 181 lines that add up modifiers, most of them read as one modifier that holds them alone (the rule turned down below);
 - 91 lines two modifiers of one affix hold with other ranges, read as the first of the file, all of them `#% chance for Flasks you use to not consume Charges` of a desecrated belt, which two lords roll (54, 21, 10 and 6 by way; [backlog.md](../backlog.md));
-- 515 values in two tiers of their modifier, the worst taken (backlog too);
-- 198 items without any tier, a stat of theirs on two lines (below).
+- 515 values in two tiers of their modifier, the worst taken (backlog too).
 
-**Step 22l, a stat on two lines.** A stat written on two lines, of two marks, lets the best reading take each line for the pure modifier of that stat: two modifiers of one type, which the game can't roll and the other readings never make, so that the search doesn't meet its best reading and leaves every line of the item without tier (`Outcome::BestNotMet`; [The bounds and the end of the search](#the-bounds-and-the-end-of-the-search)). On the three ways that draw such items often (2026-11-20):
+**Step 22l, a stat on two lines.** A stat written on two lines, of two marks, let the best reading take each line for the pure modifier of that stat: two modifiers of one type, which the game can't roll and the other readings never make, so that the search didn't meet its best reading and left every line of the item without tier (`Outcome::BestNotMet`; [The bounds and the end of the search](#the-bounds-and-the-end-of-the-search)). Measured on the three ways that draw such items often (2026-11-20), then with a reading refused when it holds a type twice ([The best reading](#the-best-reading); 2026-11-21):
 
-| Way | Items with a stat on two lines | Items without any tier |
-|---|---|---|
-| A third marked desecrated, one in two an ordinary modifier | 190 of 6,400 | 45 |
-| One modifier fractured | 358 of 6,400 | 48 |
-| The same items shuffled | 358 of 6,400 | 105 |
+| Way | Items with a stat on two lines | Items without any tier, before and after | Lines with the tier they rolled, before and after |
+|---|---|---|---|
+| A third marked desecrated, one in two an ordinary modifier | 190 of 6,400 | 45, then 0 | 24,333, then 24,540 of 26,407 |
+| One modifier fractured | 358 of 6,400 | 48, then 0 | 25,364, then 25,588 of 27,078 |
+| The same items shuffled | 358 of 6,400 | 105, then 0 | 23,135, then 23,329 of 27,078 |
 
-A third of the modifiers of a lord has 21 such items and none without any tier, a lord's modifier and an ordinary one of its stat being of two types. The owner's tiara and mirrored bow are read: their prefixes are full, and the reading of each line alone overflows them.
+625 lines more with their tier, and none more read in another tier or as another modifier, in any of the nine ways (73 and 17, 86 and 14, 79 and 11 lines on these three, as before); 60 readings at most, for 16. The six other ways keep their counts: a third of the modifiers of a lord has 21 items with a stat on two lines and none without any tier, a lord's modifier and an ordinary one of its stat being of two types. The owner's tiara and a mirrored bow were read before the rule: their prefixes are full, and the reading of each line alone overflows them.
 
 **Step 17e3e, the lines by cause.** It sorted the lines read as another modifier by cause on the 14 bases: on the first way, 835 of 23,920 lines (3.5 %; 5.7 % with the lines shuffled) on 531 of 5,600 items, 641 of them the lines of a hybrid read alone as pure modifiers (1,148 of 1,362 shuffled), 153 lines adding up modifiers read otherwise, 32 a hybrid read as another one and 9 a pure modifier of the other affix.
 
