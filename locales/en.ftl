@@ -585,3 +585,11 @@ window-error-other-fix = Report it on GitHub with its log, so that it can be fix
 window-error-log = Log: { $path }
 # The error, in English.
 window-error-details = Details: { $error }
+
+## Already open
+
+# The same dialog of the system, with the sign of information, when Exile Market is launched while it already runs: the
+# second launch quits after it. $app is the name of the application.
+already-open = { $app } is already open.
+# Where its window may be.
+already-open-where = Its window may be minimized, or behind the game: look for it in the taskbar.

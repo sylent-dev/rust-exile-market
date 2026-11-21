@@ -393,6 +393,17 @@ impl SettingsFile {
         }
     }
 
+    /// The settings as the file holds them, read without a log and without setting a broken
+    /// file aside: for a launch while the application already runs, which leaves its files to
+    /// it. The default settings when the file can't be read.
+    #[must_use]
+    pub fn peek(&self) -> Settings {
+        self.directory
+            .as_ref()
+            .and_then(|directory| read(&directory.join(FILE_NAME)).ok().flatten())
+            .unwrap_or_default()
+    }
+
     /// Writes `settings` to the file. A failure is logged: the settings still apply to this
     /// session.
     pub fn save(&self, settings: &Settings) {
