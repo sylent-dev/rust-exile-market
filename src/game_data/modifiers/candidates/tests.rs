@@ -2,10 +2,12 @@
 //! hand: the runs of lines looked up, the affixes of a candidate and the lines it splits,
 //! whatever the patch of the game.
 
+use std::sync::LazyLock;
+
 use super::*;
-use crate::game_data::bases::Domain;
+use crate::game_data::bases::{BaseSpawn, Domain};
 use crate::game_data::modifiers::fixtures::{
-    AffixTiers, ENERGY_SHIELD, LIFE, MANA, RARITY, copied, equipment, marked, table,
+    AffixTiers, ENERGY_SHIELD, LIFE, MANA, RARITY, copied, copied_lines, equipment, marked, table,
 };
 use crate::game_data::modifiers::tables::TableLord;
 
@@ -18,23 +20,27 @@ type Read = (
     Option<(usize, Affix, u32)>,
 );
 
+/// A helmet, the base of the items of these tests: the candidates borrow from the tables as
+/// their item sees them, its base among them.
+static HELMET: LazyLock<BaseSpawn> = LazyLock::new(|| equipment(&["helmet"]));
+
 /// The candidates of the modifiers `copied` of an item of `item_level`, a helmet, among
 /// `tables`.
-fn candidates_in(
-    tables: &[Table],
+fn candidates_in<'a>(
+    tables: &'a [Table],
     item_level: Option<u32>,
     copied: &[Option<Copied<'_>>],
-) -> Vec<Candidate> {
+) -> Vec<Candidate<'a>> {
     let tables = ItemTables {
         all: tables,
-        base: &equipment(&["helmet"]),
+        base: &HELMET,
         item_level,
     };
     candidates(&tables, copied)
 }
 
 /// What each of `candidates` reads, to compare whole.
-fn read(candidates: &[Candidate]) -> Vec<Read> {
+fn read(candidates: &[Candidate<'_>]) -> Vec<Read> {
     let number = |tiers: &ModifierTiers| tiers.tier().expect("its tier").number;
     candidates
         .iter()
@@ -448,4 +454,49 @@ fn a_candidate_makes_one_modifier_or_two_when_its_line_adds_up_two() {
 
     // 22 is a suffix, or a prefix and a suffix.
     assert_eq!(counts, [1, 2]);
+}
+
+#[test]
+fn a_candidate_tells_the_types_of_its_modifiers_that_are_sure() {
+    let life = |kind: &str, affix: &str| table(kind, affix, &[LIFE], &[(1, &[(21, 30)])]);
+    // The types of each candidate of the lines `copied` among `tables`.
+    let kinds = |tables: &[Table], copied: Copied<'static>| -> Vec<Vec<String>> {
+        let lines: Vec<_> = copied
+            .lines
+            .iter()
+            .map(|line| Some(copied_lines(vec![line.clone()])))
+            .collect();
+        candidates_in(tables, None, &lines)
+            .iter()
+            .map(|candidate| {
+                candidate
+                    .kinds
+                    .iter()
+                    .map(|&kind| kind.to_owned())
+                    .collect()
+            })
+            .collect()
+    };
+    let a_life = || one_line(LIFE, 25.0);
+
+    assert_eq!(kinds(&[life("Life", "prefix")], a_life()), [["Life"]]);
+    // A prefix or a suffix of one type: that type.
+    let either = [life("Life", "prefix"), life("Life", "suffix")];
+    assert_eq!(kinds(&either, a_life()), [["Life"]]);
+    // A prefix of one type or a suffix of another: nothing tells which.
+    let two_types = [life("Life", "prefix"), life("OtherLife", "suffix")];
+    assert_eq!(kinds(&two_types, a_life()), [[""; 0]]);
+    // A split line: the type of the modifier of every line, then the one of the pure
+    // modifier added.
+    let hybrid_and_pure = [
+        table(
+            "LifeAndShield",
+            "prefix",
+            &[ENERGY_SHIELD, LIFE],
+            &[(1, &[(10, 19), (20, 29)])],
+        ),
+        table("Life", "prefix", &[LIFE], &[(1, &[(30, 39)])]),
+    ];
+    let summed = copied(&[(ENERGY_SHIELD, 15.0), (LIFE, 60.0)]);
+    assert_eq!(kinds(&hybrid_and_pure, summed), [["LifeAndShield", "Life"]]);
 }

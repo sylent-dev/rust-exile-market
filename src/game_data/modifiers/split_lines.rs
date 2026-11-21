@@ -24,9 +24,11 @@ pub(super) struct AddedTiers {
 /// with the summed one, pure or a hybrid, of `affix` with its `tiers`, and a pure modifier of
 /// another type of the summed line only.
 #[derive(Clone)]
-pub(super) struct Split {
+pub(super) struct Split<'a> {
     /// The indexes among the tables of both modifiers, the summed one first.
     tables: (usize, usize),
+    /// The types of both modifiers, the summed one first: two types.
+    pub(super) kinds: [&'a str; 2],
     pub(super) affix: Affix,
     pub(super) tiers: ModifierTiers,
     pub(super) added: AddedTiers,
@@ -40,11 +42,11 @@ pub(super) struct Split {
 /// allows. Only the ways that fit best, those of two neighbouring tiers of one modifier made
 /// one ([`neighbours_joined`]); none for a line without number. Of two pure modifiers, the
 /// prefix is the summed one, as [`crate::item::TierDoubt::EitherAffix`] reads a prefix first.
-pub(super) fn splits(
-    tables: &ItemTables<'_>,
+pub(super) fn splits<'a>(
+    tables: &ItemTables<'a>,
     copied: &Copied<'_>,
     (summed, owner): (usize, usize),
-) -> Vec<Split> {
+) -> Vec<Split<'a>> {
     let Some(line) = copied
         .lines
         .get(summed)
@@ -85,6 +87,7 @@ pub(super) fn splits(
                     };
                     ways.push(Split {
                         tables: (whole.index, added.index),
+                        kinds: [&whole.table.kind, &added.table.kind],
                         affix: whole.table.affix.into(),
                         tiers: whole.clone().into_tiers(found, copied),
                         added: AddedTiers {
@@ -110,7 +113,7 @@ pub(super) fn splits(
 /// tiers (the `30% increased Rarity of Items found` of a tiara, a prefix T1 and a suffix T2, or a
 /// T2 and a T1), or more ways of a pair (its `33%`, also both T1), stay apart: a modifier in three
 /// tiers leaves its line without tier.
-fn neighbours_joined(ways: &[Split]) -> Vec<Split> {
+fn neighbours_joined<'a>(ways: &[Split<'a>]) -> Vec<Split<'a>> {
     let mut joined = Vec::new();
     for pair in ways.chunk_by(|one, other| one.tables == other.tables) {
         match pair {
@@ -124,7 +127,7 @@ fn neighbours_joined(ways: &[Split]) -> Vec<Split> {
     joined
 }
 
-impl Split {
+impl Split<'_> {
     /// The way this one and `other`, of the same modifiers, make when they differ only by the
     /// tier of one modifier, two neighbouring tiers.
     fn with_neighbour(&self, other: &Self) -> Option<Self> {

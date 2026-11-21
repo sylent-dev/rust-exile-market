@@ -5,11 +5,22 @@ use super::*;
 use crate::game_data::bases::BaseSpawn;
 use crate::game_data::lines::modifier_stats;
 use crate::game_data::modifiers::fixtures::{
-    copied, copied_line_without_number, copied_lines, equipment, modifier, range,
+    LIFE, copied, copied_line_without_number, copied_lines, equipment, modifier, range,
+    read_tables, table_json,
 };
 use crate::game_data::modifiers::tables::read;
 use crate::item::{Currency, ModifierOrigin};
 use crate::language::Language;
+
+/// The tiers [`find`] finds, without the type of the modifiers that hold the copied one.
+fn find_tiers(
+    tables: &ItemTables<'_>,
+    affix: TableAffix,
+    copied: &Copied<'_>,
+    tie: Tie,
+) -> Option<ModifierTiers> {
+    find(tables, affix, copied, tie).map(|found| found.tiers)
+}
 
 /// `tables` as an item of any level sees them on `base`.
 fn any_level<'a>(tables: &'a [Table], base: &'a BaseSpawn) -> ItemTables<'a> {
@@ -28,7 +39,7 @@ fn the_value_of_a_line_without_number_is_divided_as_its_table_shows_it() {
         r#""spawn": [["weapon", 1]], "tiers": [{"level": 1, "ranges": [[[1, 1]]]}, {"level": 50, "ranges": [[[2, 3]]]}]}"#
     ));
     let number = |copied| {
-        find(
+        find_tiers(
             &any_level(&tables, &equipment(&["weapon"])),
             TableAffix::Suffix,
             &copied,
@@ -61,7 +72,7 @@ fn of_two_tiers_as_good_the_one_the_advanced_copy_wrote_is_taken() {
         ..copied(&[("# to maximum Life", 15.0)])
     };
     let found = |tier| {
-        find(
+        find_tiers(
             &any_level(&tables, &equipment(&["helmet"])),
             TableAffix::Prefix,
             &copied(tier),
@@ -94,7 +105,7 @@ fn two_tables_with_the_same_lines_in_another_order_are_two_modifiers() {
     );
     let copied = copied(&[("B #", 15.0), ("A #", 3.0)]);
 
-    let tiers = find(
+    let tiers = find_tiers(
         &any_level(&tables, &equipment(&["weapon"])),
         TableAffix::Prefix,
         &copied,
@@ -120,7 +131,7 @@ fn a_value_in_several_tiers_takes_the_worst_without_the_ranges_of_the_copy() {
     ));
     let copied = copied(&[("# to maximum Life", 7.0)]);
     let number = |tie| {
-        find(
+        find_tiers(
             &any_level(&tables, &equipment(&["helmet"])),
             TableAffix::Prefix,
             &copied,
@@ -148,7 +159,7 @@ fn only_the_worst_tie_is_bound_by_the_level_of_the_item() {
             base: &equipment(&["helmet"]),
             item_level,
         };
-        let tiers = find(&tables, TableAffix::Prefix, &copied, tie)?;
+        let tiers = find_tiers(&tables, TableAffix::Prefix, &copied, tie)?;
         let all: Vec<(u32, u32)> = tiers
             .tiers
             .iter()
@@ -185,7 +196,7 @@ fn a_line_an_essence_and_an_alloy_hold_as_well_names_no_currency() {
     let matches = modifier_stats(Language::English, &suffix, None);
     let copied = Copied::of(&suffix, &matches).expect("copied");
     let currency = |tables: &[Table]| {
-        find(
+        find_tiers(
             &any_level(tables, &equipment(&["bow"])),
             TableAffix::Suffix,
             &copied,
@@ -196,4 +207,47 @@ fn a_line_an_essence_and_an_alloy_hold_as_well_names_no_currency() {
 
     assert_eq!(currency(&essence), Some(Some(Currency::Essence)));
     assert_eq!(currency(&both), Some(None));
+}
+
+#[test]
+fn the_type_of_a_copied_modifier_is_told_when_modifiers_of_one_type_alone_hold_it() {
+    let life = |kind: &str, level: u32, range: (u32, u32)| {
+        table_json(kind, "prefix", &[LIFE], &[(level, &[range])])
+    };
+    // The type found for a life of 25 on an item of `item_level`, among `tables`.
+    let kind = |tables: &[String], item_level: Option<u32>| {
+        let tables = read_tables(tables);
+        let tables = ItemTables {
+            all: &tables,
+            base: &equipment(&["helmet"]),
+            item_level,
+        };
+        let found = find(
+            &tables,
+            TableAffix::Prefix,
+            &copied(&[(LIFE, 25.0)]),
+            Tie::Worst,
+        );
+        found.map(|found| found.kind.map(str::to_owned))
+    };
+    let told = |kind: &str| Some(Some(kind.to_owned()));
+
+    assert_eq!(kind(&[life("Life", 1, (21, 30))], None), told("Life"));
+    // Modifiers of two types hold it: nothing tells which rolled.
+    let two_types = [life("Life", 1, (21, 30)), life("OtherLife", 1, (20, 31))];
+    assert_eq!(kind(&two_types, None), Some(None));
+    // A modifier that has its lines without holding its values isn't one of them.
+    let out_of_range = [life("Life", 1, (21, 30)), life("OtherLife", 1, (40, 50))];
+    assert_eq!(kind(&out_of_range, None), told("Life"));
+    // Nor one whose tier the level of the item doesn't allow.
+    let above = [life("Life", 1, (21, 30)), life("OtherLife", 70, (20, 31))];
+    assert_eq!(kind(&above, Some(60)), told("Life"));
+    assert_eq!(kind(&above, None), Some(None));
+    // Two modifiers of one type, an ordinary one and an essence's: that type.
+    let essence = concat!(
+        r##"{"type": "Life", "affix": "prefix", "source": "essence", "lines": [{"template": "# to maximum Life"}], "##,
+        r#""spawn": [["helmet", 1]], "tiers": [{"level": 1, "ranges": [[[20, 31]]]}]}"#
+    );
+    let one_type = [life("Life", 1, (21, 30)), essence.to_owned()];
+    assert_eq!(kind(&one_type, None), told("Life"));
 }

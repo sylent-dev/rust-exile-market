@@ -4,14 +4,14 @@
 use super::ModifierTiers;
 use super::copied::{Copied, CopiedTier};
 use super::item_tables::ItemTables;
-use super::lookup::{Tie, find};
+use super::lookup::{Found, Tie, find};
 use super::split_lines::{AddedTiers, splits};
 use super::tables::{Table, TableAffix};
 use crate::item::{Affix, ModifierOrigin};
 
 /// Consecutive modifiers of an item copied from the in-game trade read as one, and the affixes
 /// whose tables hold their values; or one of these lines split into two modifiers.
-pub(super) struct Candidate {
+pub(super) struct Candidate<'a> {
     pub(super) modifiers: std::ops::Range<usize>,
     /// Whether its modifiers are fractured.
     pub(super) fractured: bool,
@@ -19,9 +19,14 @@ pub(super) struct Candidate {
     pub(super) affixes: Vec<(Affix, ModifierTiers)>,
     /// The other modifier of a split line.
     pub(super) added: Option<AddedTiers>,
+    /// The types of its modifiers that are sure, two modifiers of one type never being on an
+    /// item: both for a split line; for the others its type when modifiers of that type alone
+    /// hold its lines, in each affix it can be, none otherwise ([`Found::kind`]; a line
+    /// modifiers of two types hold as a prefix and as a suffix).
+    pub(super) kinds: Vec<&'a str>,
 }
 
-impl Candidate {
+impl Candidate<'_> {
     /// The affixes its modifier can be; for a split line, the one of the modifier of every
     /// line.
     pub(super) fn set(&self) -> AffixSet {
@@ -40,6 +45,17 @@ impl Candidate {
     /// How many modifiers it makes.
     pub(super) fn count(&self) -> usize {
         1 + usize::from(self.added.is_some())
+    }
+
+    /// Whether it reads one line alone, as one modifier.
+    pub(super) fn is_alone(&self) -> bool {
+        self.modifiers.len() == 1 && self.added.is_none()
+    }
+
+    /// Whether a modifier of it is of the type of a modifier of `other`, as far as their
+    /// types are sure: an item never has both.
+    pub(super) fn shares_a_type_with(&self, other: &Self) -> bool {
+        self.kinds.iter().any(|kind| other.kinds.contains(kind))
     }
 }
 
@@ -65,7 +81,10 @@ fn most_lines(tables: &[Table]) -> usize {
 /// the game data): one modifier, or up to as many as the lines of a hybrid, of the same
 /// origin; then each way one of their lines adds up two modifiers ([`splits`]). The shorter
 /// first at each start.
-pub(super) fn candidates(tables: &ItemTables<'_>, copied: &[Option<Copied<'_>>]) -> Vec<Candidate> {
+pub(super) fn candidates<'a>(
+    tables: &ItemTables<'a>,
+    copied: &[Option<Copied<'_>>],
+) -> Vec<Candidate<'a>> {
     let most_lines = most_lines(tables.all);
     let mut candidates = Vec::new();
     for (start, first) in copied.iter().enumerate() {
@@ -102,14 +121,14 @@ pub(super) fn candidates(tables: &ItemTables<'_>, copied: &[Option<Copied<'_>>])
 /// `owners` giving the index among the modifiers of the item of the modifier of each line: the
 /// modifier that holds them all, with each affix whose tables hold them; then each way one of
 /// these lines adds up two modifiers.
-fn run_candidates(
-    tables: &ItemTables<'_>,
+fn run_candidates<'a>(
+    tables: &ItemTables<'a>,
     joined: &Copied<'_>,
     owners: &[usize],
     modifiers: std::ops::Range<usize>,
-) -> Vec<Candidate> {
+) -> Vec<Candidate<'a>> {
     let fractured = joined.origin == Some(ModifierOrigin::Fractured);
-    let affixes: Vec<_> = [
+    let found: Vec<(Affix, Found<'a>)> = [
         (Affix::Prefix, TableAffix::Prefix),
         (Affix::Suffix, TableAffix::Suffix),
     ]
@@ -118,10 +137,14 @@ fn run_candidates(
         Some((affix, find(tables, table_affix, joined, Tie::Worst)?))
     })
     .collect();
-    let whole = (!affixes.is_empty()).then(|| Candidate {
+    let whole = (!found.is_empty()).then(|| Candidate {
         modifiers: modifiers.clone(),
         fractured,
-        affixes,
+        kinds: shared_kind(&found).into_iter().collect(),
+        affixes: found
+            .into_iter()
+            .map(|(affix, found)| (affix, found.tiers))
+            .collect(),
         added: None,
     });
     // A modifier of one line only may be split: the line the game writes for both.
@@ -136,8 +159,18 @@ fn run_candidates(
             fractured,
             affixes: vec![(split.affix, split.tiers)],
             added: Some(split.added),
+            kinds: split.kinds.to_vec(),
         });
     whole.into_iter().chain(split).collect()
+}
+
+/// The type of the modifiers that hold the lines of a candidate, `found` for each affix it
+/// can be: none when those of an affix are of two types, or those of the prefix of another
+/// type than those of the suffix.
+fn shared_kind<'a>(found: &[(Affix, Found<'a>)]) -> Option<&'a str> {
+    let mut kinds = found.iter().map(|(_, found)| found.kind);
+    let first = kinds.next()??;
+    kinds.all(|kind| kind == Some(first)).then_some(first)
 }
 
 #[cfg(test)]

@@ -110,6 +110,12 @@ pub(super) struct TradeTiers {
 /// modifier in both (`248%` with `+195 to Accuracy Rating`: the hybrid T1 and the pure T1 or
 /// T2).
 ///
+/// A reading never holds two modifiers of one type, which the game can't roll: a stat the
+/// game writes on two lines, of two marks (`172% increased Physical Damage` and `79% increased
+/// Physical Damage (desecrated)` on a bow), isn't twice its pure modifier, but that modifier
+/// and a hybrid with the lines next to one of them; where each line can only be the pure
+/// modifier, both stay without tier.
+///
 /// When the application can't tell, it doesn't decide (owner's rule on 2026-11-10): a line
 /// stays without tier, with the other lines of its modifiers, when two readings as good read
 /// it otherwise (a rarity split into a prefix of tier 1 and a suffix of tier 2, or of tier 2
@@ -348,7 +354,7 @@ fn found_tiers(best: &BestReading<'_>, doubts: &Doubts) -> Vec<FoundTiers> {
     };
     // A line two readings as good read otherwise, or another reading leaves in doubt, and the
     // other lines of its modifiers: without tier, the others read as the best reading does.
-    let in_doubt = |candidate: &Candidate| {
+    let in_doubt = |candidate: &Candidate<'_>| {
         let mut lines = best.ambiguous.iter().chain(&doubts.in_doubt);
         lines.any(|line| candidate.modifiers.contains(line))
     };

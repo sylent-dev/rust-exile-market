@@ -101,10 +101,16 @@ fn a_line_adds_up_two_modifiers_of_two_types_only() {
         };
         let copied = copied(&[(ENERGY_SHIELD, 15.0), (LIFE, 60.0)]);
         let ways = splits(&tables, &copied, (1, 1));
-        ways.iter().map(|way| way.tables).collect::<Vec<_>>()
+        let types = ways.iter().map(|way| way.kinds.map(str::to_owned));
+        ways.iter()
+            .map(|way| way.tables)
+            .zip(types)
+            .collect::<Vec<_>>()
     };
+    let types = |summed: &str, added: &str| [summed.to_owned(), added.to_owned()];
 
-    assert_eq!(pairs("Life"), [(0, 1)]);
+    // With the types of both, the summed one first.
+    assert_eq!(pairs("Life"), [((0, 1), types("LifeAndShield", "Life"))]);
     // Of the type of the hybrid: an item has one modifier of a type at most.
     assert_eq!(pairs("LifeAndShield"), []);
 }
@@ -127,7 +133,7 @@ fn a_split_holds_its_value_give_or_take_the_rounding() {
 
 /// A way to split a line into the modifiers of the tables `tables`, in the tiers of indexes
 /// `found`, without ranges.
-fn way(tables: (usize, usize), (found, added_found): (usize, usize)) -> Split {
+fn way(tables: (usize, usize), (found, added_found): (usize, usize)) -> Split<'static> {
     let tiers = |found| ModifierTiers {
         tiers: Vec::new(),
         found,
@@ -139,6 +145,7 @@ fn way(tables: (usize, usize), (found, added_found): (usize, usize)) -> Split {
     };
     Split {
         tables,
+        kinds: ["Summed", "Added"],
         affix: Affix::Prefix,
         tiers: tiers(found),
         added: AddedTiers {

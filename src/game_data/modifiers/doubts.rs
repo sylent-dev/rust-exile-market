@@ -57,8 +57,9 @@ pub(super) enum Outcome {
     /// Stopped at the most steps, some readings not looked at: every line read is in doubt.
     Cut,
     /// Every reading looked at, none the same as the best one, which fits the room: a line
-    /// the search can't read, or a best reading the game can't roll (two modifiers of one
-    /// type). Every line read is in doubt.
+    /// the search can't read, or a best reading the game can't roll, two modifiers of one
+    /// type on lines that modifiers of two types hold, so that nothing told the candidates
+    /// theirs. Every line read is in doubt.
     BestNotMet,
 }
 
