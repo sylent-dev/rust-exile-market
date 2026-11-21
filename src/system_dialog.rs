@@ -3,6 +3,8 @@
 //! runs (`crate::single_instance`). `MessageBox` on Windows, kdialog or zenity on Linux, which open
 //! under Wayland too, an alert on macOS.
 
+#[cfg(target_os = "linux")]
+use std::borrow::Cow;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 use std::process::{Command, Stdio};
 
@@ -80,7 +82,11 @@ fn dialog(message: &str, sign: Sign) -> bool {
     let desktop = std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default();
     linux_tools(&desktop).into_iter().any(|tool| {
         Command::new(tool.program())
-            .args(tool.arguments(message, sign))
+            .args(
+                tool.arguments(message, sign)
+                    .iter()
+                    .map(AsRef::<str>::as_ref),
+            )
             .stdout(Stdio::null())
             .status()
             .is_ok_and(|status| shown(status.code()))
@@ -114,20 +120,48 @@ impl Tool {
         }
     }
 
-    fn arguments(self, message: &str, sign: Sign) -> Vec<&str> {
+    fn arguments(self, message: &str, sign: Sign) -> Vec<Cow<'_, str>> {
         match self {
-            Self::Kdialog => vec!["--title", crate::APP_NAME, kdialog_kind(sign), message],
+            Self::Kdialog => vec![
+                "--title".into(),
+                crate::APP_NAME.into(),
+                kdialog_kind(sign).into(),
+                kdialog_text(message).into(),
+            ],
             // Without markup: a `<` or a `&` of the error would otherwise break the text.
-            Self::Zenity => vec![
+            Self::Zenity => [
                 zenity_kind(sign),
                 "--no-markup",
                 "--title",
                 crate::APP_NAME,
                 "--text",
                 message,
-            ],
+            ]
+            .map(Cow::from)
+            .into(),
         }
     }
+}
+
+/// `message` written for kdialog, which reads its text as the rich text of Qt when it looks like
+/// some (checked on KDE Plasma, 2026-11-20: `<b>` and `<i>` shown bold and italic): inside
+/// `<qt>`, a tag at its start, so that Qt always reads it as rich text, its `&`, `<` and `>`
+/// escaped, so that none is taken for markup, and its line breaks as `<br>`, which rich text
+/// would otherwise join into one line.
+#[cfg(target_os = "linux")]
+fn kdialog_text(message: &str) -> String {
+    let mut text = String::from("<qt>");
+    for character in message.chars() {
+        match character {
+            '&' => text.push_str("&amp;"),
+            '<' => text.push_str("&lt;"),
+            '>' => text.push_str("&gt;"),
+            '\n' => text.push_str("<br>"),
+            _ => text.push(character),
+        }
+    }
+    text.push_str("</qt>");
+    text
 }
 
 /// The kind of dialog of kdialog that shows `sign`.
@@ -183,12 +217,29 @@ mod tests {
 
     #[test]
     fn zenity_shows_the_message_without_markup() {
-        let arguments = Tool::Zenity.arguments("a < b & c", Sign::Error);
-        assert!(arguments.contains(&"--no-markup"));
-        assert_eq!(arguments.last(), Some(&"a < b & c"));
         assert_eq!(
-            Tool::Kdialog.arguments("text", Sign::Error),
-            ["--title", "Exile Market", "--error", "text"]
+            Tool::Zenity.arguments("a < b & c\n\nd", Sign::Error),
+            [
+                "--error",
+                "--no-markup",
+                "--title",
+                "Exile Market",
+                "--text",
+                "a < b & c\n\nd"
+            ]
+        );
+    }
+
+    #[test]
+    fn kdialog_shows_the_message_as_written_in_its_rich_text() {
+        assert_eq!(
+            Tool::Kdialog.arguments("Details: <b>a</b> & c > d\n\nLog: /logs/a.log", Sign::Error),
+            [
+                "--title",
+                "Exile Market",
+                "--error",
+                "<qt>Details: &lt;b&gt;a&lt;/b&gt; &amp; c &gt; d<br><br>Log: /logs/a.log</qt>"
+            ]
         );
     }
 
@@ -196,7 +247,7 @@ mod tests {
     fn a_message_that_tells_no_failure_has_the_sign_of_information() {
         assert_eq!(
             Tool::Kdialog.arguments("text", Sign::Information),
-            ["--title", "Exile Market", "--msgbox", "text"]
+            ["--title", "Exile Market", "--msgbox", "<qt>text</qt>"]
         );
         assert_eq!(
             Tool::Zenity.arguments("text", Sign::Information),
