@@ -9,15 +9,15 @@
 //! them: they leave the window later than the real ones, which keeps on the safe side. Nothing
 //! is taken from constants: before the first answer, no limit is known. When in doubt (limits
 //! that can't be read), the limits known are kept.
+//!
+//! The limits are asked and told with `Instant`s, and count in a time of their own
+//! ([`clock`]), which can tell a request sent before the start of the system.
 
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "the limits count with it from the next commit")
-)]
 mod clock;
 
 use std::time::{Duration, Instant};
 
+use self::clock::{Clock, Time};
 use crate::logging;
 
 /// Added to the end of a window: the clock of the trade site isn't ours.
@@ -89,11 +89,11 @@ pub struct RuleHeaders {
 /// A request of the application: when it left, and when its answer, or its failure, came.
 /// The trade site counted it in between, if it did: it is in a window since it left at the
 /// earliest, and until its answer leaves it at the latest; each count takes the time and
-/// the case on the safe side.
+/// the case on the safe side. Told with `Instant`s, and kept in the [`Time`] of the limits.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Hit {
-    pub sent: Instant,
-    pub answered: Instant,
+pub struct Hit<T = Instant> {
+    pub sent: T,
+    pub answered: T,
     /// The trade site counted it for sure: it answered a success with its limits. Only
     /// these are taken from its counts to find the hits of the other tools; all of them stay
     /// in the windows.
@@ -108,7 +108,7 @@ struct Window {
     /// The hits the trade site counted beyond the requests of the application…
     others: usize,
     /// …when it told them.
-    told: Instant,
+    told: Time,
 }
 
 impl Window {
@@ -116,13 +116,13 @@ impl Window {
     /// application (oldest first). Without a new request or answer, the time told never
     /// comes sooner when asked again: the margin applies to whether a hit is in the window
     /// too.
-    fn ready_at(&self, hits: &[Hit], now: Instant) -> Instant {
+    fn ready_at(&self, hits: &[Hit<Time>], now: Time) -> Time {
         if self.hits == 0 {
             // A window of no request allows none during its period.
             return (self.told + self.period + MARGIN).max(now);
         }
         let start = now.checked_sub(self.period + MARGIN);
-        let inside = |hit: Instant| start.is_none_or(|start| hit > start);
+        let inside = |hit: Time| start.is_none_or(|start| hit > start);
         // The requests of the application in the window, oldest first.
         let first = hits.partition_point(|hit| !inside(hit.answered));
         let ours = hits.get(first..).unwrap_or_default();
@@ -153,21 +153,21 @@ impl Window {
 struct PolicyLimits {
     /// The requests of the application, in the order of their answers, as long as a window
     /// counts them.
-    sent: Vec<Hit>,
+    sent: Vec<Hit<Time>>,
     windows: Vec<Window>,
     /// The end of a restriction told by the trade site.
-    blocked_until: Option<Instant>,
+    blocked_until: Option<Time>,
 }
 
 impl PolicyLimits {
-    fn ready_at(&self, now: Instant) -> Instant {
+    fn ready_at(&self, now: Time) -> Time {
         self.windows
             .iter()
             .map(|window| window.ready_at(&self.sent, now))
-            .fold(now.max(self.blocked_until.unwrap_or(now)), Instant::max)
+            .fold(now.max(self.blocked_until.unwrap_or(now)), Time::max)
     }
 
-    fn sent(&mut self, hit: Hit) {
+    fn sent(&mut self, hit: Hit<Time>) {
         let kept = self
             .windows
             .iter()
@@ -180,7 +180,7 @@ impl PolicyLimits {
         self.sent.push(hit);
     }
 
-    fn answered(&mut self, headers: &LimitHeaders, now: Instant) {
+    fn answered(&mut self, headers: &LimitHeaders, now: Time) {
         let mut windows = Vec::new();
         let mut unreadable = false;
         for rule in &headers.rules {
@@ -271,22 +271,41 @@ fn longest_restriction(headers: &LimitHeaders) -> Duration {
 }
 
 /// The limits of every policy.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Limits {
     policies: [PolicyLimits; Policy::ALL.len()],
+    /// Tells the time of each `Instant` the limits are given.
+    clock: Clock,
+}
+
+impl Default for Limits {
+    /// No limit known yet, on a clock that starts now.
+    fn default() -> Self {
+        Self {
+            policies: Default::default(),
+            clock: Clock::starting_now(),
+        }
+    }
 }
 
 impl Limits {
     /// When a request of `policy` may be sent, `now` at the earliest.
     #[must_use]
     pub fn ready_at(&self, policy: Policy, now: Instant) -> Instant {
-        self.policies[policy.index()].ready_at(now)
+        let time = self.clock.time_of(now);
+        let ready = self.policies[policy.index()].ready_at(time);
+        // Counted from `now`, which an `Instant` can always tell.
+        now + ready.saturating_duration_since(time)
     }
 
     /// Counts a request of `policy`, once its answer, or its failure, came: a request that
     /// failed counts too.
     pub fn sent(&mut self, policy: Policy, hit: Hit) {
-        self.policies[policy.index()].sent(hit);
+        self.policies[policy.index()].sent(Hit {
+            sent: self.clock.time_of(hit.sent),
+            answered: self.clock.time_of(hit.answered),
+            counted: hit.counted,
+        });
     }
 
     /// Reads the limits of an answer received `now` to a request of `expected`, which the
@@ -300,7 +319,7 @@ impl Limits {
                 expected
             }),
         };
-        self.policies[policy.index()].answered(headers, now);
+        self.policies[policy.index()].answered(headers, self.clock.time_of(now));
     }
 }
 
