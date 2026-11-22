@@ -158,12 +158,12 @@ fn watch(
     }
     let mut failing = false;
     let mut backoff = intervals.backoff();
-    let mut refused = KeptWait::read_from(cache.map(Path::to_path_buf), WAIT_FILE);
+    let mut names_wait = KeptWait::read_from(cache.map(Path::to_path_buf), WAIT_FILE);
     loop {
         // Read again before each download: the last launch, or another Exile Market, may
         // have had its download refused.
         if Instant::now() >= due
-            && let Some(until) = refused.until_read_again(Instant::now())
+            && let Some(until) = names_wait.until_read_again(Instant::now())
         {
             log::info!(
                 "The item names wait for the end of the wait of a refused download, {} s",
@@ -217,7 +217,7 @@ fn watch(
                     due = match error.refused_until() {
                         Some(until) => {
                             let until = until.max(now + intervals.retry);
-                            refused.extend(until);
+                            names_wait.extend(until);
                             until
                         }
                         None => now + intervals.retry_after(&error, known, &mut backoff),

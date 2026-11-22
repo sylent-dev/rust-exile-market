@@ -87,8 +87,8 @@ pub(super) struct Guarded<T> {
 /// What became of an attempt to send a request through [`Guarded`].
 #[derive(Debug)]
 pub(super) enum Attempt {
-    /// Not sent: the trade site refused a request a moment ago, and nothing is sent before
-    /// this time.
+    /// Not sent: the trade site refused a request, of this Exile Market or of another one,
+    /// and nothing is sent before this time.
     Waiting(Instant),
     /// Sent, but no answer came.
     Unanswered(ureq::Error),

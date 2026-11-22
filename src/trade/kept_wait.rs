@@ -24,7 +24,7 @@ pub(super) struct KeptWait {
     until: Option<Instant>,
     /// The end its file told when last read or written: a file that still tells it holds
     /// nothing new, and its time, read again on the other clock, would differ by a moment.
-    in_file: Option<SystemTime>,
+    end_in_file: Option<SystemTime>,
     /// Where its end is kept; without a cache directory, the wait ends with the application.
     file: Option<WaitFile>,
     /// The log already says that the file can't be read, until it reads again.
@@ -51,7 +51,7 @@ impl KeptWait {
     pub fn read_from(directory: Option<PathBuf>, name: &'static str) -> Self {
         let mut wait = Self {
             until: None,
-            in_file: None,
+            end_in_file: None,
             file: directory.map(|directory| WaitFile { directory, name }),
             told_unreadable: false,
         };
@@ -82,7 +82,7 @@ impl KeptWait {
         }
         self.until = Some(until);
         if let Some(written) = self.file.as_ref().and_then(|file| file.keep(until)) {
-            self.in_file = Some(written);
+            self.end_in_file = Some(written);
         }
     }
 
@@ -108,12 +108,22 @@ impl KeptWait {
             }
         };
         let Some(kept) = kept else { return };
-        if self.in_file == Some(kept) {
+        if self.end_in_file == Some(kept) {
             return;
         }
-        self.in_file = Some(kept);
-        let Some(left) = wait_left(kept, SystemTime::now()) else {
-            return;
+        self.end_in_file = Some(kept);
+        let left = match wait_left(kept, SystemTime::now()) {
+            Left::For(left) => left,
+            Left::Over => return,
+            Left::TooLong(left) => {
+                log::warn!(
+                    "Trade site: the wait kept in {} would last {} s, more than a refusal \
+                     asks: ignored",
+                    file.name,
+                    left.as_secs()
+                );
+                return;
+            }
         };
         let until = Instant::now() + left;
         if self.until.is_none_or(|known| until > known) {
@@ -162,21 +172,26 @@ impl WaitFile {
     }
 }
 
-/// The wait left at `clock` of a wait kept until `until`: none once it is over, nor when it
-/// is longer than a refusal can ask, the time of a clock set back since, or of a file written
-/// by hand.
-fn wait_left(until: SystemTime, clock: SystemTime) -> Option<Duration> {
+/// What is left of a wait kept in a file.
+#[derive(Debug, PartialEq, Eq)]
+enum Left {
+    /// Nothing: its end is past.
+    Over,
+    /// This long.
+    For(Duration),
+    /// This long, more than a refusal can ask: the time of a clock set back since, or of a
+    /// file written by hand, which is ignored.
+    TooLong(Duration),
+}
+
+/// What is left at `clock` of a wait kept until `until`.
+fn wait_left(until: SystemTime, clock: SystemTime) -> Left {
     // An error when `until` is before `clock`: the wait is over.
-    let left = until.duration_since(clock).ok()?;
-    if left > LONGEST_REFUSAL_WAIT {
-        log::warn!(
-            "Trade site: a wait read from its file would last {} s, more than a refusal asks: \
-             ignored",
-            left.as_secs()
-        );
-        return None;
+    match until.duration_since(clock) {
+        Err(_) => Left::Over,
+        Ok(left) if left > LONGEST_REFUSAL_WAIT => Left::TooLong(left),
+        Ok(left) => Left::For(left),
     }
-    Some(left)
 }
 
 #[cfg(test)]
@@ -385,9 +400,9 @@ pub(super) mod tests {
         assert_about(wait.until_read_again(now), now + Duration::from_mins(30));
     }
 
-    /// Writes the file of `version` a launch left in `directory`, as the version 1 writes it,
-    /// with a wait that ends in 30 minutes.
-    fn leave_file(directory: &TestDirectory, version: u32) {
+    /// Writes the file `name` of `version` a launch left in `directory`, as the version 1
+    /// writes it, with a wait that ends in 30 minutes.
+    pub fn leave_file(directory: &TestDirectory, name: &str, version: u32) {
         let until = (SystemTime::now() + Duration::from_mins(30))
             .duration_since(SystemTime::UNIX_EPOCH)
             .expect("after 1970");
@@ -397,7 +412,7 @@ pub(super) mod tests {
             until.subsec_nanos()
         );
         fs::create_dir_all(&directory.0).expect("a directory");
-        fs::write(directory.0.join(FILE), json).expect("a file");
+        fs::write(directory.0.join(name), json).expect("a file");
     }
 
     /// A change of the shape of the file without a new version would lose the wait under way
@@ -406,7 +421,7 @@ pub(super) mod tests {
     fn the_file_of_the_version_is_read_as_a_launch_wrote_it() {
         let directory = TestDirectory::new("wait-version");
         let now = Instant::now();
-        leave_file(&directory, VERSION);
+        leave_file(&directory, FILE, VERSION);
 
         let wait = launched_with(&directory);
 
@@ -416,7 +431,7 @@ pub(super) mod tests {
     #[test]
     fn the_file_of_another_version_keeps_no_wait() {
         let directory = TestDirectory::new("wait-other-version");
-        leave_file(&directory, VERSION + 1);
+        leave_file(&directory, FILE, VERSION + 1);
 
         assert_eq!(launched_with(&directory).until(Instant::now()), None);
     }
@@ -430,25 +445,31 @@ pub(super) mod tests {
     fn a_wait_kept_lasts_what_is_left_of_it_at_the_launch() {
         let left = Duration::from_mins(5);
 
-        assert_eq!(wait_left(clock() + left, clock()), Some(left));
+        assert_eq!(wait_left(clock() + left, clock()), Left::For(left));
     }
 
     #[test]
     fn a_wait_over_at_the_launch_is_ignored() {
-        assert_eq!(wait_left(clock() - Duration::from_secs(1), clock()), None);
-        assert_eq!(wait_left(SystemTime::UNIX_EPOCH, clock()), None);
+        assert_eq!(
+            wait_left(clock() - Duration::from_secs(1), clock()),
+            Left::Over
+        );
+        assert_eq!(wait_left(SystemTime::UNIX_EPOCH, clock()), Left::Over);
     }
 
     #[test]
     fn a_wait_longer_than_a_refusal_asks_is_ignored() {
         let longest = clock() + LONGEST_REFUSAL_WAIT;
 
-        assert_eq!(wait_left(longest, clock()), Some(LONGEST_REFUSAL_WAIT));
-        assert_eq!(wait_left(longest + Duration::from_secs(1), clock()), None);
+        let second = Duration::from_secs(1);
+        let year = Duration::from_hours(24 * 365);
+
+        assert_eq!(wait_left(longest, clock()), Left::For(LONGEST_REFUSAL_WAIT));
         assert_eq!(
-            wait_left(clock() + Duration::from_hours(24 * 365), clock()),
-            None
+            wait_left(longest + second, clock()),
+            Left::TooLong(LONGEST_REFUSAL_WAIT + second)
         );
+        assert_eq!(wait_left(clock() + year, clock()), Left::TooLong(year));
     }
 
     #[test]
@@ -494,7 +515,22 @@ pub(super) mod tests {
         );
         assert!(!wait.told_unreadable, "read again: the next time is told");
 
-        fs::write(directory.0.join(FILE), "not JSON").expect("a file");
+        let break_file = || fs::write(directory.0.join(FILE), "not JSON").expect("a file");
+        break_file();
+        assert_eq!(
+            wait.until_read_again(now),
+            Some(now + Duration::from_mins(30))
+        );
+        assert!(wait.told_unreadable);
+
+        // A file gone is read too: one that can't be read after it is a new event.
+        fs::remove_file(directory.0.join(FILE)).expect("a file to remove");
+        assert_eq!(
+            wait.until_read_again(now),
+            Some(now + Duration::from_mins(30))
+        );
+        assert!(!wait.told_unreadable, "no file: the next time is told");
+        break_file();
         assert_eq!(
             wait.until_read_again(now),
             Some(now + Duration::from_mins(30))

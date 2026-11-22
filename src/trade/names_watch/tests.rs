@@ -223,10 +223,13 @@ fn a_refusal_waits_for_its_delay_when_longer_than_the_retry() {
         ..FakeSite::default()
     };
     let requests = Arc::clone(&site.requests);
+    let start = Instant::now();
     let _watch = ItemNamesWatch::spawn(move || site, Some(directory.0.clone()), hasty, || {});
 
     wait_for_a_request(&requests);
     assert_eq!(requests_after(&requests, Duration::from_millis(200)), 1);
+    // Kept as long: the delay of the refusal, not the retry.
+    assert_waits(kept_until(&directory), start, Duration::from_secs(60));
 }
 
 /// The wait of a refused download as a launch with the cache `directory` reads it.
@@ -234,12 +237,33 @@ fn kept_wait(directory: &TestDirectory) -> KeptWait {
     KeptWait::read_from(Some(directory.0.clone()), WAIT_FILE)
 }
 
+/// The end of the wait a refused download keeps in `directory`, once written, a moment
+/// after its request.
+fn kept_until(directory: &TestDirectory) -> Instant {
+    let start = Instant::now();
+    loop {
+        if let Some(until) = kept_wait(directory).until(start) {
+            return until;
+        }
+        assert!(start.elapsed() < Duration::from_secs(5), "a wait kept");
+        thread::sleep(Duration::from_millis(5));
+    }
+}
+
+/// `until` is `wait` after a request sent between `start` and now, but for the moment
+/// between two readings of the clocks: however slow the machine.
+fn assert_waits(until: Instant, start: Instant, wait: Duration) {
+    let moment = Duration::from_secs(1);
+    assert!(
+        until + moment > start + wait && until < Instant::now() + wait + moment,
+        "{until:?}, expected {wait:?} after {start:?} at least"
+    );
+}
+
 /// The security audit of v0.2.1 (2026-11-21): the hour lived in memory only, and a launch
 /// again asked the names after the delay of the refusal, a minute when it gives none.
 #[test]
 fn the_hour_of_a_refused_download_is_kept_in_the_cache_directory() {
-    use crate::trade::kept_wait::tests::assert_about;
-
     let directory = TestDirectory::new("item-names-refusal-kept");
     let site = FakeSite {
         refused_for: Some(Duration::ZERO),
@@ -250,22 +274,21 @@ fn the_hour_of_a_refused_download_is_kept_in_the_cache_directory() {
     let _watch = start_watch(site, &directory);
 
     wait_for_a_request(&requests);
-    // Written a moment after the request.
-    while kept_wait(&directory).until(start).is_none() {
-        assert!(start.elapsed() < Duration::from_secs(5), "a wait kept");
-        thread::sleep(Duration::from_millis(5));
-    }
 
-    assert_about(kept_wait(&directory).until(start), start + FAST.retry);
+    assert_waits(kept_until(&directory), start, FAST.retry);
     // The searches don't wait for it: only for the delay of the refusal, kept by the guard.
     let searches = Refusal::kept_in(Some(directory.0.clone()));
     assert_eq!(searches.until(start), None);
 }
 
+/// The file as `specs.md` names it and as the version 1 writes it: renamed, the wait under
+/// way would be lost at an update of the application.
 #[test]
 fn nothing_is_downloaded_during_the_wait_a_refused_download_left() {
+    use crate::trade::kept_wait::tests::leave_file;
+
     let directory = TestDirectory::new("item-names-refusal-left");
-    kept_wait(&directory).extend(Instant::now() + Duration::from_hours(1));
+    leave_file(&directory, "item-names-wait.json", 1);
     let site = FakeSite::default();
     let requests = Arc::clone(&site.requests);
 
@@ -277,15 +300,37 @@ fn nothing_is_downloaded_during_the_wait_a_refused_download_left() {
 #[test]
 fn the_names_are_downloaded_at_the_end_of_the_wait_a_refused_download_left() {
     let directory = TestDirectory::new("item-names-refusal-over");
-    kept_wait(&directory).extend(Instant::now() + Duration::from_millis(300));
+    let until = Instant::now() + Duration::from_millis(300);
+    kept_wait(&directory).extend(until);
     let site = FakeSite::default();
     let requests = Arc::clone(&site.requests);
 
     let (mut watch, wakes) = start_watch(site, &directory);
 
-    assert_eq!(requests_after(&requests, Duration::from_millis(100)), 0);
     assert_eq!(received(&mut watch, &wakes).len(), 1);
+    // Not before the end of the wait, but for the moment between the two clocks.
+    assert!(Instant::now() + Duration::from_millis(20) >= until);
     assert_eq!(requests.load(Ordering::SeqCst), 1);
+}
+
+/// The code review of 22p2: a wait kept that ends before the names are a day old must not
+/// have them asked at its end.
+#[test]
+fn the_end_of_a_wait_kept_doesnt_bring_the_next_download_forward() {
+    let directory = TestDirectory::new("item-names-refusal-not-due");
+    save(
+        &directory.0,
+        &names(SystemTime::now() - Duration::from_hours(2)),
+    );
+    kept_wait(&directory).extend(Instant::now() + Duration::from_millis(200));
+    let site = FakeSite::default();
+    let requests = Arc::clone(&site.requests);
+
+    let (mut watch, wakes) = start_watch(site, &directory);
+
+    // The names of the cache given: the thread runs, and would read the wait kept next.
+    assert_eq!(received(&mut watch, &wakes).len(), 1);
+    assert_eq!(requests_after(&requests, Duration::from_millis(500)), 0);
 }
 
 /// Two Exile Market on one cache directory: the download of the other is refused while

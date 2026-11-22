@@ -55,8 +55,8 @@ impl Refusal {
     /// Waits until `until` at least, and keeps that end for the next launch: a wait already
     /// longer stays, in memory and in its file, whichever Exile Market wrote it.
     pub fn extend(&self, until: Instant) {
-        // The file is written before the other thread can extend the wait in turn: it
-        // always holds the longest one.
+        // The file is written under the lock, before the other thread can extend the wait in
+        // turn: of the waits of this Exile Market, it holds the longest.
         self.wait().extend(until);
     }
 
@@ -73,7 +73,7 @@ pub(super) mod tests {
 
     use super::*;
     use crate::files::TestDirectory;
-    use crate::trade::kept_wait::tests::assert_about;
+    use crate::trade::kept_wait::tests::{assert_about, leave_file};
 
     /// The refusal of an application launched with the cache directory `directory`.
     pub fn launched_with(directory: &TestDirectory) -> Refusal {
@@ -107,5 +107,18 @@ pub(super) mod tests {
         assert_about(other.until_read_again(now), now + Duration::from_mins(30));
         let next_launch = launched_with(&directory);
         assert_about(next_launch.until(now), now + Duration::from_mins(30));
+    }
+
+    /// The file as `specs.md` names it and as the version 0.2.1 wrote it: renamed, the wait
+    /// under way would be lost at an update of the application.
+    #[test]
+    fn the_wait_of_a_refusal_is_read_from_the_file_of_its_name() {
+        let directory = TestDirectory::new("refusal-file-name");
+        let now = Instant::now();
+        leave_file(&directory, "trade-refusal.json", 1);
+
+        let refusal = launched_with(&directory);
+
+        assert_about(refusal.until(now), now + Duration::from_mins(30));
     }
 }

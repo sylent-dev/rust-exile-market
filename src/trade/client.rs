@@ -259,7 +259,8 @@ impl<T: Transport> TradeClient<T> {
             counted,
         };
         let answer = match result {
-            // Refused meanwhile by the download of the item names.
+            // A refusal met meanwhile: by the download of the item names, or by another
+            // Exile Market, whose wait the guard just read in its file.
             Attempt::Waiting(until) => return Err(TradeError::Wait(until)),
             Attempt::Unanswered(error) => {
                 self.limits.sent(policy, hit(false));
