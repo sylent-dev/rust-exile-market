@@ -553,7 +553,8 @@ pub(super) mod tests {
     #[test]
     fn a_refusal_stops_the_requests_of_the_next_launch_too() {
         use crate::files::TestDirectory;
-        use crate::trade::refusal::tests::{assert_about, launched_with};
+        use crate::trade::kept_wait::tests::assert_about;
+        use crate::trade::refusal::tests::launched_with;
 
         let directory = TestDirectory::new("refusal-next-launch");
         let site = FakeSite::default();
@@ -579,7 +580,8 @@ pub(super) mod tests {
     #[test]
     fn a_refusal_stops_the_requests_of_another_exile_market_too() {
         use crate::files::TestDirectory;
-        use crate::trade::refusal::tests::{assert_about, launched_with};
+        use crate::trade::kept_wait::tests::assert_about;
+        use crate::trade::refusal::tests::launched_with;
 
         let directory = TestDirectory::new("refusal-other-exile-market");
         let site = FakeSite::default();

@@ -4,6 +4,7 @@
 //! copied in French, with the templates of its stats.
 
 mod client;
+mod kept_wait;
 mod limits;
 pub mod link;
 pub mod names_watch;
