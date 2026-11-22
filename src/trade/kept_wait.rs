@@ -113,9 +113,9 @@ impl KeptWait {
         }
         self.end_in_file = Some(kept);
         let left = match wait_left(kept, SystemTime::now()) {
-            Left::For(left) => left,
-            Left::Over => return,
-            Left::TooLong(left) => {
+            WaitLeft::For(left) => left,
+            WaitLeft::Over => return,
+            WaitLeft::TooLong(left) => {
                 log::warn!(
                     "Trade site: the wait kept in {} would last {} s, more than a refusal \
                      asks: ignored",
@@ -174,7 +174,7 @@ impl WaitFile {
 
 /// What is left of a wait kept in a file.
 #[derive(Debug, PartialEq, Eq)]
-enum Left {
+enum WaitLeft {
     /// Nothing: its end is past.
     Over,
     /// This long.
@@ -185,12 +185,12 @@ enum Left {
 }
 
 /// What is left at `clock` of a wait kept until `until`.
-fn wait_left(until: SystemTime, clock: SystemTime) -> Left {
+fn wait_left(until: SystemTime, clock: SystemTime) -> WaitLeft {
     // An error when `until` is before `clock`: the wait is over.
     match until.duration_since(clock) {
-        Err(_) => Left::Over,
-        Ok(left) if left > LONGEST_REFUSAL_WAIT => Left::TooLong(left),
-        Ok(left) => Left::For(left),
+        Err(_) => WaitLeft::Over,
+        Ok(left) if left > LONGEST_REFUSAL_WAIT => WaitLeft::TooLong(left),
+        Ok(left) => WaitLeft::For(left),
     }
 }
 
@@ -445,31 +445,34 @@ pub(super) mod tests {
     fn a_wait_kept_lasts_what_is_left_of_it_at_the_launch() {
         let left = Duration::from_mins(5);
 
-        assert_eq!(wait_left(clock() + left, clock()), Left::For(left));
+        assert_eq!(wait_left(clock() + left, clock()), WaitLeft::For(left));
     }
 
     #[test]
-    fn a_wait_over_at_the_launch_is_ignored() {
+    fn a_wait_whose_end_is_past_is_told_over() {
         assert_eq!(
             wait_left(clock() - Duration::from_secs(1), clock()),
-            Left::Over
+            WaitLeft::Over
         );
-        assert_eq!(wait_left(SystemTime::UNIX_EPOCH, clock()), Left::Over);
+        assert_eq!(wait_left(SystemTime::UNIX_EPOCH, clock()), WaitLeft::Over);
     }
 
     #[test]
-    fn a_wait_longer_than_a_refusal_asks_is_ignored() {
+    fn a_wait_longer_than_a_refusal_asks_is_told_too_long() {
         let longest = clock() + LONGEST_REFUSAL_WAIT;
 
         let second = Duration::from_secs(1);
         let year = Duration::from_hours(24 * 365);
 
-        assert_eq!(wait_left(longest, clock()), Left::For(LONGEST_REFUSAL_WAIT));
+        assert_eq!(
+            wait_left(longest, clock()),
+            WaitLeft::For(LONGEST_REFUSAL_WAIT)
+        );
         assert_eq!(
             wait_left(longest + second, clock()),
-            Left::TooLong(LONGEST_REFUSAL_WAIT + second)
+            WaitLeft::TooLong(LONGEST_REFUSAL_WAIT + second)
         );
-        assert_eq!(wait_left(clock() + year, clock()), Left::TooLong(year));
+        assert_eq!(wait_left(clock() + year, clock()), WaitLeft::TooLong(year));
     }
 
     #[test]

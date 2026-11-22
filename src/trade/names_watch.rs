@@ -194,7 +194,8 @@ fn watch(
                     }
                     due = Instant::now() + intervals.refresh;
                 }
-                // Not sent: the trade site refused a search, or the names, a moment ago.
+                // Not sent: the wait of a refusal of a search or of the names holds, of
+                // this Exile Market, of its last launch or of another one.
                 Err(NamesError::Wait(until)) => {
                     log::info!(
                         "The item names wait for the end of a refusal of the trade site, {} s",
