@@ -11,13 +11,25 @@
 //! that can't be read), the limits known are kept.
 //!
 //! The limits are asked and told with `Instant`s, and count in a time of their own
-//! ([`clock`]), which can tell a request sent before the start of the system.
+//! ([`clock`]), which can tell a request sent before the start of the system: what they know
+//! is kept in a file of the cache directory after each answer, and read at the next launch
+//! ([`kept`]).
+
+#![cfg_attr(
+    not(test),
+    expect(dead_code, reason = "the client keeps the limits from the next commit")
+)]
 
 mod clock;
+mod kept;
 
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
+use serde::{Deserialize, Serialize};
+
 use self::clock::{Clock, Time};
+use self::kept::LimitsFile;
 use crate::logging;
 
 /// Added to the end of a window: the clock of the trade site isn't ours.
@@ -90,7 +102,7 @@ pub struct RuleHeaders {
 /// The trade site counted it in between, if it did: it is in a window since it left at the
 /// earliest, and until its answer leaves it at the latest; each count takes the time and
 /// the case on the safe side. Told with `Instant`s, and kept in the [`Time`] of the limits.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Hit<T = Instant> {
     pub sent: T,
     pub answered: T,
@@ -101,7 +113,7 @@ pub struct Hit<T = Instant> {
 }
 
 /// A window of a policy: `hits` requests at most per `period`.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct Window {
     hits: usize,
     period: Duration,
@@ -149,7 +161,7 @@ impl Window {
 }
 
 /// The limits of one policy.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 struct PolicyLimits {
     /// The requests of the application, in the order of their answers, as long as a window
     /// counts them.
@@ -270,38 +282,93 @@ fn longest_restriction(headers: &LimitHeaders) -> Duration {
         .unwrap_or_default()
 }
 
-/// The limits of every policy.
+/// What the limits know, which their file keeps from one launch to the next.
+#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+struct Known {
+    /// The limits of each policy, at its [`Policy::index`].
+    policies: [PolicyLimits; Policy::ALL.len()],
+    /// When the last search left, whatever its kind.
+    last_search: Option<Time>,
+}
+
+/// The limits of every policy, and the time of the last search. Outside the tests, only
+/// [`Limits::kept_in`] builds them, so that the application can't be handed limits that
+/// forget their cache directory.
 #[derive(Debug)]
 pub struct Limits {
-    policies: [PolicyLimits; Policy::ALL.len()],
+    known: Known,
     /// Tells the time of each `Instant` the limits are given.
     clock: Clock,
+    /// Where what they know is kept; without a cache directory, it ends with the application.
+    file: Option<LimitsFile>,
 }
 
 impl Default for Limits {
-    /// No limit known yet, on a clock that starts now.
+    /// No limit known yet nor kept, on a clock that starts now.
     fn default() -> Self {
-        Self {
-            policies: Default::default(),
-            clock: Clock::starting_now(),
-        }
+        Self::kept_in(None)
     }
 }
 
 impl Limits {
+    /// What the last launch knew, read from the file of the limits in `directory`, and what
+    /// this one learns kept there in turn ([`Self::keep`]). Without a directory, no limit is
+    /// known before the first answer.
+    #[must_use]
+    pub fn kept_in(directory: Option<PathBuf>) -> Self {
+        Self::starting(Clock::starting_now(), directory)
+    }
+
+    /// The limits of an application launched when `clock` starts, read from `directory`.
+    fn starting(clock: Clock, directory: Option<PathBuf>) -> Self {
+        let file = directory.map(LimitsFile::in_directory);
+        let known = file
+            .as_ref()
+            .map(|file| file.read(clock.start()))
+            .unwrap_or_default();
+        Self { known, clock, file }
+    }
+
+    /// Keeps what the limits know in their file, for the next launch: asked after each
+    /// answer.
+    pub fn keep(&mut self) {
+        self.keep_behind(self.clock.behind_system());
+    }
+
+    /// Keeps what the limits know, their clock `behind_system` behind the clock of the
+    /// system.
+    fn keep_behind(&mut self, behind_system: Duration) {
+        if let Some(file) = &mut self.file {
+            file.keep(&self.known, behind_system);
+        }
+    }
+
     /// When a request of `policy` may be sent, `now` at the earliest.
     #[must_use]
     pub fn ready_at(&self, policy: Policy, now: Instant) -> Instant {
         let time = self.clock.time_of(now);
-        let ready = self.policies[policy.index()].ready_at(time);
+        let ready = self.known.policies[policy.index()].ready_at(time);
         // Counted from `now`, which an `Instant` can always tell.
         now + ready.saturating_duration_since(time)
+    }
+
+    /// Counts a search that leaves at `now`, whatever its kind.
+    pub fn searched(&mut self, now: Instant) {
+        self.known.last_search = Some(self.clock.time_of(now));
+    }
+
+    /// How long before `now` the last search left, of this launch or of the last one; `None`
+    /// when no search is known.
+    #[must_use]
+    pub fn since_last_search(&self, now: Instant) -> Option<Duration> {
+        let last = self.known.last_search?;
+        Some(self.clock.time_of(now).saturating_duration_since(last))
     }
 
     /// Counts a request of `policy`, once its answer, or its failure, came: a request that
     /// failed counts too.
     pub fn sent(&mut self, policy: Policy, hit: Hit) {
-        self.policies[policy.index()].sent(Hit {
+        self.known.policies[policy.index()].sent(Hit {
             sent: self.clock.time_of(hit.sent),
             answered: self.clock.time_of(hit.answered),
             counted: hit.counted,
@@ -319,11 +386,12 @@ impl Limits {
                 expected
             }),
         };
-        self.policies[policy.index()].answered(headers, self.clock.time_of(now));
+        self.known.policies[policy.index()].answered(headers, self.clock.time_of(now));
     }
 }
 
-/// The longest wait a refusal can ask: a day, and the margin.
+/// The longest wait a refusal can ask, and the longest restriction of a policy: a day, and
+/// the margin.
 pub const LONGEST_REFUSAL_WAIT: Duration = LONGEST_HEADER_TIME.saturating_add(MARGIN);
 
 /// How long a refusal (HTTP 429 or 403) asks every request to wait: the delay of

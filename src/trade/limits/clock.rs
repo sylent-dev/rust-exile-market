@@ -10,8 +10,10 @@
 use std::ops::Add;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+use serde::{Deserialize, Serialize};
+
 /// A time of the [`Clock`] of the limits, counted from 1970 (the Unix epoch).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub(super) struct Time(Duration);
 
 impl Time {
@@ -23,6 +25,14 @@ impl Time {
     /// How long this time is after `earlier`; nothing when it is before.
     pub fn saturating_duration_since(self, earlier: Self) -> Duration {
         self.0.saturating_sub(earlier.0)
+    }
+}
+
+#[cfg(test)]
+impl Time {
+    /// The time `seconds` after 1970.
+    pub fn of_second(seconds: u64) -> Self {
+        Self(Duration::from_secs(seconds))
     }
 }
 
@@ -53,14 +63,16 @@ impl Clock {
     }
 
     /// The clock that starts at `start`, when the clock of the system told `system`.
-    fn starting(start: Instant, system: SystemTime) -> Self {
-        // A clock of the system set before 1970 counts from 1970: the times after the start
-        // stay in order, which is all one launch needs.
-        let since_epoch = system.duration_since(UNIX_EPOCH).unwrap_or_default();
+    pub fn starting(start: Instant, system: SystemTime) -> Self {
         Self {
             start,
-            started_at: Time(since_epoch),
+            started_at: Time(since_epoch(system)),
         }
+    }
+
+    /// The time the clock started at.
+    pub fn start(&self) -> Time {
+        self.started_at
     }
 
     /// The time of `instant`, before the start of the clock too.
@@ -75,6 +87,26 @@ impl Clock {
                 .saturating_sub(before),
         )
     }
+
+    /// How far the clock is behind the clock of the system now: see [`Self::behind`].
+    pub fn behind_system(&self) -> Duration {
+        self.behind(Instant::now(), SystemTime::now())
+    }
+
+    /// How far the clock is behind the clock of the system, which tells `system` at
+    /// `instant`; nothing when it is ahead. It falls behind while the system sleeps where an
+    /// `Instant` stops then (Linux and macOS, by the documentation of `Instant`, not
+    /// measured), and when the clock of the system is set forward; a time it told is that
+    /// much later on the clock of the system.
+    fn behind(&self, instant: Instant, system: SystemTime) -> Duration {
+        since_epoch(system).saturating_sub(self.time_of(instant).0)
+    }
+}
+
+/// The time `system` since 1970. A clock of the system set before 1970 tells 1970: the
+/// times after the start of a [`Clock`] stay in order, which is all one launch needs.
+fn since_epoch(system: SystemTime) -> Duration {
+    system.duration_since(UNIX_EPOCH).unwrap_or_default()
 }
 
 #[cfg(test)]
@@ -156,16 +188,32 @@ mod tests {
         assert_eq!(Time(10 * SECOND) + 5 * SECOND, Time(15 * SECOND));
     }
 
+    #[test]
+    fn a_clock_that_stopped_while_the_system_slept_is_behind_by_that_long() {
+        let start = Instant::now();
+        let clock = clock(start);
+        let system = |seconds: u64| UNIX_EPOCH + Duration::from_secs(seconds);
+
+        // 90 s on the clock, 8 h and 90 s on the clock of the system.
+        let later = start + 90 * SECOND;
+        assert_eq!(
+            clock.behind(later, system(1_000_028_890)),
+            Duration::from_hours(8)
+        );
+        assert_eq!(clock.behind(later, system(1_000_000_090)), Duration::ZERO);
+        // A clock of the system set back: ahead of it, not behind.
+        assert_eq!(clock.behind(later, system(1_000_000_000)), Duration::ZERO);
+    }
+
     /// Between two readings of the clock of the system, whatever the speed of the machine.
     #[test]
     fn a_clock_starting_now_tells_the_time_of_the_system() {
-        let since_epoch = |system: SystemTime| system.duration_since(UNIX_EPOCH).ok();
         let before = since_epoch(SystemTime::now());
 
         let clock = Clock::starting_now();
 
         let after = since_epoch(SystemTime::now());
-        let told = Some(clock.time_of(clock.start).0);
+        let told = clock.start().0;
         assert!(
             before <= told && told <= after,
             "{before:?} {told:?} {after:?}"
