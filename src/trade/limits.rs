@@ -175,16 +175,22 @@ impl PolicyLimits {
     }
 
     fn sent(&mut self, hit: Hit<Time>) {
+        self.forget_before(hit.answered);
+        self.sent.push(hit);
+    }
+
+    /// Forgets the requests no window counts any more at `now`: those answered before its
+    /// longest window, or before 6 h while none is known.
+    fn forget_before(&mut self, now: Time) {
         let kept = self
             .windows
             .iter()
             .map(|window| window.period)
             .max()
             .unwrap_or(DEFAULT_HISTORY);
-        if let Some(start) = hit.answered.checked_sub(kept + MARGIN) {
+        if let Some(start) = now.checked_sub(kept + MARGIN) {
             self.sent.retain(|kept| kept.answered > start);
         }
-        self.sent.push(hit);
     }
 
     fn answered(&mut self, headers: &LimitHeaders, now: Time) {
@@ -318,15 +324,24 @@ impl Limits {
     /// The limits of an application launched when `clock` starts, read from `directory`.
     fn starting(clock: Clock, directory: Option<PathBuf>) -> Self {
         let file = directory.map(LimitsFile::in_directory);
-        let known = file
-            .as_ref()
-            .map(|file| file.read(clock.start()))
-            .unwrap_or_default();
-        Self { known, clock, file }
+        let read = file.as_ref().and_then(|file| file.read(clock.started_at()));
+        let mut limits = Self {
+            known: Known::default(),
+            clock,
+            file,
+        };
+        if let Some(known) = read {
+            limits.known = known;
+            // Kept as read, on a clock that just started on the clock of the system: a time
+            // in doubt, read as this launch, is then one of the past for the next launch,
+            // which doesn't start its wait over.
+            limits.keep_behind(Duration::ZERO);
+        }
+        limits
     }
 
-    /// Keeps what the limits know in their file, for the next launch: asked after each
-    /// answer.
+    /// Keeps what the limits know in their file, for the next launch: asked when a search
+    /// leaves, and after each answer.
     pub fn keep(&mut self) {
         self.keep_behind(self.clock.behind_system());
     }

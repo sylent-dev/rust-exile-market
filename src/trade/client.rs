@@ -3,9 +3,9 @@
 //!
 //! It never sends a request its limits don't allow, and lets 10 seconds pass at least between
 //! two searches, whatever the item: what the limits know and the time of the last search are
-//! kept in the cache directory after each answer, so that a new launch still counts them. It
-//! sends no session cookie: the searches work without an account. The rules of its use are in
-//! `docs/trade-site-usage.md`.
+//! kept in the cache directory when a search leaves and after each answer, so that a new
+//! launch still counts them. It sends no session cookie: the searches work without an
+//! account. The rules of its use are in `docs/trade-site-usage.md`.
 
 use std::fmt;
 use std::path::PathBuf;
@@ -239,6 +239,9 @@ impl<T: Transport> TradeClient<T> {
             return Err(TradeError::Wait(ready));
         }
         self.limits.searched(now);
+        // Before the search leaves: closed before its answer, the application still counts
+        // its 10 seconds at the next launch.
+        self.limits.keep();
         Ok(())
     }
 
@@ -255,7 +258,7 @@ impl<T: Transport> TradeClient<T> {
         }
         let attempt = self.transport.send(request);
         let answer = self.count(policy, sent, attempt);
-        // Whatever came: the next launch counts this request and this search too.
+        // Whatever came: the next launch counts this request too.
         self.limits.keep();
         Ok(answer?.into_json()?)
     }
@@ -407,6 +410,30 @@ pub(super) mod tests {
         assert!(next + Duration::from_secs(1) > now + SEARCH_INTERVAL);
     }
 
+    /// Neither sooner, nor counted again from each time it is asked.
+    #[test]
+    fn the_ten_seconds_end_ten_seconds_after_the_search_whenever_asked() {
+        let site = FakeSite::default();
+        site.answer(200, LimitHeaders::default(), SEARCH);
+        let mut client = TradeClient::with_transport(site, Refusal::default());
+        let before = Instant::now();
+        client
+            .search_items(Language::English, &League::new("Standard"), &ring())
+            .expect("an answer");
+        let after = Instant::now();
+
+        for seconds in [0, 4, 9] {
+            let now = after + Duration::from_secs(seconds);
+            let next = client.next_search(SearchKind::Exchange, now);
+            assert!(
+                before + SEARCH_INTERVAL <= next && next <= after + SEARCH_INTERVAL,
+                "{seconds}"
+            );
+        }
+        let later = after + SEARCH_INTERVAL;
+        assert_eq!(client.next_search(SearchKind::Exchange, later), later);
+    }
+
     /// The client of an application launched with the cache directory `directory`.
     fn launched_with(directory: &TestDirectory, site: FakeSite) -> TradeClient<FakeSite> {
         TradeClient::with_guarded(
@@ -435,6 +462,21 @@ pub(super) mod tests {
         let search = next_launch.search_items(Language::English, &league, &ring());
         assert!(matches!(search, Err(TradeError::Wait(_))), "{search:?}");
         assert!(site.requests().is_empty(), "not sent");
+    }
+
+    /// Closed before the answer of a search, the application still counts its 10 seconds.
+    #[test]
+    fn a_search_that_left_makes_the_next_launch_wait_before_its_answer_comes() {
+        let directory = TestDirectory::new("client-search-left");
+        let searched = Instant::now();
+        launched_with(&directory, FakeSite::default())
+            .check_search(SearchKind::Items)
+            .expect("allowed");
+
+        let next_launch = launched_with(&directory, FakeSite::default());
+
+        let next = next_launch.next_search(SearchKind::Items, Instant::now());
+        assert_about(Some(next), searched + SEARCH_INTERVAL);
     }
 
     /// Each one written to the file: a request without an answer, an answer, an error status.

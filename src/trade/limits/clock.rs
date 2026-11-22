@@ -3,7 +3,7 @@
 //!
 //! An [`Instant`] alone can't tell a time before the start of the system on Windows, where it
 //! is counted from that start (`Instant { t: Duration }` read from `QueryPerformanceCounter`,
-//! whose `checked_sub` gives `None`; `library/std/src/sys/pal/windows/time.rs` of Rust 1.95,
+//! whose `checked_sub` gives `None`; `library/std/src/sys/time/windows.rs` of Rust 1.95,
 //! read on 2026-11-22): a request sent before a restart couldn't be told as one. A [`Time`]
 //! can, down to 1970.
 
@@ -71,7 +71,7 @@ impl Clock {
     }
 
     /// The time the clock started at.
-    pub fn start(&self) -> Time {
+    pub fn started_at(&self) -> Time {
         self.started_at
     }
 
@@ -95,9 +95,9 @@ impl Clock {
 
     /// How far the clock is behind the clock of the system, which tells `system` at
     /// `instant`; nothing when it is ahead. It falls behind while the system sleeps where an
-    /// `Instant` stops then (Linux and macOS, by the documentation of `Instant`, not
-    /// measured), and when the clock of the system is set forward; a time it told is that
-    /// much later on the clock of the system.
+    /// `Instant` stops then (Linux and macOS, by the clocks its documentation names,
+    /// `CLOCK_MONOTONIC` and `CLOCK_UPTIME_RAW`; not measured), and when the clock of the
+    /// system is set forward; a time it told is that much later on the clock of the system.
     fn behind(&self, instant: Instant, system: SystemTime) -> Duration {
         since_epoch(system).saturating_sub(self.time_of(instant).0)
     }
@@ -213,7 +213,7 @@ mod tests {
         let clock = Clock::starting_now();
 
         let after = since_epoch(SystemTime::now());
-        let told = clock.start().0;
+        let told = clock.started_at().0;
         assert!(
             before <= told && told <= after,
             "{before:?} {told:?} {after:?}"

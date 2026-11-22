@@ -12,7 +12,7 @@ pub(super) fn hit(time: Instant) -> Hit {
 }
 
 /// The headers of a policy with the rule `Ip`.
-fn headers(policy: &str, limits: &str, state: &str) -> LimitHeaders {
+pub(super) fn headers(policy: &str, limits: &str, state: &str) -> LimitHeaders {
     LimitHeaders {
         policy: Some(policy.to_owned()),
         rules: vec![rule("Ip", limits, state)],
