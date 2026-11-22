@@ -2,10 +2,13 @@
 //! of the currency exchange, within the limits the trade site announces.
 //!
 //! It never sends a request its limits don't allow, and lets 10 seconds pass at least between
-//! two searches, whatever the item. It sends no session cookie: the searches work without an
+//! two searches, whatever the item: what the limits know and the time of the last search are
+//! kept in the cache directory when a search leaves and after each answer, so that a new
+//! launch still counts them. It sends no session cookie: the searches work without an
 //! account. The rules of its use are in `docs/trade-site-usage.md`.
 
 use std::fmt;
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use serde::de::DeserializeOwned;
@@ -14,7 +17,7 @@ use super::limits::{Hit, Limits, Policy};
 use super::offers::{ApiExchange, ApiFetch, ApiSearch, ExchangeOffer, ItemOffer};
 use super::query::{self, ItemQuery, SearchKind};
 use super::refusal::Refusal;
-use super::transport::{Attempt, Guarded, Network, Request, Transport};
+use super::transport::{Answer, Attempt, Guarded, Network, Request, Transport};
 use crate::http::{self, HttpError};
 use crate::language::Language;
 use crate::league::League;
@@ -85,16 +88,18 @@ pub struct ExchangeSearch {
 /// The client of the trade site.
 pub struct TradeClient<T = Network> {
     transport: Guarded<T>,
+    /// The limits of the trade site, and when the last search left.
     limits: Limits,
-    last_search: Option<Instant>,
     /// The log already says that an answer told no limits.
     told_no_limits: bool,
 }
 
 impl TradeClient {
+    /// The client of the trade site, which counts the requests the last launch kept in
+    /// `cache_directory`, and keeps its own there.
     #[must_use]
-    pub fn new(refusal: Refusal) -> Self {
-        Self::with_guarded(Guarded::network(refusal))
+    pub fn new(refusal: Refusal, cache_directory: Option<PathBuf>) -> Self {
+        Self::with_guarded(Guarded::network(refusal), Limits::kept_in(cache_directory))
     }
 }
 
@@ -102,27 +107,27 @@ impl<T: Transport> TradeClient<T> {
     /// The client of the fake trade site `transport`, for the tests.
     #[cfg(test)]
     pub(super) fn with_transport(transport: T, refusal: Refusal) -> Self {
-        Self::with_guarded(Guarded::new(transport, refusal))
+        Self::with_guarded(Guarded::new(transport, refusal), Limits::default())
     }
 
-    /// The client of the trade site behind `transport`, its limits not known yet.
-    fn with_guarded(transport: Guarded<T>) -> Self {
+    /// The client of the trade site behind `transport`, which knows `limits` of it.
+    fn with_guarded(transport: Guarded<T>, limits: Limits) -> Self {
         Self {
             transport,
-            limits: Limits::default(),
-            last_search: None,
+            limits,
             told_no_limits: false,
         }
     }
 
     /// When a search of `kind` may be sent, `now` at the earliest: 10 s after the last
-    /// search, once its limits allow it; for items, once they also allow the fetch of its
-    /// first offers.
+    /// search, of the last launch too, once its limits allow it; for items, once they also
+    /// allow the fetch of its first offers.
     #[must_use]
     pub fn next_search(&self, kind: SearchKind, now: Instant) -> Instant {
         let interval = self
-            .last_search
-            .map_or(now, |last| (last + SEARCH_INTERVAL).max(now));
+            .limits
+            .since_last_search(now)
+            .map_or(now, |since| now + SEARCH_INTERVAL.saturating_sub(since));
         let policies: &[Policy] = match kind {
             SearchKind::Items => &[Policy::Search, Policy::Fetch],
             SearchKind::Exchange => &[Policy::Exchange],
@@ -233,7 +238,10 @@ impl<T: Transport> TradeClient<T> {
         if ready > now {
             return Err(TradeError::Wait(ready));
         }
-        self.last_search = Some(now);
+        self.limits.searched(now);
+        // Before the search leaves: closed before its answer, the application still counts
+        // its 10 seconds at the next launch.
+        self.limits.keep();
         Ok(())
     }
 
@@ -248,7 +256,21 @@ impl<T: Transport> TradeClient<T> {
         if ready > sent {
             return Err(TradeError::Wait(ready));
         }
-        let result = self.transport.send(request);
+        let attempt = self.transport.send(request);
+        let answer = self.count(policy, sent, attempt);
+        // Whatever came: the next launch counts this request too.
+        self.limits.keep();
+        Ok(answer?.into_json()?)
+    }
+
+    /// Counts the request of `policy` sent at `sent`, now that `attempt` tells what came of
+    /// it, with the limits its answer tells; gives the answer, unless the trade site refused.
+    fn count(
+        &mut self,
+        policy: Policy,
+        sent: Instant,
+        attempt: Attempt,
+    ) -> Result<Answer, TradeError> {
         // Counted once answered, with both times: nothing else is sent meanwhile
         // (`&mut self`). Only a success that tells the limits was counted for sure by the
         // trade site: a request that didn't reach it, or that it refused, may not be.
@@ -258,7 +280,7 @@ impl<T: Transport> TradeClient<T> {
             answered: now,
             counted,
         };
-        let answer = match result {
+        let answer = match attempt {
             // A refusal met meanwhile: by the download of the item names, or by another
             // Exile Market, whose wait the guard just read in its file.
             Attempt::Waiting(until) => return Err(TradeError::Wait(until)),
@@ -288,16 +310,17 @@ impl<T: Transport> TradeClient<T> {
             self.told_no_limits = true;
         }
         self.limits.answered(policy, &answer.limits, now);
-        Ok(answer.into_json()?)
+        Ok(answer)
     }
 }
 
 #[cfg(test)]
 pub(super) mod tests {
     use super::*;
+    use crate::files::TestDirectory;
+    use crate::trade::kept_wait::tests::assert_about;
     use crate::trade::limits::LimitHeaders;
     use crate::trade::query::{RarityFilter, SearchedBase, StateFilters};
-    use crate::trade::transport::Answer;
     use crate::trade::transport::tests::{FakeSite, limits};
 
     pub const SEARCH: &str = r#"{"id": "Q1", "complexity": 4, "total": 13,
@@ -385,6 +408,98 @@ pub(super) mod tests {
         let now = Instant::now();
         let next = client.next_search(SearchKind::Exchange, now);
         assert!(next + Duration::from_secs(1) > now + SEARCH_INTERVAL);
+    }
+
+    /// Neither sooner, nor counted again from each time it is asked.
+    #[test]
+    fn the_ten_seconds_end_ten_seconds_after_the_search_whenever_asked() {
+        let site = FakeSite::default();
+        site.answer(200, LimitHeaders::default(), SEARCH);
+        let mut client = TradeClient::with_transport(site, Refusal::default());
+        let before = Instant::now();
+        client
+            .search_items(Language::English, &League::new("Standard"), &ring())
+            .expect("an answer");
+        let after = Instant::now();
+
+        for seconds in [0, 4, 9] {
+            let now = after + Duration::from_secs(seconds);
+            let next = client.next_search(SearchKind::Exchange, now);
+            assert!(
+                before + SEARCH_INTERVAL <= next && next <= after + SEARCH_INTERVAL,
+                "{seconds}"
+            );
+        }
+        let later = after + SEARCH_INTERVAL;
+        assert_eq!(client.next_search(SearchKind::Exchange, later), later);
+    }
+
+    /// The client of an application launched with the cache directory `directory`.
+    fn launched_with(directory: &TestDirectory, site: FakeSite) -> TradeClient<FakeSite> {
+        TradeClient::with_guarded(
+            Guarded::new(site, Refusal::default()),
+            Limits::kept_in(Some(directory.0.clone())),
+        )
+    }
+
+    /// Closing the application and launching it again doesn't shorten the 10 seconds.
+    #[test]
+    fn a_search_makes_the_next_launch_wait_its_ten_seconds() {
+        let directory = TestDirectory::new("client-search-kept");
+        let site = FakeSite::default();
+        site.answer(200, LimitHeaders::default(), SEARCH);
+        let league = League::new("Standard");
+        let searched = Instant::now();
+        launched_with(&directory, site)
+            .search_items(Language::English, &league, &ring())
+            .expect("an answer");
+
+        let site = FakeSite::default();
+        let mut next_launch = launched_with(&directory, site.clone());
+
+        let next = next_launch.next_search(SearchKind::Exchange, Instant::now());
+        assert_about(Some(next), searched + SEARCH_INTERVAL);
+        let search = next_launch.search_items(Language::English, &league, &ring());
+        assert!(matches!(search, Err(TradeError::Wait(_))), "{search:?}");
+        assert!(site.requests().is_empty(), "not sent");
+    }
+
+    /// Closed before the answer of a search, the application still counts its 10 seconds.
+    #[test]
+    fn a_search_that_left_makes_the_next_launch_wait_before_its_answer_comes() {
+        let directory = TestDirectory::new("client-search-left");
+        let searched = Instant::now();
+        launched_with(&directory, FakeSite::default())
+            .check_search(SearchKind::Items)
+            .expect("allowed");
+
+        let next_launch = launched_with(&directory, FakeSite::default());
+
+        let next = next_launch.next_search(SearchKind::Items, Instant::now());
+        assert_about(Some(next), searched + SEARCH_INTERVAL);
+    }
+
+    /// Each one written to the file: a request without an answer, an answer, an error status.
+    #[test]
+    fn every_request_is_counted_by_the_next_launch() {
+        let fetch_limits = |state| limits("trade-fetch-request-limit", "4:300:10", state);
+        let directory = TestDirectory::new("client-requests-kept");
+        let ids = ["a".to_owned()];
+        // Nothing to answer the first request: the connection fails.
+        let _ = launched_with(&directory, FakeSite::default()).fetch(Language::English, "Q1", &ids);
+        let site = FakeSite::default();
+        site.answer(200, fetch_limits("1:300:0"), r#"{"result": []}"#);
+        site.answer(400, fetch_limits("2:300:0"), "{}");
+        let mut client = launched_with(&directory, site);
+        client.fetch(Language::English, "Q1", &ids).expect("offers");
+        let _ = client.fetch(Language::English, "Q1", &ids);
+
+        let next_launch = launched_with(&directory, FakeSite::default());
+
+        // 4 per 300 s: the three requests, and the one of another tool the trade site
+        // counted beyond the only request it counted for sure.
+        let now = Instant::now();
+        assert!(next_launch.next_fetch(now) > now + Duration::from_secs(290));
     }
 
     #[test]

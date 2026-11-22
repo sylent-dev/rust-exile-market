@@ -1,9 +1,9 @@
 use super::*;
 
-const SECOND: Duration = Duration::from_secs(1);
+pub(super) const SECOND: Duration = Duration::from_secs(1);
 
 /// A request answered at once, with the limits.
-fn hit(time: Instant) -> Hit {
+pub(super) fn hit(time: Instant) -> Hit {
     Hit {
         sent: time,
         answered: time,
@@ -12,7 +12,7 @@ fn hit(time: Instant) -> Hit {
 }
 
 /// The headers of a policy with the rule `Ip`.
-fn headers(policy: &str, limits: &str, state: &str) -> LimitHeaders {
+pub(super) fn headers(policy: &str, limits: &str, state: &str) -> LimitHeaders {
     LimitHeaders {
         policy: Some(policy.to_owned()),
         rules: vec![rule("Ip", limits, state)],
@@ -29,7 +29,7 @@ fn rule(name: &str, limits: &str, state: &str) -> RuleHeaders {
 }
 
 /// The headers of a search answer, measured on 2026-10-26, with the hits `state`.
-fn search_headers(state: &str) -> LimitHeaders {
+pub(super) fn search_headers(state: &str) -> LimitHeaders {
     headers(
         "trade-search-request-limit",
         "5:10:60,15:60:300,30:300:1800,600:21600:3600",
