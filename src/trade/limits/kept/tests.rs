@@ -327,11 +327,16 @@ fn a_time_after_the_launch_puts_every_request_of_the_file_in_doubt() {
     // The clock set back since: launched 3 s after these requests, 97 s before the last
     // search.
     let mut next_launch = launched(&directory, start, 1003);
+    // Written again as read: a launch after, at the same time, doesn't count them for sure
+    // either.
+    let mut launch_after = launched(&directory, start, 1003);
 
-    assert_eq!(
-        ready_after_the_searches_of_a_browser(&mut next_launch, start),
-        start + 15 * SECOND + MARGIN
-    );
+    for limits in [&mut next_launch, &mut launch_after] {
+        assert_eq!(
+            ready_after_the_searches_of_a_browser(limits, start),
+            start + 15 * SECOND + MARGIN
+        );
+    }
 }
 
 /// A clock of the system wrong at one launch only: what that launch read isn't written.
