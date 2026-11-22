@@ -125,8 +125,10 @@ impl ExileMarketApp {
         // The prices of the league of the last session, until the leagues arrive.
         let market = MarketWatch::start(settings.league(), move || market_ctx.request_repaint());
 
-        // A refusal of the trade site makes its two threads wait, at the next launch too.
-        let refusal = Refusal::kept_in(files::cache_directory());
+        // A refusal of the trade site makes its two threads wait, at the next launch too,
+        // which also counts the requests of this one.
+        let cache_directory = files::cache_directory();
+        let refusal = Refusal::kept_in(cache_directory.clone());
         Self {
             // The language of the copied items never changes the interface: it only chooses
             // the item names and the trade site.
@@ -144,7 +146,9 @@ impl ExileMarketApp {
             item_names: ItemNamesWatch::start(refusal.clone(), move || {
                 names_ctx.request_repaint();
             }),
-            search: OfferSearch::start(refusal, move || search_ctx.request_repaint()),
+            search: OfferSearch::start(refusal, cache_directory, move || {
+                search_ctx.request_repaint();
+            }),
             download_quote: None,
             update_check: UpdateCheck::start(move || update_ctx.request_repaint()),
             release: None,

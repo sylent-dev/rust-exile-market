@@ -4,6 +4,7 @@
 //! with its answer, so that each list of offers fetches the rest of its own search. Nothing
 //! runs in the background, and nothing is tried again by itself.
 
+use std::path::PathBuf;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -176,14 +177,19 @@ pub struct OfferSearch {
 
 impl OfferSearch {
     /// Starts the thread; `wake` is called from it after each answer. No request is sent
-    /// during the wait of `refusal`, shared with the download of the item names.
+    /// during the wait of `refusal`, shared with the download of the item names, and the
+    /// requests are counted from one launch to the next in `cache_directory`.
     ///
     /// # Panics
     ///
     /// If the system can't start a thread.
     #[must_use]
-    pub fn start(refusal: Refusal, wake: impl Fn() + Send + 'static) -> Self {
-        Self::spawn(move || TradeClient::new(refusal), wake)
+    pub fn start(
+        refusal: Refusal,
+        cache_directory: Option<PathBuf>,
+        wake: impl Fn() + Send + 'static,
+    ) -> Self {
+        Self::spawn(move || TradeClient::new(refusal, cache_directory), wake)
     }
 
     fn spawn<T: Transport + 'static>(

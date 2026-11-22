@@ -15,11 +15,6 @@
 //! is kept in a file of the cache directory after each answer, and read at the next launch
 //! ([`kept`]).
 
-#![cfg_attr(
-    not(test),
-    expect(dead_code, reason = "the client keeps the limits from the next commit")
-)]
-
 mod clock;
 mod kept;
 
@@ -303,6 +298,7 @@ pub struct Limits {
     file: Option<LimitsFile>,
 }
 
+#[cfg(test)]
 impl Default for Limits {
     /// No limit known yet nor kept, on a clock that starts now.
     fn default() -> Self {

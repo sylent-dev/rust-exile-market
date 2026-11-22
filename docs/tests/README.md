@@ -22,6 +22,7 @@ They may be written in French, the language of the testers (an exception to the 
 - [Executable: its name, its icon, a window that can't open, a second launch](linux/executable.md) (17a, 22m)
 - [Close with the game](linux/close-with-game.md) (20a2b)
 - [Tier of a waystone between a minimum and a maximum](linux/waystone-tier.md) (22g)
+- [Limits of the trade site kept from one launch to the next](linux/limits-kept.md) (22p4)
 - [Another desktop than KDE: the keyboard and the pointer, only checked on KWin](linux/other-desktops.md) (17e3b2; for a tester on another desktop, not run before the first release)
 
 ## Windows
