@@ -12,8 +12,8 @@
 //!
 //! The limits are asked and told with `Instant`s, and count in a time of their own
 //! ([`clock`]), which can tell a request sent before the start of the system: what they know
-//! is kept in a file of the cache directory after each answer, and read at the next launch
-//! ([`kept`]).
+//! is kept in a file of the cache directory when a search leaves and after each answer, and
+//! read at the next launch ([`kept`]).
 
 mod clock;
 mod kept;
@@ -330,12 +330,15 @@ impl Limits {
             clock,
             file,
         };
-        if let Some(known) = read {
-            limits.known = known;
-            // Kept as read, on a clock that just started on the clock of the system: a time
-            // in doubt, read as this launch, is then one of the past for the next launch,
-            // which doesn't start its wait over.
-            limits.keep_behind(Duration::ZERO);
+        if let Some(read) = read {
+            limits.known = read.known;
+            if read.after_launch > 0 {
+                // Kept as read, on a clock that just started on the clock of the system: a
+                // time read as this launch is then one of the past for the next launch, which
+                // doesn't start its wait over. Only then: a file without such a time stays as
+                // it is, for a launch whose clock would be right again.
+                limits.keep_behind(Duration::ZERO);
+            }
         }
         limits
     }

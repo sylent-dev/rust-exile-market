@@ -1,17 +1,19 @@
 //! What the limits know, kept in a file of the cache directory (`trade-limits.json`): written
-//! after each answer and read at the launch, so that closing the application and launching it
-//! again forgets neither the requests it sent, nor the limits and the restriction the trade
-//! site told, nor the last search.
+//! when a search leaves and after each answer, and read at the launch, so that closing the
+//! application and launching it again forgets neither the requests it sent, nor the limits
+//! and the restriction the trade site told, nor the last search.
 //!
 //! A file in doubt (a clock of the system set back since, a file written by hand) is read on
 //! the safe side: a time of the past that would come after the launch is read as the launch,
-//! and a window lasts a day at most. A request whose time the reading moves stays in the
-//! windows, where later is the safe side, and is no longer taken from the counts of the trade
-//! site, where it would hide the hits of another tool. Only the end of a restriction more
-//! than a day ahead, which no answer can ask, is ignored, as the wait of a refusal is
-//! (`kept_wait`): it would stop the searches for as long as the clock was set back.
+//! and a window lasts a day at most. Later is the safe side in a window, and the wrong one in
+//! the counts of the trade site, from which the requests it counted for sure are taken to
+//! find the hits of another tool. The clock is the one of the whole file: once it shows that
+//! the times are read later than they were (one of them after the launch, or a file written
+//! by a clock behind the clock of the system), no request of the file is taken from those
+//! counts any more. Only the end of a restriction more than a day ahead, which no answer can
+//! ask, is ignored, as the wait of a refusal is (`kept_wait`): it would stop the searches for
+//! as long as the clock was set back.
 
-use std::cell::Cell;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -41,29 +43,45 @@ struct Kept<K> {
 impl Kept<Known> {
     /// What the file knew, as the limits of an application launched at `launch` count it: on
     /// the safe side when in doubt.
-    fn read_at(self, launch: Time) -> Known {
-        let reading = Reading {
+    fn read_at(self, launch: Time) -> AtLaunch {
+        let mut reading = Reading {
             behind_system: self.behind_system,
             launch,
-            after_launch: Cell::new(0),
+            after_launch: 0,
         };
         let Known {
             policies,
             last_search,
         } = self.known;
-        let known = Known {
+        let mut known = Known {
             policies: policies.map(|policy| reading.policy(policy)),
             last_search: last_search.map(|last| reading.past(last)),
         };
-        let after_launch = reading.after_launch.get();
-        if after_launch > 0 {
-            log::warn!(
-                "Trade site: {after_launch} times kept in {KEPT_FILE} come after the launch \
-                 (the clock of the system set back since?): read as the launch"
-            );
+        if reading.reads_later() {
+            // Read more recent than it was sent, a request taken from the counts of the
+            // trade site would hide a hit of another tool.
+            let requests = known
+                .policies
+                .iter_mut()
+                .flat_map(|policy| &mut policy.sent);
+            for request in requests {
+                request.counted = false;
+            }
         }
-        known
+        AtLaunch {
+            known,
+            after_launch: reading.after_launch,
+        }
     }
+}
+
+/// What a file knew, as a launch reads it.
+#[derive(Debug, PartialEq, Eq)]
+pub(super) struct AtLaunch {
+    pub known: Known,
+    /// How many of its times of the past came after the launch, and were read as the launch:
+    /// the clock of the system was set back since, or the file written by hand.
+    pub after_launch: usize,
 }
 
 /// The reading of a file at a launch: where each of its times goes.
@@ -72,36 +90,39 @@ struct Reading {
     behind_system: Duration,
     launch: Time,
     /// The times of the past found after the launch so far.
-    after_launch: Cell<usize>,
+    after_launch: usize,
 }
 
 impl Reading {
     /// A time of the past, on the clock of the system: the launch at the latest.
-    fn past(&self, time: Time) -> Time {
+    fn past(&mut self, time: Time) -> Time {
         let read = time + self.behind_system;
         if read > self.launch {
-            self.after_launch.set(self.after_launch.get() + 1);
+            self.after_launch += 1;
         }
         read.min(self.launch)
     }
 
-    /// A request, no longer counted for sure once the reading moves the time it left at:
-    /// taken from the counts of the trade site, a request read too recent would hide a hit
-    /// of another tool. A clock behind by more than the margin moves every time: the requests
-    /// sent before it fell behind are read more recent than they are.
-    fn hit(&self, hit: Hit<Time>) -> Hit<Time> {
-        let all_later = self.behind_system > MARGIN;
-        let after_launch = hit.sent + self.behind_system > self.launch;
+    /// Whether the times of the file are read later than they were, as far as the file read
+    /// so far shows: written by a clock behind by more than the margin, every time is told
+    /// later, those from before it fell behind too late; with a time after the launch, the
+    /// clock of the system was set back, under every time of the file.
+    fn reads_later(&self) -> bool {
+        self.behind_system > MARGIN || self.after_launch > 0
+    }
+
+    /// A request, at the times read.
+    fn hit(&mut self, hit: Hit<Time>) -> Hit<Time> {
         Hit {
             sent: self.past(hit.sent),
             answered: self.past(hit.answered),
-            counted: hit.counted && !all_later && !after_launch,
+            counted: hit.counted,
         }
     }
 
     /// The limits of a policy: its requests in the order the windows count on, whatever the
     /// file tells, without those no window counts any more.
-    fn policy(&self, policy: PolicyLimits) -> PolicyLimits {
+    fn policy(&mut self, policy: PolicyLimits) -> PolicyLimits {
         let PolicyLimits {
             sent,
             windows,
@@ -168,8 +189,9 @@ impl LimitsFile {
     }
 
     /// What the file knows, for limits launched at `launch`: nothing without a file of this
-    /// version, nor from a file that can't be read, which the log tells.
-    pub fn read(&self, launch: Time) -> Option<Known> {
+    /// version, nor from a file that can't be read, which the log tells, as it tells a file
+    /// whose times are read later than they were.
+    pub fn read(&self, launch: Time) -> Option<AtLaunch> {
         let kept: Kept<Known> = match files::read_versioned_json(&self.path(), VERSION) {
             Ok(kept) => kept?,
             Err(error) => {
@@ -181,10 +203,30 @@ impl LimitsFile {
                 return None;
             }
         };
-        let known = kept.read_at(launch);
-        let requests: usize = known.policies.iter().map(|policy| policy.sent.len()).sum();
+        let behind_system = kept.behind_system;
+        let read = kept.read_at(launch);
+        let requests: usize = read
+            .known
+            .policies
+            .iter()
+            .map(|policy| policy.sent.len())
+            .sum();
         log::info!("Trade site: the limits kept in {KEPT_FILE}, {requests} requests counted");
-        Some(known)
+        if behind_system > MARGIN {
+            log::info!(
+                "Trade site: {KEPT_FILE} was written by a clock {} s behind the clock of the \
+                 system (a sleep of the system?): its times are read that much later",
+                behind_system.as_secs()
+            );
+        }
+        if read.after_launch > 0 {
+            log::warn!(
+                "Trade site: times kept in {KEPT_FILE} come after the launch, {} of them (the \
+                 clock of the system set back since?): read as the launch",
+                read.after_launch
+            );
+        }
+        Some(read)
     }
 
     /// Keeps `known`, told by a clock `behind_system` behind the clock of the system; a

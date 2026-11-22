@@ -61,7 +61,7 @@ fn read_at(search: PolicyLimits, launch: u64) -> PolicyLimits {
             last_search: None,
         },
     };
-    let [search, fetch, exchange] = kept.read_at(time(launch)).policies;
+    let [search, fetch, exchange] = kept.read_at(time(launch)).known.policies;
     assert_eq!(
         [fetch, exchange],
         [PolicyLimits::default(), PolicyLimits::default()]
@@ -176,22 +176,31 @@ fn a_time_of_the_past_after_the_launch_is_read_as_the_launch() {
         },
     };
 
-    let known = kept.read_at(time(100));
+    let read = kept.read_at(time(100));
 
     assert_eq!(
-        known,
-        Known {
-            policies: [
-                PolicyLimits {
-                    // Sent at a time the reading moved: no longer counted for sure.
-                    sent: vec![kept_hit(70, 71), kept_hit(99, 100), uncounted_hit(100, 100)],
-                    windows: vec![window(minute, 95), window(minute, 100)],
-                    blocked_until: None,
-                },
-                PolicyLimits::default(),
-                PolicyLimits::default(),
-            ],
-            last_search: Some(time(100)),
+        read,
+        AtLaunch {
+            known: Known {
+                policies: [
+                    PolicyLimits {
+                        // The clock set back under every time of the file: no request is
+                        // counted for sure any more, the one read before the launch either.
+                        sent: vec![
+                            uncounted_hit(70, 71),
+                            uncounted_hit(99, 100),
+                            uncounted_hit(100, 100)
+                        ],
+                        windows: vec![window(minute, 95), window(minute, 100)],
+                        blocked_until: None,
+                    },
+                    PolicyLimits::default(),
+                    PolicyLimits::default(),
+                ],
+                last_search: Some(time(100)),
+            },
+            // An answer, a departure and its answer, a window told, the last search.
+            after_launch: 5,
         }
     );
 }
@@ -215,9 +224,10 @@ fn the_times_of_a_clock_behind_the_system_are_no_longer_counted_for_sure() {
                 last_search: Some(time(70)),
             },
         };
-        let known = kept.read_at(time(100));
-        let [search, ..] = known.policies;
-        (search, known.last_search)
+        let read = kept.read_at(time(100));
+        assert_eq!(read.after_launch, 0);
+        let [search, ..] = read.known.policies;
+        (search, read.known.last_search)
     };
 
     assert_eq!(
@@ -298,6 +308,49 @@ fn requests_read_later_after_a_sleep_dont_hide_the_hits_of_another_tool() {
     assert_eq!(
         ready_after_the_searches_of_a_browser(&mut next_launch, start),
         start + 15 * SECOND + MARGIN
+    );
+}
+
+/// One time after the launch tells that the clock was set back under every time of the file:
+/// the requests read before the launch are read too recent as well.
+#[test]
+fn a_time_after_the_launch_puts_every_request_of_the_file_in_doubt() {
+    let directory = TestDirectory::new("limits-kept-set-back-a-little");
+    let start = Instant::now();
+    let mut limits = launched(&directory, start, 1000);
+    for _ in 0..4 {
+        limits.sent(Policy::Search, hit(start));
+    }
+    limits.searched(start + 100 * SECOND);
+    limits.keep_behind(Duration::ZERO);
+
+    // The clock set back since: launched 3 s after these requests, 97 s before the last
+    // search.
+    let mut next_launch = launched(&directory, start, 1003);
+
+    assert_eq!(
+        ready_after_the_searches_of_a_browser(&mut next_launch, start),
+        start + 15 * SECOND + MARGIN
+    );
+}
+
+/// A clock of the system wrong at one launch only: what that launch read isn't written.
+#[test]
+fn a_launch_whose_clock_was_ahead_leaves_the_file_as_it_was() {
+    let directory = TestDirectory::new("limits-kept-ahead-once");
+    let start = Instant::now();
+    let mut limits = launched(&directory, start, 0);
+    search_five_times(&mut limits, start);
+    limits.keep_behind(Duration::ZERO);
+    // Six hours ahead: every request is forgotten.
+    let ahead = launched(&directory, start, 6 * 3600 + 10);
+    assert_eq!(ahead.ready_at(Policy::Search, start), start);
+
+    let next_launch = launched(&directory, start, 6);
+
+    assert_eq!(
+        next_launch.ready_at(Policy::Search, start),
+        start + 4 * SECOND + MARGIN
     );
 }
 
@@ -457,7 +510,9 @@ fn the_file_keeps_the_shape_of_its_version() {
         ..PolicyLimits::default()
     };
     assert_eq!(
-        LimitsFile::in_directory(directory.0.clone()).read(time(30)),
+        LimitsFile::in_directory(directory.0.clone())
+            .read(time(30))
+            .map(|read| read.known),
         Some(Known {
             policies: [
                 PolicyLimits {
