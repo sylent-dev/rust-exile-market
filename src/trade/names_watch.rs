@@ -6,11 +6,14 @@
 //! the trade site refused the request. While no name is known and the trade site answers
 //! with an error, or with something the application can't read, the next attempt waits longer
 //! and longer, an hour at most: the six requests of a download fail the same way each time.
+//! The hour at least that a refused download waits is kept in the cache directory: the next
+//! launch, and another Exile Market, wait for its end too.
 
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
 
 use super::Refusal;
+use super::kept_wait::KeptWait;
 use super::site::{NamesError, TradeSite};
 use crate::files;
 use crate::http::Backoff;
@@ -22,6 +25,10 @@ use crate::worker::{OnDrop, Outbox, Worker};
 const CACHE_FILE: &str = "item-names.json";
 /// Changed with the shape of [`ItemNames`]: a file of another version is downloaded again.
 const CACHE_VERSION: u32 = 2;
+/// The file of the end of the wait of a refused download, in the cache directory. A file of
+/// its own: in the wait every request shares (`trade-refusal.json`), its hour at least would
+/// stop the searches too, which a refusal of the names makes wait for its own delay only.
+const WAIT_FILE: &str = "item-names-wait.json";
 
 /// When the thread downloads the names: every `refresh`, and after a failure, `retry` while
 /// names are known, `retry_without_names` before, doubled up to `retry` at each failure the
@@ -151,7 +158,19 @@ fn watch(
     }
     let mut failing = false;
     let mut backoff = intervals.backoff();
+    let mut names_wait = KeptWait::read_from(cache.map(Path::to_path_buf), WAIT_FILE);
     loop {
+        // Read again before each download: the last launch, or another Exile Market, may
+        // have had its download refused.
+        if Instant::now() >= due
+            && let Some(until) = names_wait.until_read_again(Instant::now())
+        {
+            log::info!(
+                "The item names wait for the end of the wait of a refused download, {} s",
+                until.saturating_duration_since(Instant::now()).as_secs()
+            );
+            due = until;
+        }
         if Instant::now() >= due {
             match source.item_names() {
                 Ok(names) => {
@@ -175,7 +194,8 @@ fn watch(
                     }
                     due = Instant::now() + intervals.refresh;
                 }
-                // Not sent: the trade site refused a search, or the names, a moment ago.
+                // Not sent: the wait of a refusal of a search or of the names holds, of
+                // this Exile Market, of its last launch or of another one.
                 Err(NamesError::Wait(until)) => {
                     log::info!(
                         "The item names wait for the end of a refusal of the trade site, {} s",
@@ -192,10 +212,15 @@ fn watch(
                     }
                     failing = true;
                     // A refusal waits as long as a failure with names, and for the delay it
-                    // gives when longer: the trade site must not be asked again soon.
+                    // gives when longer: the trade site must not be asked again soon, nor at
+                    // the next launch.
                     let now = Instant::now();
                     due = match error.refused_until() {
-                        Some(until) => until.max(now + intervals.retry),
+                        Some(until) => {
+                            let until = until.max(now + intervals.retry);
+                            names_wait.extend(until);
+                            until
+                        }
                         None => now + intervals.retry_after(&error, known, &mut backoff),
                     };
                 }

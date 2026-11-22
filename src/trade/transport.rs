@@ -87,8 +87,8 @@ pub(super) struct Guarded<T> {
 /// What became of an attempt to send a request through [`Guarded`].
 #[derive(Debug)]
 pub(super) enum Attempt {
-    /// Not sent: the trade site refused a request a moment ago, and nothing is sent before
-    /// this time.
+    /// Not sent: the trade site refused a request, of this Exile Market or of another one,
+    /// and nothing is sent before this time.
     Waiting(Instant),
     /// Sent, but no answer came.
     Unanswered(ureq::Error),
@@ -122,10 +122,11 @@ impl<T: Transport> Guarded<T> {
         self.refusal.until(now)
     }
 
-    /// Sends `request`, unless the wait of a refusal holds; a refusal starts one, as long as
-    /// it asks ([`limits::refusal_wait`]).
+    /// Sends `request`, unless the wait of a refusal holds, of this Exile Market or of another
+    /// one; a refusal starts one, as long as it asks ([`limits::refusal_wait`]).
     pub fn send(&mut self, request: &Request) -> Attempt {
-        if let Some(until) = self.refusal.until(Instant::now()) {
+        // Its file read again: another Exile Market may have been refused since.
+        if let Some(until) = self.refusal.until_read_again(Instant::now()) {
             return Attempt::Waiting(until);
         }
         let answer = match self.transport.send(request) {
@@ -552,7 +553,8 @@ pub(super) mod tests {
     #[test]
     fn a_refusal_stops_the_requests_of_the_next_launch_too() {
         use crate::files::TestDirectory;
-        use crate::trade::refusal::tests::{assert_about, launched_with};
+        use crate::trade::kept_wait::tests::assert_about;
+        use crate::trade::refusal::tests::launched_with;
 
         let directory = TestDirectory::new("refusal-next-launch");
         let site = FakeSite::default();
@@ -570,6 +572,34 @@ pub(super) mod tests {
             panic!("a wait: {attempt:?}");
         };
         assert_about(Some(wait), until);
+        assert_eq!(site.requests(), []);
+    }
+
+    /// The security audit of v0.2.1 (2026-11-21): a second Exile Market, launched before the
+    /// refusal of the first, could send a request during its penalty.
+    #[test]
+    fn a_refusal_stops_the_requests_of_another_exile_market_too() {
+        use crate::files::TestDirectory;
+        use crate::trade::kept_wait::tests::assert_about;
+        use crate::trade::refusal::tests::launched_with;
+
+        let directory = TestDirectory::new("refusal-other-exile-market");
+        let site = FakeSite::default();
+        let mut other = Guarded::new(site.clone(), launched_with(&directory));
+        let refusing = FakeSite::default();
+        refusing.answer(429, retry_after("600"), "");
+        let refused = Guarded::new(refusing, launched_with(&directory)).send(&get());
+        let Attempt::Refused { until, .. } = refused else {
+            panic!("a refusal: {refused:?}");
+        };
+
+        let attempt = other.send(&get());
+
+        let Attempt::Waiting(wait) = attempt else {
+            panic!("a wait: {attempt:?}");
+        };
+        assert_about(Some(wait), until);
+        assert_about(other.refused_until(Instant::now()), until);
         assert_eq!(site.requests(), []);
     }
 

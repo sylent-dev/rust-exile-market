@@ -259,7 +259,8 @@ impl<T: Transport> TradeClient<T> {
             counted,
         };
         let answer = match result {
-            // Refused meanwhile by the download of the item names.
+            // A refusal met meanwhile: by the download of the item names, or by another
+            // Exile Market, whose wait the guard just read in its file.
             Attempt::Waiting(until) => return Err(TradeError::Wait(until)),
             Attempt::Unanswered(error) => {
                 self.limits.sent(policy, hit(false));
@@ -432,7 +433,7 @@ pub(super) mod tests {
     /// every request shares, which ended with the delay when the restriction was longer.
     #[test]
     fn the_wait_a_refusal_shows_is_the_one_every_request_shares() {
-        use crate::trade::refusal::tests::assert_about;
+        use crate::trade::kept_wait::tests::assert_about;
 
         let site = FakeSite::default();
         let mut headers = limits("trade-search-request-limit", "5:10:60", "6:10:300");
