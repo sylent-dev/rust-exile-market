@@ -27,6 +27,8 @@ pub(super) struct KeptWait {
     in_file: Option<SystemTime>,
     /// Where its end is kept; without a cache directory, the wait ends with the application.
     file: Option<WaitFile>,
+    /// The log already says that the file can't be read, until it reads again.
+    told_unreadable: bool,
 }
 
 /// The file `name` of the cache directory `directory`, which keeps the end of a wait.
@@ -51,6 +53,7 @@ impl KeptWait {
             until: None,
             in_file: None,
             file: directory.map(|directory| WaitFile { directory, name }),
+            told_unreadable: false,
         };
         // Read at the launch, so that the log tells a wait under way from its first lines.
         wait.read_again();
@@ -87,7 +90,24 @@ impl KeptWait {
     /// that tells a shorter wait, or none, ends nothing.
     fn read_again(&mut self) {
         let Some(file) = &self.file else { return };
-        let Some(kept) = file.read() else { return };
+        let kept = match file.read() {
+            Ok(kept) => {
+                self.told_unreadable = false;
+                kept
+            }
+            Err(error) => {
+                // Once: every request would say the same, until a wait is written again.
+                if !self.told_unreadable {
+                    log::warn!(
+                        "{} can't be read, the wait it may keep is ignored: {error}",
+                        logging::without_home(&file.path()).display()
+                    );
+                    self.told_unreadable = true;
+                }
+                return;
+            }
+        };
+        let Some(kept) = kept else { return };
         if self.in_file == Some(kept) {
             return;
         }
@@ -108,18 +128,16 @@ impl KeptWait {
 }
 
 impl WaitFile {
-    /// The end of the wait the file keeps, if there is a file that can be read.
-    fn read(&self) -> Option<SystemTime> {
-        let path = self.directory.join(self.name);
-        let kept: Option<KeptEnd> =
-            files::read_versioned_json(&path, VERSION).unwrap_or_else(|error| {
-                log::warn!(
-                    "{} can't be read, the wait it may keep is ignored: {error}",
-                    logging::without_home(&path).display()
-                );
-                None
-            });
-        kept.map(|kept| kept.until)
+    /// Where the file is.
+    fn path(&self) -> PathBuf {
+        self.directory.join(self.name)
+    }
+
+    /// The end of the wait the file keeps, if there is a file of this version; an error when
+    /// it can't be read.
+    fn read(&self) -> io::Result<Option<SystemTime>> {
+        let kept: Option<KeptEnd> = files::read_versioned_json(&self.path(), VERSION)?;
+        Ok(kept.map(|kept| kept.until))
     }
 
     /// Keeps the end `until` of the wait, and gives it as the file tells it; a failure is
@@ -137,7 +155,7 @@ impl WaitFile {
             .inspect_err(|error| {
                 log::warn!(
                     "The wait of the trade site couldn't be kept in {}: {error}",
-                    logging::without_home(&self.directory.join(self.name)).display()
+                    logging::without_home(&self.path()).display()
                 );
             })
             .ok()
@@ -453,6 +471,35 @@ pub(super) mod tests {
             let next_launch = launched_with(&directory);
             assert_about(next_launch.until(now), now + Duration::from_mins(30));
         }
+    }
+
+    /// A file that can't be read stays so until a refusal writes it again: without the
+    /// mark, each request would write the same line to the log.
+    #[test]
+    fn a_file_that_cant_be_read_is_told_once_and_again_after_it_was_read() {
+        let directory = TestDirectory::new("wait-unreadable-told");
+        fs::create_dir_all(&directory.0).expect("a directory");
+        fs::write(directory.0.join(FILE), "not JSON").expect("a file");
+        let now = Instant::now();
+
+        let mut wait = launched_with(&directory);
+        assert!(wait.told_unreadable);
+        assert_eq!(wait.until_read_again(now), None);
+        assert!(wait.told_unreadable, "still unreadable, already told");
+
+        wait.extend(now + Duration::from_mins(30));
+        assert_eq!(
+            wait.until_read_again(now),
+            Some(now + Duration::from_mins(30))
+        );
+        assert!(!wait.told_unreadable, "read again: the next time is told");
+
+        fs::write(directory.0.join(FILE), "not JSON").expect("a file");
+        assert_eq!(
+            wait.until_read_again(now),
+            Some(now + Duration::from_mins(30))
+        );
+        assert!(wait.told_unreadable);
     }
 
     #[test]
