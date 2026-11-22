@@ -10,6 +10,12 @@
 //! is taken from constants: before the first answer, no limit is known. When in doubt (limits
 //! that can't be read), the limits known are kept.
 
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "the limits count with it from the next commit")
+)]
+mod clock;
+
 use std::time::{Duration, Instant};
 
 use crate::logging;
