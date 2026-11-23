@@ -40,6 +40,12 @@ Only run read-only commands: `git log`, `git grep`, `grep`, `cargo tree`, `cargo
 - **Moyenne**: a defense missing that only one other mistake would turn into a flaw (no size limit on an answer of a trusted service, a permission of a workflow wider than needed).
 - **Basse**: hardening, a clearer error, a check worth adding.
 
+The severity is read from two facts, never from a feeling of its weight. For each finding, ask: **who can trigger it, and what does it give them beyond what they already have?** Write the answer in the finding (**Triggered by / gives**); the severity follows from it.
+
+- **Who**: a service the application calls (the trade site, poe2scout, GitHub), any program that writes the clipboard, a party on the network, a pull request or a dependency (the workflows, the build), or someone who already has the player's rights on their machine.
+- **A flaw that needs the player's rights on their machine** (writing their files, the cache directory among them, running a program as them) is **basse** at most: whoever has them already has more than the flaw gives, down to sending requests to the trade site themselves. A guardrail of the trade site weakened by an accident (a file left broken, a clock set back) is a bug rather than a flaw: name it for the code review.
+- **In doubt between two severities**, take the lower and say why, but where a guardrail of the trade site is at stake, where you take the higher.
+
 Report only what you have checked in the code, with its file and line, and how it would happen. Say for each finding what was measured or run (a test, a timing, a command) and what was only read: an estimate read in the code ("minutes for 18 KB") is a guess until a test measures it. A finding read in the code is confirmed by a test that fails without the fix, named under **Test**. Write what you couldn't settle under "À vérifier", with what would settle it. Don't invent flaws: if an area is sound, say so, and say what you read to judge it.
 
 ## Output
@@ -66,7 +72,8 @@ Use this structure:
 
 ### 1. <short title>
 
-- **Severity**: critique | haute | moyenne | basse
+- **Triggered by / gives**: <who can trigger it, and what it gives them beyond what they already have>
+- **Severity**: critique | haute | moyenne | basse, as the line above gives it (section Severity)
 - **Area**: <network | inputs | files | processes | dependencies | workflows | code>
 - **File**: `path/to/file.rs:line`
 - **Finding**: <what is wrong>
