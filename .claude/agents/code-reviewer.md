@@ -43,7 +43,7 @@ In the area mode:
 When the prompt says the branch is a refactoring (no change of behavior), in the branch mode:
 
 1. Check the moves. For each commit that moves code, run `git show --color-moved=dimmed-zebra --color-moved-ws=allow-indentation-change <commit>`: a moved block is dimmed, so read only what isn't. Paths, `use` lines, visibility and the line breaks `rustfmt` puts again (the same tokens) may change in a move; anything else is a finding.
-2. Check that the behavior didn't change. An assertion of a test changed or removed is a finding, unless a commit message gives the reason. The counts of the draw (`RECORDED` in `src/game_data/modifiers/trade_tiers/game_tests/random_items.rs`) and the generated game data (`assets/game-data/`) stay the same. A commit of its own named as a small fix (`fix(…)`, the last rule of the Refactoring section of `docs/code-quality.md`) is the exception: review it as a change of behavior, every line it can read differently and its test, which must fail without it.
+2. Check that the behavior didn't change. An assertion of a test changed or removed is a finding, unless a commit message gives the reason. The counts of the draw (`RECORDED` in `src/game_data/modifiers/trade_tiers/game_tests/random_items.rs`) and the generated game data (`assets/game-data/`) stay the same. A commit of its own named as a small fix (`fix(…)`, step 6 of the `refactoring-pass` skill, `.claude/skills/refactoring-pass/SKILL.md`) is the exception: review it as a change of behavior, every line it can read differently and its test, which must fail without it.
 3. Review each improvement against `docs/code-quality.md`, the names first: each name that doesn't say what its thing is for, with a better one.
 4. Review the files the branch touches as a whole, not only their diff: what `docs/code-quality.md` would still improve there belongs to the step.
 5. Leave out what the rules don't ask for: a pattern for its own sake, a rename of taste.
@@ -91,6 +91,28 @@ Each one comes from a defect that the tests and an earlier review let through. A
 - A text you propose for the project (a step of a test guide, a log line, a doc comment) is checked against the code before you write it: its conditions the right way round, its names as the code writes them.
 - A property you propose to assert is checked against the notes of the feature first: it may be false on purpose.
 
+## Priorities
+
+The priority of a finding is read from its consequence, never from a feeling of its weight. For each finding, ask: **if the code stays as it is and the work goes on, what happens?** Write the answer in the finding (**Consequence if left**); the priority follows from it.
+
+- **High: a bug, now or at the next change, that nothing signals.** For example:
+  - a behavior that differs from `specs.md`, or that changed in a commit meant to change none;
+  - a rule of the domain written in two places, which the next change of one of them makes diverge;
+  - a rule of the critical code (`CLAUDE.md`, Code review) that no test pins, or whose tests would still pass if it broke (its nearest wrong neighbour passes them);
+  - a panic, or an unbounded memory or time, reachable from data that come from outside.
+- **Medium: the next change costs more than it should, but nothing breaks unseen.** For example:
+  - a rule that takes more than its file and its tests to understand;
+  - a name, a comment or a document that says something false, not only one that could be better;
+  - outside the critical code, a test that would still pass if its rule broke;
+  - dead code;
+  - the same code in three places;
+  - a function too long or too nested to read in one pass.
+- **Low: nothing changes but the comfort of reading.** A name that could be better but isn't false, the words of a comment that aren't false, the order of the functions, a shorter form.
+
+A threshold or a heuristic (a number chosen in the code, a rule that guesses from the data) is a finding when its measure isn't in the repository: an ignored test with its recorded numbers, or a note in the code or in `docs/` with its numbers, their source and their date (`docs/code-quality.md`, Tests). Its priority is the consequence if its value were wrong: a guardrail weakened unseen is high, results worse but visible medium, almost nothing low. Propose how to measure it.
+
+In doubt between two priorities, take the lower and say why, but on the behavior of the critical code, where you take the higher (not on its names, comments or log lines, judged as anywhere else): the reviews of a pass then come to an end (no high nor medium left), without letting a risk through where it costs most.
+
 ## Output
 
 Write the review to `outputs/<YYYY-MM-DD>-<branch>-code-review.md`, where `<branch>` is the current branch name with `/` replaced by `-` (for example `outputs/2026-10-22-feat-config-and-local-files-code-review.md`); in the area mode, to `outputs/<YYYY-MM-DD>-<area>-area-review.md`, with the short name of the area (for example `outputs/2026-11-10-parser-area-review.md`), and the title `# Code review: <area> area`, the commit of `HEAD` in place of the list of commits. If the file already exists, overwrite it.
@@ -117,7 +139,8 @@ Use this structure:
 
 ### 1. <short title>
 
-- **Priority**: high | medium | low
+- **Consequence if left**: <a bug nothing signals | a next change that costs more | the comfort of reading only, with the case in one sentence>
+- **Priority**: high | medium | low, as the consequence gives it (section Priorities)
 - **File**: `path/to/file.rs:line`
 - **Finding**: <what the problem is, and whether it was measured or run, or only read>
 - **Proposal**: <what to change, with a short code example if useful, and the test that would fail without it>
