@@ -2,6 +2,8 @@
 
 A price checker for Path of Exile 2, free and open source, for Windows and Linux. Copy an item in the game and see its price in a small window over the game.
 
+Its site, with screenshots and answers to the common questions: [exile-market.sylent.tools](https://exile-market.sylent.tools/).
+
 - **Currencies and uniques**: their price at once, in three currencies, from [poe2scout](https://poe2scout.com).
 - **Rare, magic and normal items, and jewels**: their stats and tiers, each stat a filter to tick, then the offers of similar items on the official trade site, and a price estimated from them.
 - The game in English or French, and the interface in both.
