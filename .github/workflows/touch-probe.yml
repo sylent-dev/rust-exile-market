@@ -1,0 +1,29 @@
+name: Touch probe
+
+# Builds the touch probe of issue #277 (probes/windows-touch) for Windows. It lives on the branch
+# explore/windows-touch-probe only, which is never merged.
+on:
+  push:
+    branches: [explore/windows-touch-probe]
+    paths: [probes/windows-touch/**, .github/workflows/touch-probe.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: probes/windows-touch
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: rustup toolchain install
+      - run: cargo build --release --locked
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: touch-probe
+          path: |
+            probes/windows-touch/target/release/touch-probe.exe
+            probes/windows-touch/PROBE.md
