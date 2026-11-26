@@ -126,7 +126,7 @@ One entry per item: what it is, its kind (the section it sits in), what it depen
 
 ## Features
 
-- The price-check hotkey over an empty cell closes the window over the game ([issue #279](https://github.com/sylent-dev/rust-exile-market/issues/279), a player on a handheld PC under Windows, the ROG Ally; out of the roadmap on 2026-11-26, owner): over another item the hotkey keeps pricing it, so that a button mapped to Ctrl+D closes the window too, with no setting more, and without the tap outside that also reaches the game (`specs.md`, Closing). Left out: Esc closing it as an option (Exile Market would take Esc from the game while the window is open), and a Close button. Mock-up first. Depends on: 22r released, then the reporter asked whether the single tap is enough. Noted on 2026-11-25.
+- The price-check hotkey over an empty cell closes the window over the game ([issue #279](https://github.com/sylent-dev/rust-exile-market/issues/279), a player on a handheld PC under Windows, the ROG Ally; out of the roadmap on 2026-11-26, owner): over another item the hotkey keeps pricing it, so that a button mapped to Ctrl+D closes the window too, with no setting more, and without the tap outside that also reaches the game (`specs.md`, Closing). Left out: Esc closing it as an option (Exile Market would take Esc from the game while the window is open), and a Close button. Mock-up first. Depends on: 22r released; the reporter thinks the single tap will make it needless, and already closes the window with a button of the device mapped to a click of the mouse (2026-11-26): closed with #279 once he confirms. Noted on 2026-11-25.
 
 ### Settings (step 20)
 
