@@ -4,8 +4,13 @@
 //! Exile Market reads the pointer every 20 ms and counts a click when a button is held at one
 //! reading and wasn't at the one before (`GetAsyncKeyState`, its high bit). This probe reads the
 //! same things every millisecond, and the low bit too ("pressed since the last reading"), and
-//! writes each change to a log next to the executable, during four timed phases announced by
-//! beeps: single taps, long presses, double taps, and clicks of a real mouse for reference.
+//! writes each change to a log next to the executable, during timed phases announced by beeps:
+//! single taps, long presses, and clicks of a real mouse for reference.
+//!
+//! Since 0.2.0, it also listens through a low-level mouse hook (`WH_MOUSE_LL`), the fix planned
+//! for Exile Market: each press the hook is told of is written with a `hook` mark, and whether
+//! Windows made it from a touch, a pen or a mouse (`dwExtraInfo`), so that the log tells whether
+//! the hook sees the taps the readings miss.
 //!
 //! It only reads: it sends no input, reads no memory of another program, and uses no network.
 //! Throwaway code, never merged.
@@ -36,7 +41,9 @@ mod windows {
     };
     use windows_sys::Win32::UI::WindowsAndMessaging::GetCursorPos;
 
-    /// The time to get ready before the first phase: switch to the game, for the second run.
+    use crate::hook;
+
+    /// The time to get ready before the first phase: switch to the game.
     const READY: Duration = Duration::from_secs(10);
     /// The length of each phase.
     const PHASE: Duration = Duration::from_secs(20);
@@ -53,10 +60,9 @@ mod windows {
     ];
 
     /// Each phase: what to do, announced by as many beeps as its number.
-    const PHASES: [&str; 4] = [
+    const PHASES: [&str; 3] = [
         "SINGLE TAPS: about 5, one per second, each at a new place",
         "LONG PRESSES: 2, each finger held about 1 second",
-        "DOUBLE TAPS: 2 or 3, each at a new place",
         "REFERENCE: about 5 clicks with a mouse or the mouse mode of the device (nothing if none)",
     ];
 
@@ -72,15 +78,21 @@ mod windows {
         };
         // SAFETY: a plain call without pointers; undone by `timeEndPeriod` below.
         unsafe { timeBeginPeriod(1) };
+        let start = Instant::now();
+        let hooked = hook::install(start);
 
         println!("Touch probe for Exile Market (issue #277). It only reads the pointer.");
         println!("Don't tap this window: tap the desktop, or the game.");
         println!("Starting in {} seconds.", READY.as_secs());
         let _ = writeln!(log, "touch probe {}", env!("CARGO_PKG_VERSION"));
-        thread::sleep(READY);
-
-        let start = Instant::now();
+        let _ = writeln!(
+            log,
+            "# low-level mouse hook: {}",
+            if hooked { "installed" } else { "NOT installed" }
+        );
         let mut reader = Reader::new(start);
+        reader.watch(READY, &mut log);
+        let _ = writeln!(log, "# ready time over");
         for (index, task) in PHASES.iter().enumerate() {
             let number = index + 1;
             println!();
@@ -96,6 +108,7 @@ mod windows {
             let _ = log.flush();
         }
 
+        hook::remove();
         // SAFETY: undoes the `timeBeginPeriod` above.
         unsafe { timeEndPeriod(1) };
         // SAFETY: plain values; a failure only means no sound.
@@ -182,6 +195,11 @@ mod windows {
             let mut longest_gap = Duration::ZERO;
             while Instant::now() < end {
                 thread::sleep(POLL);
+                // The hook is called from here, within `PeekMessageW`.
+                hook::pump();
+                for line in hook::take_lines() {
+                    let _ = writeln!(log, "{line}");
+                }
                 let now = Instant::now();
                 longest_gap = longest_gap.max(now - last);
                 last = now;
@@ -228,5 +246,114 @@ mod windows {
                 self.logged_at = pointer;
             }
         }
+    }
+}
+
+/// The low-level mouse hook: installed on the main thread, whose loop pumps its messages every
+/// millisecond, and called by Windows from within that pumping.
+#[cfg(windows)]
+mod hook {
+    use std::sync::{Mutex, OnceLock, PoisonError};
+    use std::time::Instant;
+
+    use windows_sys::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
+    use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        CallNextHookEx, HC_ACTION, LLMHF_INJECTED, MSG, MSLLHOOKSTRUCT, PM_REMOVE, PeekMessageW,
+        SetWindowsHookExW, UnhookWindowsHookEx, WH_MOUSE_LL, WM_LBUTTONDOWN, WM_LBUTTONUP,
+        WM_MBUTTONDOWN, WM_MBUTTONUP, WM_RBUTTONDOWN, WM_RBUTTONUP,
+    };
+
+    /// The mark Windows puts in `dwExtraInfo` of a mouse event it made from a pen or a touch.
+    const PEN_OR_TOUCH: usize = 0xFF51_5700;
+    const PEN_OR_TOUCH_MASK: usize = 0xFFFF_FF00;
+    /// Set with that mark when it came from a touch rather than a pen.
+    const TOUCH: usize = 0x80;
+
+    static START: OnceLock<Instant> = OnceLock::new();
+    /// The hook, as its address, so that it can be kept in a static.
+    static HOOK: Mutex<Option<usize>> = Mutex::new(None);
+    static LINES: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+    /// Installs the hook; whether Windows took it.
+    pub fn install(start: Instant) -> bool {
+        let _ = START.set(start);
+        // SAFETY: a null name asks for the module of this executable.
+        let module = unsafe { GetModuleHandleW(std::ptr::null()) };
+        // SAFETY: `on_mouse` matches HOOKPROC and lives as long as the program.
+        let handle = unsafe { SetWindowsHookExW(WH_MOUSE_LL, Some(on_mouse), module, 0) };
+        if handle.is_null() {
+            return false;
+        }
+        *HOOK.lock().unwrap_or_else(PoisonError::into_inner) = Some(handle as usize);
+        true
+    }
+
+    pub fn remove() {
+        if let Some(handle) = HOOK.lock().unwrap_or_else(PoisonError::into_inner).take() {
+            // SAFETY: the handle SetWindowsHookExW gave, removed once.
+            unsafe { UnhookWindowsHookEx(handle as _) };
+        }
+    }
+
+    /// Lets Windows call the hook for the events of the mouse since the last call.
+    pub fn pump() {
+        // SAFETY: MSG is plain data, which PeekMessageW fills.
+        let mut message: MSG = unsafe { std::mem::zeroed() };
+        // SAFETY: `message` is a valid MSG that lives for the call.
+        while unsafe { PeekMessageW(&raw mut message, std::ptr::null_mut(), 0, 0, PM_REMOVE) } != 0
+        {
+        }
+    }
+
+    pub fn take_lines() -> Vec<String> {
+        std::mem::take(&mut *LINES.lock().unwrap_or_else(PoisonError::into_inner))
+    }
+
+    unsafe extern "system" fn on_mouse(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+        #[expect(clippy::cast_sign_loss, reason = "HC_ACTION is 0")]
+        let action = code >= 0 && code as u32 == HC_ACTION;
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "the messages fit in 32 bits"
+        )]
+        let button = match wparam as u32 {
+            WM_LBUTTONDOWN => Some("left down"),
+            WM_LBUTTONUP => Some("left up"),
+            WM_RBUTTONDOWN => Some("right down"),
+            WM_RBUTTONUP => Some("right up"),
+            WM_MBUTTONDOWN => Some("middle down"),
+            WM_MBUTTONUP => Some("middle up"),
+            _ => None,
+        };
+        if let (true, Some(button)) = (action, button) {
+            // SAFETY: for WH_MOUSE_LL with HC_ACTION, lparam points to a MSLLHOOKSTRUCT that
+            // lives for the call.
+            let event = unsafe { &*(lparam as *const MSLLHOOKSTRUCT) };
+            let source = if event.dwExtraInfo & PEN_OR_TOUCH_MASK == PEN_OR_TOUCH {
+                if event.dwExtraInfo & TOUCH == 0 {
+                    "pen"
+                } else {
+                    "touch"
+                }
+            } else {
+                "mouse"
+            };
+            let injected = if event.flags & LLMHF_INJECTED == 0 {
+                ""
+            } else {
+                ", injected"
+            };
+            let ms = START.get().map_or(0, |start| start.elapsed().as_millis());
+            LINES
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .push(format!(
+                    "{ms:>7} ms  hook: {button}  at {},{}  ({source}{injected})",
+                    event.pt.x, event.pt.y
+                ));
+        }
+        // SAFETY: the arguments Windows gave, handed to the next hook.
+        unsafe { CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam) }
     }
 }
