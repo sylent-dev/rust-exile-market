@@ -80,7 +80,7 @@ Exile Market is free and stays free. If it saves you time, you can support its d
 
 ## License
 
-Copyright (C) 2026 Aunim HASSAN.
+Copyright (C) 2026 Sylent.
 
 Exile Market is free software, under the GNU General Public License, version 3 or (at your option) any later version, with the additional terms of its section 7 given in [assets/NOTICE.md](assets/NOTICE.md): see [LICENSE](LICENSE). It comes with no warranty. Its source code is in [this repository](https://github.com/sylent-dev/rust-exile-market).
 
