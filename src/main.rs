@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Aunim HASSAN. GPL-3.0-or-later, with the additional terms of its
+// Copyright (C) 2026 Sylent. GPL-3.0-or-later, with the additional terms of its
 // section 7 in assets/NOTICE.md.
 
 //! Exile Market: the price of a Path of Exile 2 item as soon as it is copied in the game.

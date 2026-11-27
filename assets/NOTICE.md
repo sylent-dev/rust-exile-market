@@ -28,7 +28,7 @@ The icons in `icons/` come from [Lucide](https://lucide.dev), © Lucide Icons an
 | `icons/bug.svg` | `bug` |
 | `icons/settings.svg` | `settings` |
 
-The files in `logo/` are © Aunim HASSAN, all rights reserved, and are not covered by the license of this project: `emblem.svg` (the emblem without the text, white so that the application can tint it), and the application icon, `icon.svg` (the emblem in the red of the download page) and the `icon.png` and `icon.ico` rendered from it by `scripts/app-icon.py`. They may be conveyed with an unmodified copy of Exile Market.
+The files in `logo/` are © Sylent, all rights reserved, and are not covered by the license of this project: `emblem.svg` (the emblem without the text, white so that the application can tint it), and the application icon, `icon.svg` (the emblem in the red of the download page) and the `icon.png` and `icon.ico` rendered from it by `scripts/app-icon.py`. They may be conveyed with an unmodified copy of Exile Market.
 
 As additional terms under section 7 (points c and e) of the GNU General Public License, the name "Exile Market" is not licensed for use by modified versions: a modified version distributed to others must carry another name, and must not use the files in `logo/`. A fork or a branch made only to contribute to this project is not concerned.
 
